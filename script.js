@@ -33,8 +33,8 @@ function loadCfg() {
 }
 
 function fixCfg(s, save) {
-  var cfg;
-  var def = {
+  let cfg;
+  const def = {
     version: 5,
     delay: 500,
     start: 'auto',
@@ -58,7 +58,7 @@ function fixCfg(s, save) {
   } else if (cfg.version === def.version) {
     return cfg;
   }
-  for (var dp in def) {
+  for (const dp in def) {
     if (def.hasOwnProperty(dp) && typeof cfg[dp] !== typeof def[dp]) {
       cfg[dp] = def[dp];
     }
@@ -66,7 +66,7 @@ function fixCfg(s, save) {
   if (cfg.version === 3 && cfg.scales[0] === 0) {
     cfg.scales[0] = '0!';
   }
-  for (var cp in cfg) {
+  for (const cp in cfg) {
     if (!def.hasOwnProperty(cp)) {
       delete cfg[cp];
     }
@@ -83,7 +83,7 @@ function saveCfg(newCfg) {
 }
 
 function loadHosts() {
-  var hosts = [
+  const hosts = [
     {
       d: 'startpage',
       r: /\boiu=(.+)/,
@@ -114,7 +114,7 @@ function loadHosts() {
       d: 'amazon.',
       r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
       s: function (m) {
-        var uh = d.getElementById('universal-hover');
+        const uh = d.getElementById('universal-hover');
         if (uh) {
           return '';
         }
@@ -147,7 +147,7 @@ function loadHosts() {
     {
       r: /dropbox\.com\/sh?\/.+\.(jpe?g|gif|png)/i,
       q: function (text, doc) {
-        var i = qs('img.absolute-center', doc);
+        const i = qs('img.absolute-center', doc);
         return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
       },
     },
@@ -227,7 +227,7 @@ function loadHosts() {
       r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
       s: function (m, node) {
         if (node.id === 'fbPhotoImage') {
-          var a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
+          const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
           if (a) {
             return contains(a.href, m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
           }
@@ -238,7 +238,7 @@ function loadHosts() {
         if (contains(node.parentNode.outerHTML, '/hovercard/')) {
           return '';
         }
-        var gp = node.parentNode.parentNode;
+        const gp = node.parentNode.parentNode;
         if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo')) {
           return false;
         }
@@ -258,7 +258,7 @@ function loadHosts() {
           false;
       },
       q: function (text, doc) {
-        var links = qsa('.sizes-list a', doc);
+        const links = qsa('.sizes-list a', doc);
         return 'https://www.flickr.com' + links[links.length - 1].getAttribute('href');
       },
       follow: true,
@@ -431,13 +431,13 @@ function loadHosts() {
         return 'https://imgur.com/' + m[1] + '/' + m[2] + '' + (m[3] || '');
       },
       g: function (text, url, cb) {
-        var mk = function (o, imgs) {
-          var items = [];
+        const mk = function (o, imgs) {
+          const items = [];
           if (!o || !imgs) {
             return items;
           }
           for (var i = 0, len = imgs.length, cur; i < len && (cur = imgs[i]); i++) {
-            var iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
+            let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
             if (cur.ext === '.gif' && !(cur.animated === false)) {
               iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
             }
@@ -453,12 +453,12 @@ function loadHosts() {
           }
           return items;
         };
-        var m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(
+        const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(
           text);
-        var o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
+        const o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
           .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
-        var o = o1.image || o1.album;
-        var imgs = o.is_album ? o.album_images.images : [o];
+        const o = o1.image || o1.album;
+        const imgs = o.is_album ? o.album_images.images : [o];
         if (!o.num_images || o.num_images <= imgs.length) {
           return mk(o, imgs);
         }
@@ -466,7 +466,7 @@ function loadHosts() {
           method: 'GET',
           url: 'https://imgur.com/ajaxalbums/getimages/' + o.hash + '/hit.json?all=true',
           onload: function (res) {
-            var imgs;
+            let imgs;
             try {
               imgs = JSON.parse(res.responseText).data.images;
             } catch (ex) {
@@ -480,7 +480,7 @@ function loadHosts() {
     {
       r: /imgur\.com\/.+,/i,
       g: function (text, url) {
-        var hn = /([a-z]{2,}\.)?imgur\.com/.exec(url)[0];
+        const hn = /([a-z]{2,}\.)?imgur\.com/.exec(url)[0];
         return /.+\/([a-z0-9,]+)/i.exec(url)[1].split(',').map(function (id) {
           return {url: 'https://i.' + hn + '/' + id + '.jpg'};
         });
@@ -496,7 +496,7 @@ function loadHosts() {
           node.parentNode.href || node.parentNode.parentNode.href)) {
           return false;
         }
-        var url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
+        const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
                   m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
                   (m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg');
         return contains(url, '.webm') ?
@@ -513,11 +513,11 @@ function loadHosts() {
         'article div div img',
       ],
       s: function (m, node) {
-        var n = closest(node, 'a[href*="/p/"], article');
+        const n = closest(node, 'a[href*="/p/"], article');
         if (!n) {
           return false;
         }
-        var a = matches(n, 'a[href*="/p/"]') ? n : qs('a[href*="/p/"]', n);
+        const a = matches(n, 'a[href*="/p/"]') ? n : qs('a[href*="/p/"]', n);
         return a.href;
       },
       follow: true,
@@ -528,12 +528,12 @@ function loadHosts() {
         return m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1';
       },
       q: function (text) {
-        var m = JSON.parse(text).graphql.shortcode_media;
+        const m = JSON.parse(text).graphql.shortcode_media;
         return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/').replace(/\?.+/, '');
       },
       rect: 'div.PhotoGridMediaItem',
       c: function (text) {
-        var m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
+        const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
         if (m === undefined) {
           return '(no caption)';
         }
@@ -593,9 +593,9 @@ function loadHosts() {
     {
       r: /(min\.us|minus\.com)\/m[a-z0-9]+$/i,
       g: function (text) {
-        var m = /gallerydata = ({[\w\W]+?});/.exec(text);
-        var o = JSON.parse(m[1]);
-        var items = [];
+        const m = /gallerydata = ({[\w\W]+?});/.exec(text);
+        const o = JSON.parse(m[1]);
+        const items = [];
         items.title = o.name;
         for (var i = 0, len = o.items.length, cur; i < len && (cur = o.items[i]); i++) {
           items.push({
@@ -781,12 +781,12 @@ function loadHosts() {
     {
       r: /(web\.stagr(\.am|am\.com)|websta\.me)\/p\//i,
       q: function (text, doc) {
-        var node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
+        const node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
         return findFile(node, _.url).replace(/\/[sp]\d+x\d+\//, '/');
       },
       rect: 'div.PhotoGridMediaItem',
       c: function (text, doc) {
-        var s = qs('meta[name="description"]', doc).getAttribute('content');
+        const s = qs('meta[name="description"]', doc).getAttribute('content');
         return s.substr(0, s.lastIndexOf(' | '));
       },
     },
@@ -820,10 +820,10 @@ function loadHosts() {
     },
   ];
   if (cfg.hosts) {
-    var lines = cfg.hosts.split(/[\r\n]+/);
+    const lines = cfg.hosts.split(/[\r\n]+/);
     for (var i = lines.length, s; i-- && (s = lines[i]);) {
       try {
-        var h = JSON.parse(s);
+        const h = JSON.parse(s);
         if (h.r) {
           h.r = new RegExp(h.r, 'i');
         }
@@ -888,8 +888,8 @@ function onMouseMove(e) {
   }
   if (_.zoom) {
     placePopup();
-    var bx = _.view.width / 6;
-    var by = _.view.height / 6;
+    const bx = _.view.width / 6;
+    const by = _.view.height / 6;
     setStatus('edge',
       _.cx < bx || _.cx > _.view.width - bx || _.cy < by || _.cy > _.view.height - by ?
         'add' :
@@ -906,11 +906,10 @@ function onMouseDown(e) {
 }
 
 function onMouseScroll(e) {
-  var dir = (e.deltaY || -e.wheelDelta) > 0 ? 1 : -1;
+  const dir = (e.deltaY || -e.wheelDelta) > 0 ? 1 : -1;
   if (_.zoom) {
     drop(e);
-    var idx = _.scales.indexOf(_.scale);
-    idx -= dir;
+    const idx = _.scales.indexOf(_.scale) - dir;
     if (idx >= 0 && idx < _.scales.length) {
       _.scale = _.scales[idx];
     }
@@ -1003,8 +1002,8 @@ function onKeyUp(e) {
 }
 
 function saveFile(url, name, onError) {
-  var save = function (url) {
-    var a = ce('a');
+  const save = function (url) {
+    const a = ce('a');
     a.href = url;
     a.download = name;
     a.dispatchEvent(new MouseEvent('click'));
@@ -1018,7 +1017,7 @@ function saveFile(url, name, onError) {
     responseType: 'blob',
     onload: function (res) {
       try {
-        var ou = wn.URL.createObjectURL(res.response);
+        const ou = wn.URL.createObjectURL(res.response);
         save(ou);
         wn.setTimeout(function () {
           wn.URL.revokeObjectURL(ou);
@@ -1055,7 +1054,7 @@ function onMessage(e) {
   if (!qs('#mpiv-setup', d)) {
     setup();
   }
-  var inp = qs('#mpiv-hosts input:first-of-type', d);
+  const inp = qs('#mpiv-hosts input:first-of-type', d);
   inp.value = e.data.substr(10).trim();
   inp.dispatchEvent(new Event('input', {bubbles: true}));
   inp.parentNode.scrollTop = 0;
@@ -1072,7 +1071,7 @@ function startSinglePopup(url) {
   delete _.iurl;
   if (_.follow && !_.q && !_.s) {
     return findRedirect(_.url, function (url) {
-      var info = findInfo(url, _.node, true);
+      const info = findInfo(url, _.node, true);
       if (!info || !info.url) {
         throw 'Couldn\'t follow redirection target: ' + url;
       }
@@ -1083,7 +1082,7 @@ function startSinglePopup(url) {
     if (typeof _.c === 'function') {
       _.caption = _.c(d.documentElement.outerHTML, d, _.node);
     } else if (typeof _.c === 'string') {
-      var cnode = findNode(_.c, d);
+      const cnode = findNode(_.c, d);
       _.caption = cnode ? findCaption(cnode) : '';
     }
     _.iurl = url;
@@ -1097,7 +1096,7 @@ function startSinglePopup(url) {
       _.caption = cap;
     }
     if (_.follow === true || typeof _.follow === 'function' && _.follow(iurl)) {
-      var info = findInfo(iurl, _.node, true);
+      const info = findInfo(iurl, _.node, true);
       if (!info || !info.url) {
         throw 'Couldn\'t follow URL: ' + iurl;
       }
@@ -1113,7 +1112,7 @@ function startSinglePopup(url) {
 }
 
 function restartSinglePopup(info) {
-  for (var prop in info) {
+  for (const prop in info) {
     _[prop] = info[prop];
   }
   startSinglePopup(_.url);
@@ -1121,10 +1120,10 @@ function restartSinglePopup(info) {
 
 function startGalleryPopup() {
   setStatus('loading');
-  var startUrl = _.url;
+  const startUrl = _.url;
   downloadPage(_.url, function (text, url) {
     try {
-      var cb = function (items) {
+      const cb = function (items) {
         if (!_.url || _.url !== startUrl) {
           return;
         }
@@ -1136,7 +1135,7 @@ function startGalleryPopup() {
         _.gIndex = findGalleryPosition(_.url);
         wn.setTimeout(nextGalleryItem, 0);
       };
-      var items = _.g(text, url, cb);
+      const items = _.g(text, url, cb);
       if (typeof items !== 'undefined') {
         cb(items);
       }
@@ -1147,18 +1146,18 @@ function startGalleryPopup() {
 }
 
 function findGalleryPosition(gUrl) {
-  var dir = 0;
-  var sel = gUrl.split('#')[1];
+  let dir = 0;
+  const sel = gUrl.split('#')[1];
   if (sel) {
     if (/^[0-9]+$/.test(sel)) {
       dir += parseInt(sel);
     } else {
-      for (var i = _.gItems.length; i--;) {
-        var url = _.gItems[i].url;
+      for (let i = _.gItems.length; i--;) {
+        let url = _.gItems[i].url;
         if (Array.isArray(url)) {
           url = url[0];
         }
-        var file = url.substr(url.lastIndexOf('/') + 1);
+        const file = url.substr(url.lastIndexOf('/') + 1);
         if (contains(file, sel)) {
           dir += i;
           break;
@@ -1177,26 +1176,26 @@ function loadGalleryParser(g) {
     return new Function('text', 'url', 'cb', g);
   }
   return function (text, url) {
-    var qE = g.entry;
-    var qC = g.caption;
-    var qI = g.image;
-    var qT = g.title;
-    var fix = (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
+    const qE = g.entry;
+    let qC = g.caption;
+    const qI = g.image;
+    const qT = g.title;
+    const fix = (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
               function (s) {
                 return s.trim();
               };
-    var doc = createDoc(text);
-    var items = [];
-    var nodes = qsa(qE || qI, doc);
+    const doc = createDoc(text);
+    const items = [];
+    const nodes = qsa(qE || qI, doc);
     if (!Array.isArray(qC)) {
       qC = [qC];
     }
     for (var i = 0, node, len = nodes.length; i < len && (node = nodes[i]); i++) {
-      var item = {};
+      const item = {};
       try {
         item.url = fix(findFile(qE ? qs(qI, node) : node, url), true);
         item.desc = qC.reduce(function (prev, q) {
-          var n = qs(q, node);
+          let n = qs(q, node);
           if (!n) {
             [node.previousElementSibling, node.nextElementSibling].forEach(function (es) {
               if (es && matches(es, qE) === false) {
@@ -1212,7 +1211,7 @@ function loadGalleryParser(g) {
         items.push(item);
       }
     }
-    var title = qs(qT, doc);
+    const title = qs(qT, doc);
     if (title) {
       items.title = fix(title.getAttribute('content') || title.textContent);
     }
@@ -1226,7 +1225,7 @@ function nextGalleryItem(dir) {
   } else if (dir < 0 && (_.gIndex += dir) < 0) {
     _.gIndex = _.gItems.length - 1;
   }
-  var item = _.gItems[_.gIndex];
+  const item = _.gItems[_.gIndex];
   if (Array.isArray(item.url)) {
     _.urls = item.url.slice(0);
     _.url = _.urls.shift();
@@ -1241,14 +1240,14 @@ function nextGalleryItem(dir) {
 }
 
 function preloadNextGalleryItem(dir) {
-  var idx = _.gIndex + dir;
+  const idx = _.gIndex + dir;
   if (_.popup && idx >= 0 && idx < _.gItems.length) {
-    var url = _.gItems[idx].url;
+    let url = _.gItems[idx].url;
     if (Array.isArray(url)) {
       url = url[0];
     }
     on(_.popup, 'load', function () {
-      var img = ce('img');
+      const img = ce('img');
       img.src = url;
     });
   }
@@ -1258,12 +1257,12 @@ function activate(node, force) {
   if (node === _.popup || node === d.body || node === d.documentElement) {
     return;
   }
-  var info = parseNode(node);
+  const info = parseNode(node);
   if (!info || !info.url || info.node === _.node) {
     return;
   }
   if (info.distinct && !force) {
-    var scale = findScale(info.url, info.node.parentNode);
+    const scale = findScale(info.url, info.node.parentNode);
     if (scale && scale < cfg.scale) {
       return;
     }
@@ -1283,10 +1282,10 @@ function activate(node, force) {
     if (n && n.title && n.title !== n.textContent && !contains(d.title, n.title) &&
         !/^http\S+$/.test(n.title)) {
       _.tooltip =
-        {
-          node: n,
-          text: n.title,
-        };
+      {
+        node: n,
+        text: n.title,
+      };
       n.title = '';
       return true;
     }
@@ -1334,7 +1333,7 @@ function deactivate(wait) {
 }
 
 function parseNode(node) {
-  var a, img, url, info;
+  let a, img, url, info;
   if (!hosts) {
     hosts = loadHosts();
     GM_registerMenuCommand('Set up Mouseover Popup Image Viewer', setup);
@@ -1434,7 +1433,7 @@ function findInfo(url, node, noHtml, skipHost) {
     if ((h.follow === true || typeof h.follow === 'function' && h.follow(urls[0])) && !h.q && h.s) {
       return findInfo(urls[0], node, false, h);
     }
-    var info = {
+    const info = {
       node: node,
       url: urls.shift(),
       urls: urls.length ? urls : false,
@@ -1462,8 +1461,8 @@ function findInfo(url, node, noHtml, skipHost) {
 }
 
 function downloadPage(url, cb) {
-  var req;
-  var opts = {
+  let req;
+  const opts = {
     method: 'GET',
     url: url,
     onload: function (res) {
@@ -1490,18 +1489,18 @@ function downloadPage(url, cb) {
     opts.method = 'POST';
     opts.data = _.post;
     opts.headers =
-      {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Referer': url,
-      };
+    {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Referer': url,
+    };
   }
   _.req = req = GM_xmlhttpRequest(opts);
 }
 
 function downloadImage(url, referer) {
-  var start = Date.now();
-  var bar;
-  var req;
+  const start = Date.now();
+  let bar;
+  let req;
   _.req = req = GM_xmlhttpRequest({
     method: 'GET',
     url: url,
@@ -1533,14 +1532,14 @@ function downloadImage(url, referer) {
         if (res.status > 399) {
           throw 'HTTP error ' + res.status;
         }
-        var type;
+        let type;
         if (/Content-Type:\s*(.+)/i.exec(res.responseHeaders) &&
             !contains(RegExp.$1, 'text/plain')) {
           type = RegExp.$1;
         }
         if (!type) {
-          var ext = /\.([a-z0-9]+?)($|\?|#)/i.exec(url) ? RegExp.$1.toLowerCase() : 'jpg';
-          var types = {
+          const ext = /\.([a-z0-9]+?)($|\?|#)/i.exec(url) ? RegExp.$1.toLowerCase() : 'jpg';
+          const types = {
             bmp: 'image/bmp',
             gif: 'image/gif',
             jpe: 'image/jpeg',
@@ -1555,14 +1554,14 @@ function downloadImage(url, referer) {
           };
           type = ext in types ? types[ext] : 'application/octet-stream';
         }
-        var b = res.response;
+        let b = res.response;
         if (b.type !== type) {
           b = b.slice(0, b.size, type);
         }
         if (wn.URL && _.xhr !== 'data') {
           return setPopup(wn.URL.createObjectURL(b));
         }
-        var fr = new FileReader();
+        const fr = new FileReader();
         fr.onload = function () {
           setPopup(fr.result);
         };
@@ -1581,7 +1580,7 @@ function downloadImage(url, referer) {
 }
 
 function findRedirect(url, cb) {
-  var req;
+  let req;
   _.req = req = GM_xmlhttpRequest({
     url: url,
     method: 'HEAD',
@@ -1596,9 +1595,9 @@ function findRedirect(url, cb) {
 
 function parsePage(url, cb) {
   downloadPage(url, function (html, url) {
-    var iurl;
-    var cap;
-    var doc = createDoc(html);
+    let iurl;
+    let cap;
+    const doc = createDoc(html);
     if (typeof _.q === 'function') {
       iurl = _.q(html, doc, _.node);
       if (Array.isArray(iurl)) {
@@ -1606,13 +1605,13 @@ function parsePage(url, cb) {
         iurl = _.urls.shift();
       }
     } else {
-      var inode = findNode(_.q, doc);
+      const inode = findNode(_.q, doc);
       iurl = inode ? findFile(inode, url) : false;
     }
     if (typeof _.c === 'function') {
       cap = _.c(html, doc, _.node);
     } else if (typeof _.c === 'string') {
-      var cnode = findNode(_.c, doc);
+      const cnode = findNode(_.c, doc);
       cap = cnode ? findCaption(cnode) : '';
     }
     cb(iurl, cap, url);
@@ -1620,14 +1619,14 @@ function parsePage(url, cb) {
 }
 
 function findNode(q, doc) {
-  var node;
+  let node;
   if (!q) {
     return;
   }
   if (!Array.isArray(q)) {
     q = [q];
   }
-  for (var i = 0, len = q.length; i < len; i++) {
+  for (let i = 0, len = q.length; i < len; i++) {
     node = qs(q[i], doc);
     if (node) {
       break;
@@ -1637,8 +1636,8 @@ function findNode(q, doc) {
 }
 
 function findFile(n, url) {
-  var base = qs('base[href]', n.ownerDocument);
-  var path = n.getAttribute('src') || n.getAttribute('data-m4v') || n.getAttribute('href') ||
+  const base = qs('base[href]', n.ownerDocument);
+  const path = n.getAttribute('src') || n.getAttribute('data-m4v') || n.getAttribute('href') ||
              n.getAttribute('content') ||
              /https?:\/\/[.\/a-z0-9_+%\-]+\.(jpe?g|gif|png|svg|webm|mp4)/i.exec(n.outerHTML) &&
              RegExp.lastMatch;
@@ -1657,7 +1656,7 @@ function checkProgress(start) {
     checkProgress.interval = wn.setInterval(checkProgress, 150);
     return;
   }
-  var p = _.popup;
+  const p = _.popup;
   if (!p) {
     return wn.clearInterval(checkProgress.interval);
   }
@@ -1666,7 +1665,7 @@ function checkProgress(start) {
   }
   wn.clearInterval(checkProgress.interval);
   if (_.preloadStart) {
-    var wait = _.preloadStart + cfg.delay - Date.now();
+    const wait = _.preloadStart + cfg.delay - Date.now();
     if (wait > 0) {
       return _.timeout = wn.setTimeout(checkProgress, wait);
     }
@@ -1694,14 +1693,14 @@ function checkProgress(start) {
 }
 
 function updateSize() {
-  var p = _.popup;
+  const p = _.popup;
   _.nheight = p.naturalHeight || p.videoHeight || p.loaded && 800;
   _.nwidth = p.naturalWidth || p.videoWidth || p.loaded && 1200;
   return !!_.nheight;
 }
 
 function updateSpacing() {
-  var s = wn.getComputedStyle(_.popup);
+  const s = wn.getComputedStyle(_.popup);
   _.pw = styleSum(s, ['padding-left', 'padding-right']);
   _.ph = styleSum(s, ['padding-top', 'padding-bottom']);
   _.mbw = styleSum(s, ['margin-left', 'margin-right', 'border-left-width', 'border-right-width']);
@@ -1709,15 +1708,15 @@ function updateSpacing() {
 }
 
 function updateScales() {
-  var scales = cfg.scales.length ?
+  const scales = cfg.scales.length ?
     cfg.scales :
     ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16];
-  var fit = Math.min((_.view.width - _.mbw) / _.nwidth, (_.view.height - _.mbh) / _.nheight);
-  var cutoff = _.scale = Math.min(1, fit);
+  const fit = Math.min((_.view.width - _.mbw) / _.nwidth, (_.view.height - _.mbh) / _.nheight);
+  let cutoff = _.scale = Math.min(1, fit);
   _.scales = [];
-  for (var i = scales.length; i--;) {
-    var val = parseFloat(scales[i]) || fit;
-    var opt = typeof scales[i] === 'string' ? scales[i].slice(-1) : 0;
+  for (let i = scales.length; i--;) {
+    const val = parseFloat(scales[i]) || fit;
+    const opt = typeof scales[i] === 'string' ? scales[i].slice(-1) : 0;
     if (opt === '!') {
       cutoff = val;
     }
@@ -1740,7 +1739,7 @@ function updateScales() {
 function updateMouse(e) {
   _.cx = e.clientX;
   _.cy = e.clientY;
-  var r = _.rect;
+  const r = _.rect;
   if (r) {
     _.cr = _.cx < r.right + 2 && _.cx > r.left - 2 && _.cy < r.bottom + 2 && _.cy > r.top - 2;
   }
@@ -1748,8 +1747,8 @@ function updateMouse(e) {
 
 function showFileInfo() {
   if (_.gItems) {
-    var item = _.gItems[_.gIndex];
-    var c = _.gItems.length > 1 ? '[' + (_.gIndex + 1) + '/' + _.gItems.length + '] ' : '';
+    const item = _.gItems[_.gIndex];
+    let c = _.gItems.length > 1 ? '[' + (_.gIndex + 1) + '/' + _.gItems.length + '] ' : '';
     if (_.gIndex === 0 && _.gItems.title && (!item.desc || !contains(item.desc, _.gItems.title))) {
       c += _.gItems.title + (item.desc ? ' - ' : '');
     }
@@ -1780,22 +1779,22 @@ function updateTitle(reset) {
 }
 
 function placePopup() {
-  var p = _.popup;
+  const p = _.popup;
   if (!p) {
     return;
   }
-  var x = null;
-  var y = null;
-  var w = Math.round(_.scale * _.nwidth);
-  var h = Math.round(_.scale * _.nheight);
-  var cx = _.cx;
-  var cy = _.cy;
-  var vw = _.view.width;
-  var vh = _.view.height;
+  let x = null;
+  let y = null;
+  const w = Math.round(_.scale * _.nwidth);
+  const h = Math.round(_.scale * _.nheight);
+  const cx = _.cx;
+  const cy = _.cy;
+  const vw = _.view.width;
+  const vh = _.view.height;
   if (!_.zoom && (!_.gItems || _.gItems.length < 2) && !cfg.center) {
-    var r = _.rect;
-    var rx = (r.left + r.right) / 2;
-    var ry = (r.top + r.bottom) / 2;
+    const r = _.rect;
+    const rx = (r.left + r.right) / 2;
+    const ry = (r.top + r.bottom) / 2;
     if (vw - r.right - 40 > w + _.mbw || w + _.mbw < r.left - 40) {
       if (h + _.mbh < vh - 60) {
         y = Math.min(Math.max(ry - h / 2, 30), vh - h - 30);
@@ -1826,7 +1825,7 @@ function placePopup() {
 }
 
 function toggleZoom() {
-  var p = _.popup;
+  const p = _.popup;
   if (!p || !_.scales || _.scales.length < 2) {
     return;
   }
@@ -1850,7 +1849,7 @@ function toggleZoom() {
 }
 
 function handleError(o) {
-  var m = [
+  const m = [
     o.message || (o.readyState ?
       'Request failed.' :
       (o.type === 'error' ?
@@ -1891,8 +1890,8 @@ function handleError(o) {
 }
 
 function setStatus(status, flag) {
-  var de = d.documentElement;
-  var cn = de.className;
+  const de = d.documentElement;
+  let cn = de.className;
   if (flag === 'remove') {
     cn = cn.replace('mpiv-' + status, '');
   } else {
@@ -1907,7 +1906,7 @@ function setStatus(status, flag) {
 }
 
 function setPopup(src) {
-  var p = _.popup;
+  let p = _.popup;
   if (p) {
     _.zoom = false;
     off(p, 'error', handleError);
@@ -1928,14 +1927,14 @@ function setPopup(src) {
   }
   if (src.substr(0, 5) !== 'data:' && /\.(webm|mp4)($|\?)/.test(src) || src.substr(0, 10) ===
       'data:video') {
-    var start = Date.now();
-    var bar;
-    var onProgress = function (e) {
-      var p = e.target;
+    const start = Date.now();
+    let bar;
+    const onProgress = function (e) {
+      const p = e.target;
       if (!p.duration || !p.buffered.length || Date.now() - start < 2000) {
         return;
       }
-      var per = parseInt(p.buffered.end(0) / p.duration * 100);
+      const per = parseInt(p.buffered.end(0) / p.duration * 100);
       if (!bar && per > 0 && per < 50) {
         bar = true;
       }
@@ -1976,7 +1975,7 @@ function setPopup(src) {
 }
 
 function setBar(label, cn) {
-  var b = _.bar;
+  let b = _.bar;
   if (!label) {
     rm(b);
     delete _.bar;
@@ -1998,7 +1997,7 @@ function rel2abs(rel, abs) {
   if (rel.substr(0, 5) === 'data:') {
     return rel;
   }
-  var re = /^([a-z]+:)\/\//;
+  const re = /^([a-z]+:)\/\//;
   if (re.test(rel)) {
     return rel;
   }
@@ -2019,19 +2018,19 @@ function replace(s, m) {
     return s;
   }
   if (s.charAt(0) === '/' && s.charAt(1) !== '/') {
-    var mid = /[^\\]\//.exec(s).index + 1;
-    var end = s.lastIndexOf('/');
-    var re = new RegExp(s.substring(1, mid), s.substr(end + 1));
+    const mid = /[^\\]\//.exec(s).index + 1;
+    const end = s.lastIndexOf('/');
+    const re = new RegExp(s.substring(1, mid), s.substr(end + 1));
     return m.input.replace(re, s.substring(mid + 1, end));
   }
-  for (var i = m.length; i--;) {
+  for (let i = m.length; i--;) {
     s = s.replace('$' + i, m[i]);
   }
   return s;
 }
 
 function addStyle(css) {
-  var s = ce('style');
+  const s = ce('style');
   s.textContent = css;
   d.head.appendChild(s);
   return s;
@@ -2045,12 +2044,12 @@ function styleSum(s, p) {
 }
 
 function findScale(url, parent) {
-  var imgs = qsa('img, video', parent);
+  const imgs = qsa('img, video', parent);
   for (var i = imgs.length, img; i-- && (img = imgs[i]);) {
     if (img.src !== url) {
       continue;
     }
-    var s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
+    const s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
       (img.naturalWidth || img.videoWidth) / img.offsetWidth);
     if (isFinite(s)) {
       return s;
@@ -2059,7 +2058,7 @@ function findScale(url, parent) {
 }
 
 function viewRect() {
-  var node = d.compatMode === 'BackCompat' ? d.body : d.documentElement;
+  const node = d.compatMode === 'BackCompat' ? d.body : d.documentElement;
   return {
     width: node.clientWidth,
     height: node.clientHeight,
@@ -2067,7 +2066,7 @@ function viewRect() {
 }
 
 function rect(node, q) {
-  var n;
+  let n;
   if (q) {
     n = node;
     while (tag(n = n.parentNode) !== 'BODY') {
@@ -2076,8 +2075,8 @@ function rect(node, q) {
       }
     }
   }
-  var nodes = qsa('*', node);
-  for (var i = nodes.length; i-- && (n = nodes[i]);) {
+  const nodes = qsa('*', node);
+  for (let i = nodes.length; i-- && (n = nodes[i]);) {
     if (n.offsetHeight > node.offsetHeight) {
       node = n;
     }
@@ -2086,8 +2085,8 @@ function rect(node, q) {
 }
 
 function matches(n, q) {
-  var p = Element.prototype;
-  var m = p.matches || p.mozMatchesSelector || p.webkitMatchesSelector || p.oMatchesSelector;
+  const p = Element.prototype;
+  const m = p.matches || p.mozMatchesSelector || p.webkitMatchesSelector || p.oMatchesSelector;
   if (m) {
     return m.call(n, q);
   }
@@ -2107,7 +2106,7 @@ function tag(n) {
 }
 
 function createDoc(text) {
-  var doc = d.implementation.createHTMLDocument('MPIV');
+  const doc = d.implementation.createHTMLDocument('MPIV');
   doc.documentElement.innerHTML = text;
   return doc;
 }
@@ -2148,27 +2147,27 @@ function contains(a, b) {
 }
 
 function setup() {
-  var $ = function (s) {
+  const $ = function (s) {
     return d.getElementById('mpiv-' + s);
   };
-  var close = function () {
+  const close = function () {
     rm($('setup'));
     if (!contains(trusted, hostname)) {
       off(wn, 'message', onMessage);
     }
   };
-  var update = function () {
+  const update = function () {
     $('delay').parentNode.style.display =
       $('preload').parentNode.style.display = $('start-auto').selected ? '' : 'none';
   };
-  var check = function (e) {
-    var t = e.target;
-    var ok;
+  const check = function (e) {
+    const t = e.target;
+    let ok;
     try {
-      var pes = t.previousElementSibling;
+      const pes = t.previousElementSibling;
       if (t.value) {
         if (!pes) {
-          var inp = t.cloneNode();
+          const inp = t.cloneNode();
           inp.value = '';
           t.parentNode.insertBefore(inp, t);
         }
@@ -2182,9 +2181,9 @@ function setup() {
     }
     t.style.backgroundColor = ok ? '' : '#ffaaaa';
   };
-  var exp = function (e) {
+  const exp = function (e) {
     drop(e);
-    var s = JSON.stringify(getCfg());
+    const s = JSON.stringify(getCfg());
     if (typeof GM_setClipboard === 'function') {
       GM_setClipboard(s);
       wn.alert('Settings copied to clipboard!');
@@ -2192,26 +2191,26 @@ function setup() {
       wn.alert(s);
     }
   };
-  var imp = function (e) {
+  const imp = function (e) {
     drop(e);
-    var s = wn.prompt('Paste settings:');
+    const s = wn.prompt('Paste settings:');
     if (!s) {
       return;
     }
     init(fixCfg(s));
   };
-  var install = function (e) {
+  const install = function (e) {
     drop(e);
     e.target.parentNode.innerHTML =
       '<span>Loading...</span><iframe style="width:100%;height:26px;border:0;margin:0;display:none;" src="//w9p.co/userscripts/mpiv/more_host_rules.html" onload="this.style.display=\'\';this.previousElementSibling.style.display=\'none\';"></iframe>';
   };
   var getCfg = function () {
-    var cfg = {};
-    var delay = parseInt($('delay').value);
+    const cfg = {};
+    const delay = parseInt($('delay').value);
     if (!isNaN(delay) && delay >= 0) {
       cfg.delay = delay;
     }
-    var scale = parseFloat($('scale').value.replace(',', '.'));
+    const scale = parseFloat($('scale').value.replace(',', '.'));
     if (!isNaN(scale)) {
       cfg.scale = Math.max(1, scale);
     }
@@ -2232,10 +2231,10 @@ function setup() {
       return !isNaN(parseFloat(x));
     });
     cfg.xhr = $('xhr').checked;
-    var inps = qsa('input', $('hosts'));
-    var lines = [];
-    for (var i = 0; i < inps.length; i++) {
-      var s = inps[i].value.trim();
+    const inps = qsa('input', $('hosts'));
+    const lines = [];
+    for (let i = 0; i < inps.length; i++) {
+      const s = inps[i].value.trim();
       if (s) {
         lines.push(s);
       }
@@ -2265,7 +2264,7 @@ function setup() {
       #mpiv-hosts input, #mpiv-css { width:98%;margin:3px 0; }\
       #mpiv-setup button { width:150px;margin:0 10px;text-align:center; }\
     ');
-    var div = ce('div');
+    let div = ce('div');
     div.id = 'mpiv-setup';
     d.body.appendChild(div);
     div.innerHTML = '\
@@ -2280,21 +2279,21 @@ function setup() {
       <li><a href="#" id="mpiv-install">Install rule from repository...</a></li>\
       </ul><div style="text-align:center"><button id="mpiv-ok">OK</button><button id="mpiv-cancel">Cancel</button></div>';
     if (cfg.hosts) {
-      var parent = $('hosts');
-      var lines = cfg.hosts.split(/[\r\n]+/);
+      const parent = $('hosts');
+      const lines = cfg.hosts.split(/[\r\n]+/);
       for (var i = 0, s; i < lines.length && (s = lines[i]); i++) {
-        var inp = parent.firstElementChild.cloneNode();
+        const inp = parent.firstElementChild.cloneNode();
         inp.value = s;
         parent.appendChild(inp);
         check({target: inp});
       }
       if (lines.length > 5 || setup.search) {
-        var se = $('search');
-        var sf = function () {
-          var inps = qsa('input', $('hosts'));
-          var s = se.value.toLowerCase();
+        const se = $('search');
+        const sf = function () {
+          const inps = qsa('input', $('hosts'));
+          const s = se.value.toLowerCase();
           setup.search = s;
-          for (var i = 0; i < inps.length; i++) {
+          for (let i = 0; i < inps.length; i++) {
             inps[i].style.display =
               !inps[i].value || contains(inps[i].value.toLowerCase(), s) ? '' : 'none';
           }
@@ -2330,7 +2329,7 @@ function setup() {
     $('zoom-' + cfg.zoom).selected = true;
     $('start-' + cfg.start).selected = true;
     update();
-    var free = viewRect().height - div.offsetHeight - 60;
+    const free = viewRect().height - div.offsetHeight - 60;
     $('hosts').style.maxHeight = parseInt($('hosts').offsetHeight + 0.8 * free) + 'px';
     $('css').style.height = parseInt($('css').offsetHeight + 0.2 * free) + 'px';
     div = null;
@@ -2357,7 +2356,7 @@ if (contains(hostname, 'google')) {
 } else if (contains(trusted, hostname)) {
   on(wn, 'message', onMessage);
   on(d, 'click', function (e) {
-    var t = e.target;
+    const t = e.target;
     if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
         !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
       return;
