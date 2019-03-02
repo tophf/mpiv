@@ -987,9 +987,33 @@ function onKeyUp(e) {
     case 84:
       _.lazyUnload = true;
       if (_.tabfix && !_.xhr && tag(_.popup) === 'IMG' && contains(navigator.userAgent, 'Gecko/')) {
-        GM_openInTab('data:text/html;,' + encodeURIComponent(
-                     '<html><head><style>body{margin:0;padding:0;background:#222}.fit{overflow:hidden}.fit>img{max-width:100vw;max-height:100vh}body>img{margin:auto;position:absolute;left:0;right:0;top:0;bottom:0}</style></head><body class="fit"><img onclick="document.body.classList.toggle(\'fit\')" src="' +
-                     _.popup.src + '"></body></html>'));
+        GM_openInTab('data:text/html;,' + encodeURIComponent(`
+          <style>
+            body {
+              margin: 0;
+              padding: 0;
+              background: #222
+            }
+            .fit {
+              overflow: hidden
+            }
+            .fit > img {
+              max-width: 100vw;
+              max-height: 100vh
+            }
+            body > img {
+              margin: auto;
+              position: absolute;
+              left: 0;
+              right: 0;
+              top: 0;
+              bottom: 0
+            }
+          </style>
+          <body class="fit">
+            <img onclick="document.body.classList.toggle('fit')" src="${_.popup.src}">
+          </body>
+        `.replace(/[\r\n]+\s*/g, '')));
       } else {
         GM_openInTab(_.popup.src);
       }
@@ -1819,9 +1843,12 @@ function placePopup() {
                  vh / 2 - h / 2 :
         -1 * Math.min(1, Math.max(0, 5 / 3 * (cy / vh - 0.2))) * (h - vh)) - (_.ph + _.mbh) / 2);
   }
-  p.style.cssText =
-    'width:' + w + 'px!important;height:' + h + 'px!important;left:' + x + 'px!important;top:' + y +
-    'px!important';
+  p.style.cssText = `
+    width: ${w}px !important;
+    height: ${h}px !important;
+    left: ${x}px !important;
+    top: ${y}px !important;
+  `;
 }
 
 function toggleZoom() {
@@ -2199,8 +2226,22 @@ function setup() {
   };
   const install = function (e) {
     drop(e);
-    e.target.parentNode.innerHTML =
-      '<span>Loading...</span><iframe style="width:100%;height:26px;border:0;margin:0;display:none;" src="//w9p.co/userscripts/mpiv/more_host_rules.html" onload="this.style.display=\'\';this.previousElementSibling.style.display=\'none\';"></iframe>';
+    e.target.parentNode.innerHTML = `
+      <span>Loading...</span>
+      <iframe
+          src="http://w9p.co/userscripts/mpiv/more_host_rules.html"
+          onload="
+            this.style.display = '';
+            this.previousElementSibling.style.display = 'none';
+          "
+          style="
+            width: 100%;
+            height: 26px;
+            border: 0;
+            margin: 0;
+            display: none;
+          "></iframe>
+    `;
   };
   var getCfg = function () {
     const cfg = {};
@@ -2246,36 +2287,177 @@ function setup() {
     if (!contains(trusted, hostname)) {
       on(wn, 'message', onMessage);
     }
-    addStyle('\
-      #mpiv-setup { position:fixed;z-index:2147483647;top:20px;right:20px;padding:20px 30px;background:#eee;width:640px;border:1px solid black; }\
-      #mpiv-setup * { color:black;text-align:left;min-height:unset;margin:unset;padding:unset;line-height:15px;font-size:12px;font-family:sans-serif;box-shadow:none; }\
-      #mpiv-setup a { color:darkblue!important;text-decoration:underline!important; }\
-      #mpiv-setup ul { margin:10px 0 15px 0;padding:0;list-style:none;background:#eee;border:0; }\
-      #mpiv-setup input, #mpiv-setup select, #mpiv-css { display:inline;border:1px solid gray;padding:2px;background:white; }\
-      #mpiv-css { resize:vertical; height:45px; }\
-      #mpiv-scales { width:130px; }\
-      #mpiv-setup li { margin:0;padding:7px 0;vertical-align:middle;background:#eee;border:0 }\
-      #mpiv-zoom { margin-right: 18px; }\
-      #mpiv-delay, #mpiv-scale { width:36px; }\
-      #mpiv-cursor, #mpiv-imgtab, #mpiv-xhr, #mpiv-preload { margin-left:18px; }\
-      #mpiv-hosts { max-height:150px;overflow-y:auto; padding:2px; margin:4px 0;clear:both; }\
-      #mpiv-hosts input, #mpiv-css { width:98%;margin:3px 0; }\
-      #mpiv-setup button { width:150px;margin:0 10px;text-align:center; }\
-    ');
+    // language=CSS
+    addStyle(`
+      #mpiv-setup {
+        position: fixed;
+        z-index: 2147483647;
+        top: 20px;
+        right: 20px;
+        padding: 20px 30px;
+        background: #eee;
+        width: 640px;
+        border: 1px solid black;
+      }
+      #mpiv-setup * {
+        color: black;
+        text-align: left;
+        min-height: unset;
+        margin: unset;
+        padding: unset;
+        line-height: 15px;
+        font-size: 12px;
+        font-family: sans-serif;
+        box-shadow: none;
+      }
+      #mpiv-setup a {
+        color: darkblue !important;
+        text-decoration: underline !important;
+      }
+      #mpiv-setup ul {
+        margin: 10px 0 15px 0;
+        padding: 0;
+        list-style: none;
+        background: #eee;
+        border: 0;
+      }
+      #mpiv-setup input, #mpiv-setup select, #mpiv-css {
+        display: inline;
+        border: 1px solid gray;
+        padding: 2px;
+        background: white;
+      }
+      #mpiv-css {
+        resize: vertical;
+        height: 45px;
+      }
+      #mpiv-scales {
+        width: 130px;
+      }
+      #mpiv-setup li {
+        margin: 0;
+        padding: 7px 0;
+        vertical-align: middle;
+        background: #eee;
+        border: 0
+      }
+      #mpiv-zoom {
+        margin-right: 18px;
+      }
+      #mpiv-delay, #mpiv-scale {
+        width: 36px;
+      }
+      #mpiv-cursor, #mpiv-imgtab, #mpiv-xhr, #mpiv-preload {
+        margin-left: 18px;
+      }
+      #mpiv-hosts {
+        max-height: 150px;
+        overflow-y: auto;
+        padding: 2px;
+        margin: 4px 0;
+        clear: both;
+      }
+      #mpiv-hosts input, #mpiv-css {
+        width: 98%;
+        margin: 3px 0;
+      }
+      #mpiv-setup button {
+        width: 150px;
+        margin: 0 10px;
+        text-align: center;
+      }
+    `);
     let div = ce('div');
     div.id = 'mpiv-setup';
     d.body.appendChild(div);
-    div.innerHTML = '\
-      <div><a href="http://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a><span style="float:right"><a href="#" id="mpiv-import">Import</a> | <a href="#" id="mpiv-export">Export</a></span></div><ul>\
-      <li>Popup: <select><option id="mpiv-start-auto">automatically</option><option id="mpiv-start-context">right click or ctrl</option><option id="mpiv-start-ctrl">ctrl</option></select> <span>after <input id="mpiv-delay" type="text"/> ms</span> <span><input type="checkbox" id="mpiv-preload"/> Start loading immediately</span></li>\
-      <li>Only show popup over scaled-down image when natural size is <input id="mpiv-scale" type="text"/> times larger</li>\
-      <li><input type="checkbox" id="mpiv-center"/> Always centered <input type="checkbox" id="mpiv-imgtab"/> Run in image tabs <input type="checkbox" id="mpiv-xhr" onclick="return this.checked || confirm(\'Do not disable this unless you spoof the HTTP headers yourself.\')"/> Anti-hotlinking workaround</li>\
-      <li>Zoom: <select id="mpiv-zoom"><option id="mpiv-zoom-context">right click or shift</option><option id="mpiv-zoom-wheel">wheel up or shift</option><option id="mpiv-zoom-shift">shift</option><option id="mpiv-zoom-auto">automatically</option></select> Custom scale factors: <input type="text" id="mpiv-scales" placeholder="e.g. 0 0.5 1* 2"/> <span title="values smaller than non-zoomed size are ignored, 0 = fit to window, 0! = same as 0 but also removes smaller values, asterisk after value marks default zoom factor (e.g. 1*)" style="cursor:help">(?)</span></li>\
-      <li>If zooming out further is not possible, <select><option>stay in zoom mode</option><option id="mpiv-close">close popup</option></select></li>\
-      <li><a href="http://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a><div><textarea id="mpiv-css" spellcheck="false"></textarea></li>\
-      <li><a href="http://w9p.co/userscripts/mpiv/host_rules.html" target="_blank">Custom host rules:</a><input type="text" id="mpiv-search" placeholder="Search" style="display:none;float:right;width:70px;padding:1px 2px;font-size:10px;"/><div id="mpiv-hosts"><input type="text" spellcheck="false"></div></li>\
-      <li><a href="#" id="mpiv-install">Install rule from repository...</a></li>\
-      </ul><div style="text-align:center"><button id="mpiv-ok">OK</button><button id="mpiv-cancel">Cancel</button></div>';
+    div.innerHTML = `
+      <div>
+        <a href="http://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
+        <span style="float:right">
+          <a href="#" id="mpiv-import">Import</a> |
+          <a href="#" id="mpiv-export">Export</a>
+        </span>
+      </div>
+      <ul>
+        <li>
+          <label>
+            Popup:
+            <select>
+              <option id="mpiv-start-auto">automatically
+              <option id="mpiv-start-context">right click or ctrl
+              <option id="mpiv-start-ctrl">ctrl
+            </select>
+          </label>
+          <label>after <input id="mpiv-delay"> ms</label> 
+          <label><input type="checkbox" id="mpiv-preload"> Start loading immediately</label>
+        </li>
+        <li>
+          <label>
+            Only show popup over scaled-down image when natural size is
+            <input id="mpiv-scale"> times larger
+          </label>
+        </li>
+        <li>
+          <label><input type="checkbox" id="mpiv-center"> Always centered</label>
+          <label><input type="checkbox" id="mpiv-imgtab"> Run in image tabs</label> 
+          <label><input type="checkbox" id="mpiv-xhr" onclick="
+            return this.checked ||
+                   confirm('Do not disable this unless you spoof the HTTP headers yourself.')">
+            Anti-hotlinking workaround
+          </label>
+        </li>
+        <li>
+          <label>
+            Zoom:
+            <select id="mpiv-zoom">
+              <option id="mpiv-zoom-context">right click or shift
+              <option id="mpiv-zoom-wheel">wheel up or shift
+              <option id="mpiv-zoom-shift">shift
+              <option id="mpiv-zoom-auto">automatically
+            </select>
+          </label>
+          <label>
+            Custom scale factors: <input id="mpiv-scales" placeholder="e.g. 0 0.5 1* 2">
+          </label>
+          <span title="values smaller than non-zoomed size are ignored,
+                       0 = fit to window, 0! = same as 0 but also removes smaller values,
+                       asterisk after value marks default zoom factor (e.g. 1*)"
+                style="cursor:help">(?)</span>
+        </li>
+        <li>
+          <label>
+            If zooming out further is not possible,
+            <select>
+              <option>stay in zoom mode
+              <option id="mpiv-close">close popup
+            </select>
+          </label>
+        </li>
+        <li>
+          <a href="http://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
+          <div><textarea id="mpiv-css" spellcheck="false"></textarea></div>
+        </li>
+        <li>
+          <a href="http://w9p.co/userscripts/mpiv/host_rules.html"
+             target="_blank">Custom host rules:</a>
+          <input id="mpiv-search" placeholder="Search" style="
+            display: none;
+            float: right;
+            width: 70px;
+            padding: 1px 2px;
+            font-size: 10px;
+          ">
+          <div id="mpiv-hosts"><input spellcheck="false"></div>
+        </li>
+        <li>
+          <a href="#" id="mpiv-install">Install rule from repository...</a>
+        </li>
+      </ul>
+      <div style="text-align:center">
+        <button id="mpiv-ok">OK</button>
+        <button id="mpiv-cancel">Cancel</button>
+      </div>
+    `;
     if (cfg.hosts) {
       const parent = $('hosts');
       const lines = cfg.hosts.split(/[\r\n]+/);
@@ -2335,16 +2517,65 @@ function setup() {
   init(loadCfg());
 }
 
-addStyle('\
-  #mpiv-bar { position:fixed;z-index:2147483647;left:0;right:0;top:0;transform:scaleY(0);-webkit-transform:scaleY(0);transform-origin:top;-webkit-transform-origin:top;transition:transform 500ms ease 1000ms;-webkit-transition:-webkit-transform 500ms ease 1000ms;text-align:center;font-family:sans-serif;font-size:15px;font-weight:bold;background:rgba(0, 0, 0, 0.6);color:white;padding:4px 10px; }\
-  #mpiv-bar.mpiv-show { transform:scaleY(1);-webkit-transform:scaleY(1); }\
-  #mpiv-popup.mpiv-show { display:inline; }\
-  #mpiv-popup { display:none;border:1px solid gray;box-sizing:content-box;background-color:white;position:fixed;z-index:2147483647;margin:0;max-width:none;max-height:none;will-change:display,width,height,left,top;cursor:none; }\
-  .mpiv-loading:not(.mpiv-preloading) * { cursor:wait!important; }\
-  .mpiv-edge #mpiv-popup { cursor:default; }\
-  .mpiv-error * { cursor:not-allowed!important; }\
-  .mpiv-ready *, .mpiv-large * { cursor:zoom-in!important; cursor:-webkit-zoom-in!important; }\
-  .mpiv-shift * { cursor:default!important; }');
+// language=CSS
+addStyle(`
+  #mpiv-bar {
+    position: fixed;
+    z-index: 2147483647;
+    left: 0;
+    right: 0;
+    top: 0;
+    transform: scaleY(0);
+    -webkit-transform: scaleY(0);
+    transform-origin: top;
+    -webkit-transform-origin: top;
+    transition: transform 500ms ease 1000ms;
+    -webkit-transition: -webkit-transform 500ms ease 1000ms;
+    text-align: center;
+    font-family: sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 10px;
+  }
+  #mpiv-bar.mpiv-show {
+    transform: scaleY(1);
+    -webkit-transform: scaleY(1);
+  }
+  #mpiv-popup.mpiv-show {
+    display: inline;
+  }
+  #mpiv-popup {
+    display: none;
+    border: 1px solid gray;
+    box-sizing: content-box;
+    background-color: white;
+    position: fixed;
+    z-index: 2147483647;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    will-change: display, width, height, left, top;
+    cursor: none;
+  }
+  .mpiv-loading:not(.mpiv-preloading) * {
+    cursor: wait !important;
+  }
+  .mpiv-edge #mpiv-popup {
+    cursor: default;
+  }
+  .mpiv-error * {
+    cursor: not-allowed !important;
+  }
+  .mpiv-ready *, .mpiv-large * {
+    cursor: zoom-in !important;
+    cursor: -webkit-zoom-in !important;
+  }
+  .mpiv-shift * {
+    cursor: default !important;
+  }
+`);
 on(d, 'mouseover', onMouseOver);
 if (contains(hostname, 'google')) {
   var node = d.getElementById('main');
