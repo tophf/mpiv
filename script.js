@@ -83,6 +83,8 @@ function saveCfg(newCfg) {
 }
 
 function loadHosts() {
+  const re = (str, flags) => new RegExp(str, flags);
+  const join = sites => sites.join('|').replace(/\./g, '\\.');
   const hosts = [
     {
       d: 'startpage',
@@ -136,8 +138,11 @@ function loadHosts() {
         return /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? '' : m.input;
       },
       q: [
-        '.jpg.jpeg.gif.png'.replace(/\.\w+/g, '#download-button[href*="$&"],') +
-        ', #gmi-ResViewSizer_fullimg',
+        '#download-button[href*=".jpg"]',
+        '#download-button[href*=".jpeg"]',
+        '#download-button[href*=".gif"]',
+        '#download-button[href*=".png"]',
+        '#gmi-ResViewSizer_fullimg',
         'img.dev-content-full',
       ],
     },
@@ -324,12 +329,23 @@ function loadHosts() {
       xhr: contains(hostname, 'planetsuzy'),
     },
     {
-      r: /imageban\.(ru|net)\/show|imgnova\.com|cweb-pix\.com|(imagebunk|imagewaste)\.com\/(image|pictures\/[0-9]+)/,
+      r: re(join([
+        'cweb-pix.com',
+        'imageban.(ru|net)/show',
+        '(imagebunk|imagewaste).com/(image|pictures/[0-9]+)',
+        'imgnova.com',
+      ])),
       q: '#img_obj',
       xhr: true,
     },
     {
-      r: /(imagepdb\.com|imgsure\.com|www\.pixoverflow\.com|imgwiki\.org|freeimgup\.com\/xxx)\/\?v=([0-9]+$|.+(?=\.[a-z]+))/,
+      r: re(`(${join([
+        'freeimgup.com/xxx',
+        'imagepdb.com',
+        'imgsure.com',
+        'imgwiki.org',
+        'www.pixoverflow.com',
+      ])})/\\?v=([0-9]+$|.+(?=\\.[a-z]+))`),
       s: 'http://$1/images/$2.jpg',
       xhr: true,
     },
@@ -394,7 +410,28 @@ function loadHosts() {
       xhr: true,
     },
     {
-      r: /(hosturimage\.com|imageontime\.org|imggoo\.com|imgwel\.com|imageboom\.net|imageon\.org|img4ever\.net|imgcandy\.net|imgcredit\.xyz|imgdevil\.com|imgrun\.net|imgtrial\.com|imgult\.com|img\.yt|picspornfree\.me|pixliv\.com|pixxx\.me|uplimg\.com|xxxscreens\.com|xxxupload\.org)\/img-|imgbb\.net\/v-/,
+      r: re(`(${join([
+        'hosturimage.com',
+        'imageboom.net',
+        'imageon.org',
+        'imageontime.org',
+        'img.yt',
+        'img4ever.net',
+        'imgcandy.net',
+        'imgcredit.xyz',
+        'imgdevil.com',
+        'imggoo.com',
+        'imgrun.net',
+        'imgtrial.com',
+        'imgult.com',
+        'imgwel.com',
+        'picspornfree.me',
+        'pixliv.com',
+        'pixxx.me',
+        'uplimg.com',
+        'xxxscreens.com',
+        'xxxupload.org',
+      ])})/img-|imgbb\\.net/v-`),
       s: function (m) {
         return m.input.replace(/\/(v-[0-9a-f]+)_.+/, '$1')
           .replace('http://img.yt', 'https://img.yt');
@@ -404,7 +441,21 @@ function loadHosts() {
       post: 'imgContinue=Continue%20to%20image%20...%20',
     },
     {
-      r: /(foxyimg\.link|imgclick\.net|imgdragon\.com|imgmaid\.net|imgpaying\.com|imageeer\.com|imgdiamond\.com|imgmega\.com|imgsee\.me|imgtrex\.com|imgtiger\.org|pic-maniac\.com|picexposed\.com)\/([a-z0-9]+)/,
+      r: re(`(${join([
+        'foxyimg.link',
+        'imageeer.com',
+        'imgclick.net',
+        'imgdiamond.com',
+        'imgdragon.com',
+        'imgmaid.net',
+        'imgmega.com',
+        'imgpaying.com',
+        'imgsee.me',
+        'imgtiger.org',
+        'imgtrex.com',
+        'pic-maniac.com',
+        'picexposed.com',
+      ])})/([a-z0-9]+)`),
       q: 'img.pic',
       xhr: true,
       post: function (m) {
@@ -701,7 +752,25 @@ function loadHosts() {
       xhr: true,
     },
     {
-      r: /((awsmpic|damimage|imagedecode|imghit|ocaload|swoopic)\.com|(imgflash|imgproof|imgserve|imgget)\.net|(dragimage|gogoimage|imgspot|imgstudio|madimage)\.org|imgs\.it|image\.re)\/img-/,
+      r: re(`(${join([
+        'awsmpic.com',
+        'damimage.com',
+        'dragimage.org',
+        'gogoimage.org',
+        'image.re',
+        'imagedecode.com',
+        'imgflash.net',
+        'imgget.net',
+        'imghit.com',
+        'imgproof.net',
+        'imgs.it',
+        'imgserve.net',
+        'imgspot.org',
+        'imgstudio.org',
+        'madimage.org',
+        'ocaload.com',
+        'swoopic.com',
+      ])})/img-`),
       q: 'img.centred_resized, img.centred',
       xhr: true,
     },
@@ -758,7 +827,15 @@ function loadHosts() {
     },
     {
       r: /twitter\.com\/.+\/status\/.+\/photo\//,
-      q: '.OldMedia img, .media img, video.animated-gif, .AdaptiveMedia-singlePhoto img, .AdaptiveMedia-halfWidthPhoto img, .AdaptiveMedia-twoThirdsWidthPhoto img, .AdaptiveMedia-threeQuartersWidthPhoto img',
+      q: [
+        '.OldMedia img',
+        '.media img',
+        'video.animated-gif',
+        '.AdaptiveMedia-singlePhoto img',
+        '.AdaptiveMedia-halfWidthPhoto img',
+        '.AdaptiveMedia-twoThirdsWidthPhoto img',
+        '.AdaptiveMedia-threeQuartersWidthPhoto img',
+      ],
       follow: function (url) {
         return !/\.mp4$/.test(url);
       },
