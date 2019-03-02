@@ -1505,7 +1505,7 @@ function downloadImage(url, referer) {
   _.req = req = GM_xmlhttpRequest({
     method: 'GET',
     url: url,
-    overrideMimeType: 'text/plain; charset=x-user-defined',
+    responseType: 'blob',
     headers: {
       'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
       'Referer': referer,
@@ -1533,12 +1533,7 @@ function downloadImage(url, referer) {
         if (res.status > 399) {
           throw 'HTTP error ' + res.status;
         }
-        var txt = res.responseText;
-        var ui8 = new Uint8Array(txt.length);
         var type;
-        for (var i = txt.length; i--;) {
-          ui8[i] = txt.charCodeAt(i);
-        }
         if (/Content-Type:\s*(.+)/i.exec(res.responseHeaders) &&
             !contains(RegExp.$1, 'text/plain')) {
           type = RegExp.$1;
@@ -1560,7 +1555,10 @@ function downloadImage(url, referer) {
           };
           type = ext in types ? types[ext] : 'application/octet-stream';
         }
-        var b = new Blob([ui8.buffer], {type: type});
+        var b = res.response;
+        if (b.type !== type) {
+          b = b.slice(0, b.size, type);
+        }
         if (wn.URL && _.xhr !== 'data') {
           return setPopup(wn.URL.createObjectURL(b));
         }
