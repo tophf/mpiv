@@ -1336,7 +1336,7 @@ function parseNode(node) {
   let a, img, url, info;
   if (!hosts) {
     hosts = loadHosts();
-    GM_registerMenuCommand('Set up Mouseover Popup Image Viewer', setup);
+    GM_registerMenuCommand('Configure', setup);
   }
   if (tag(node) === 'A') {
     a = node;
