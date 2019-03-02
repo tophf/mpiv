@@ -2106,9 +2106,7 @@ function tag(n) {
 }
 
 function createDoc(text) {
-  const doc = d.implementation.createHTMLDocument('MPIV');
-  doc.documentElement.innerHTML = text;
-  return doc;
+  return new DOMParser().parseFromString(text, 'text/html');
 }
 
 function rm(n) {
