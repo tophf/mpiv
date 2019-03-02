@@ -2102,7 +2102,7 @@ function closest(n, q) {
 }
 
 function tag(n) {
-  return n.tagName.toUpperCase();
+  return n && n.tagName || '';
 }
 
 function createDoc(text) {
