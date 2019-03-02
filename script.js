@@ -2110,8 +2110,8 @@ function createDoc(text) {
 }
 
 function rm(n) {
-  if (n && n.parentNode) {
-    n.parentNode.removeChild(n);
+  if (n) {
+    n.remove();
   }
 }
 
