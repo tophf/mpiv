@@ -937,18 +937,18 @@ function onMouseScroll(e) {
 }
 
 function onKeyDown(e) {
-  if (e.keyCode === 16) {
+  if (e.which === 16) {
     setStatus('shift', 'add');
     if (_.popup && 'controls' in _.popup) {
       _.popup.controls = true;
     }
-  } else if (e.keyCode === 17 && (cfg.start !== 'auto' || _.manual) && !_.popup) {
+  } else if (e.which === 17 && (cfg.start !== 'auto' || _.manual) && !_.popup) {
     startPopup();
   }
 }
 
 function onKeyUp(e) {
-  switch (e.keyCode) {
+  switch (e.which) {
     case 16:
       setStatus('shift', 'remove');
       if (_.popup.controls) {
