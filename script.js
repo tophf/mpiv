@@ -91,7 +91,7 @@ function loadHosts() {
       follow: true,
     },
     {
-      r: /[\/\?=](https?.+?)(&|$)/,
+      r: /[/?=](https?.+?)(&|$)/,
       s: '$1',
       follow: true,
     },
@@ -112,7 +112,7 @@ function loadHosts() {
     },
     {
       d: 'amazon.',
-      r: /(https?:\/\/[\.a-z-]+amazon\.com\/images\/I\/.+?)\./,
+      r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
       s: function (m) {
         var uh = d.getElementById('universal-hover');
         if (uh) {
@@ -159,7 +159,7 @@ function loadHosts() {
     {
       r: /ebay\.[^\/]+\/itm\//,
       q: function (text) {
-        return text.match(/https?:\/\/i\.ebayimg\.com\/[^\.]+\.JPG/i)[0].replace(/~~60_\d+/,
+        return text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/,
           '~~60_57');
       },
     },
@@ -187,7 +187,7 @@ function loadHosts() {
     },
     {
       d: 'facebook.com',
-      r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&\"']/,
+      r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
       s: function (m, node) {
         return contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
           '' :
@@ -214,7 +214,7 @@ function loadHosts() {
       r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
       s: function (m) {
         try {
-          if (/[\.^]facebook\.com$/.test(hostname)) {
+          if (/[.^]facebook\.com$/.test(hostname)) {
             return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
           }
         } catch (ex) {
@@ -224,7 +224,7 @@ function loadHosts() {
       manual: true,
     },
     {
-      r: /(https?:\/\/(fbcdn-[\w\.\-]+akamaihd|[\w\.\-]+?fbcdn)\.net\/[\w\/\.\-]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
+      r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
       s: function (m, node) {
         if (node.id === 'fbPhotoImage') {
           var a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
@@ -242,7 +242,7 @@ function loadHosts() {
         if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo')) {
           return false;
         }
-        return m[1].replace(/\/[spc][\d\.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
+        return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
       },
       rect: '.photoWrap',
     },
@@ -419,7 +419,7 @@ function loadHosts() {
     {
       r: /imgsen\.se\/upload\//,
       s: '/small/big/',
-      xhr: !true,
+      xhr: false,
     },
     {
       r: /imgtheif\.com\/image\//,
@@ -453,7 +453,7 @@ function loadHosts() {
           }
           return items;
         };
-        var m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()(\{[\s\S]+?\})\);/.exec(
+        var m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(
           text);
         var o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
           .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
@@ -567,7 +567,7 @@ function loadHosts() {
       s: 'http://iv1.lisimg.com/image/$3/0full.jpg',
     },
     {
-      r: /(livememe\.com|lvme\.me)\/([^\.]+)$/,
+      r: /(livememe\.com|lvme\.me)\/([^.]+)$/,
       s: 'http://i.lvme.me/$2.jpg',
     },
     {
@@ -747,7 +747,7 @@ function loadHosts() {
       d: 'tweetdeck.twitter.com',
       e: 'a.media-item, a.js-media-image-link',
       s: function (m, node) {
-        return /http[^\)]+/.exec(node.style.backgroundImage)[0];
+        return /http[^)]+/.exec(node.style.backgroundImage)[0];
       },
       follow: true,
     },
@@ -815,7 +815,7 @@ function loadHosts() {
       s: '/thumb_//',
     },
     {
-      r: /\/\/[^\/]+[^\?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
+      r: /\/\/[^\/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
       distinct: true,
     },
   ];
@@ -977,7 +977,7 @@ function onKeyUp(e) {
       break;
     case 68:
       drop(e);
-      var name = (_.iurl || _.popup.src).split('/').pop().replace(/[:#\?].*/, '');
+      var name = (_.iurl || _.popup.src).split('/').pop().replace(/[:#?].*/, '');
       if (!contains(name, '.')) {
         name += '.jpg';
       }
@@ -2361,7 +2361,7 @@ if (contains(hostname, 'google')) {
   on(d, 'click', function (e) {
     var t = e.target;
     if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
-        !/^\s*\{\s*".+:.+\}\s*$/.test(t.textContent)) {
+        !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
       return;
     }
     wn.postMessage('mpiv-rule ' + t.textContent, '*');
