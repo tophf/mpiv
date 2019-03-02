@@ -136,7 +136,8 @@ function loadHosts() {
         return /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? '' : m.input;
       },
       q: [
-        '#download-button[href*=".jpg"], #download-button[href*=".gif"], #download-button[href*=".png"], #gmi-ResViewSizer_fullimg',
+        '.jpg.jpeg.gif.png'.replace(/\.\w+/g, '#download-button[href*="$&"],') +
+        ', #gmi-ResViewSizer_fullimg',
         'img.dev-content-full',
       ],
     },
