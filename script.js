@@ -174,7 +174,7 @@ function loadHosts() {
     },
     {
       r: /fastpic\.ru\/view\//,
-      q: '#picContainer img',
+      q: '#image',
     },
     {
       d: 'facebook.com',
