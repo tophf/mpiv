@@ -22,7 +22,7 @@ var d = document;
 var wn = window;
 var hostname = location.hostname;
 var trusted = ['greasyfork.org', 'w9p.co'];
-var imgtab = d.images.length == 1 && d.images[0].parentNode == d.body && !d.links.length;
+var imgtab = d.images.length === 1 && d.images[0].parentNode === d.body && !d.links.length;
 var cfg = loadCfg();
 var enabled = cfg.imgtab || !imgtab;
 var _ = {};
@@ -55,7 +55,7 @@ function fixCfg(s, save) {
   }
   if (typeof cfg !== 'object' || !cfg) {
     cfg = {};
-  } else if (cfg.version == def.version) {
+  } else if (cfg.version === def.version) {
     return cfg;
   }
   for (var dp in def) {
@@ -63,7 +63,7 @@ function fixCfg(s, save) {
       cfg[dp] = def[dp];
     }
   }
-  if (cfg.version == 3 && cfg.scales[0] === 0) {
+  if (cfg.version === 3 && cfg.scales[0] === 0) {
     cfg.scales[0] = '0!';
   }
   for (var cp in cfg) {
@@ -385,7 +385,7 @@ function loadHosts() {
     {
       r: /imgbox\.com\/([a-z0-9]+)$/i,
       q: '#img',
-      xhr: hostname != 'imgbox.com',
+      xhr: hostname !== 'imgbox.com',
     },
     {
       r: /imgchili\.(net|com)\/show/,
@@ -438,7 +438,7 @@ function loadHosts() {
           }
           for (var i = 0, len = imgs.length, cur; i < len && (cur = imgs[i]); i++) {
             var iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
-            if (cur.ext == '.gif' && !(cur.animated === false)) {
+            if (cur.ext === '.gif' && !(cur.animated === false)) {
               iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
             }
             items.push({
@@ -556,7 +556,7 @@ function loadHosts() {
       r: /(lazygirls\.info\/.+_.+?\/[a-z0-9_]+)($|\?)/i,
       s: 'http://www.$1?display=fullsize',
       q: 'img.photo',
-      xhr: hostname != 'www.lazygirls.info',
+      xhr: hostname !== 'www.lazygirls.info',
     },
     {
       r: /ld-host\.de\/show/,
@@ -898,9 +898,9 @@ function onMouseMove(e) {
 }
 
 function onMouseDown(e) {
-  if (e.which != 3 && !e.shiftKey) {
+  if (e.which !== 3 && !e.shiftKey) {
     deactivate(true);
-  } else if (e.shiftKey && e.which == 1 && _.popup && _.popup.controls) {
+  } else if (e.shiftKey && e.which === 1 && _.popup && _.popup.controls) {
     _.controlled = _.zoomed = true;
   }
 }
@@ -914,7 +914,7 @@ function onMouseScroll(e) {
     if (idx >= 0 && idx < _.scales.length) {
       _.scale = _.scales[idx];
     }
-    if (idx == 0 && cfg.close) {
+    if (idx === 0 && cfg.close) {
       if (!_.gItems || _.gItems.length < 2) {
         return deactivate(true);
       }
@@ -938,12 +938,12 @@ function onMouseScroll(e) {
 }
 
 function onKeyDown(e) {
-  if (e.keyCode == 16) {
+  if (e.keyCode === 16) {
     setStatus('shift', 'add');
     if (_.popup && 'controls' in _.popup) {
       _.popup.controls = true;
     }
-  } else if (e.keyCode == 17 && (cfg.start != 'auto' || _.manual) && !_.popup) {
+  } else if (e.keyCode === 17 && (cfg.start !== 'auto' || _.manual) && !_.popup) {
     startPopup();
   }
 }
@@ -1125,11 +1125,11 @@ function startGalleryPopup() {
   downloadPage(_.url, function (text, url) {
     try {
       var cb = function (items) {
-        if (!_.url || _.url != startUrl) {
+        if (!_.url || _.url !== startUrl) {
           return;
         }
         _.gItems = items;
-        if (_.gItems.length == 0) {
+        if (_.gItems.length === 0) {
           _.gItems = false;
           throw 'empty';
         }
@@ -1255,11 +1255,11 @@ function preloadNextGalleryItem(dir) {
 }
 
 function activate(node, force) {
-  if (node == _.popup || node == d.body || node == d.documentElement) {
+  if (node === _.popup || node === d.body || node === d.documentElement) {
     return;
   }
   var info = parseNode(node);
-  if (!info || !info.url || info.node == _.node) {
+  if (!info || !info.url || info.node === _.node) {
     return;
   }
   if (info.distinct && !force) {
@@ -1280,7 +1280,7 @@ function activate(node, force) {
   }
   _.zooming = contains(cfg.css, 'mpiv-zooming');
   [_.node.parentNode, _.node, _.node.firstElementChild].some(function (n) {
-    if (n && n.title && n.title != n.textContent && !contains(d.title, n.title) &&
+    if (n && n.title && n.title !== n.textContent && !contains(d.title, n.title) &&
         !/^http\S+$/.test(n.title)) {
       _.tooltip =
         {
@@ -1344,7 +1344,7 @@ function parseNode(node) {
   } else {
     if (tag(node) === 'IMG') {
       img = node;
-      if (img.src.substr(0, 5) != 'data:') {
+      if (img.src.substr(0, 5) !== 'data:') {
         url = rel2abs(img.src, location.href);
       }
     }
@@ -1385,7 +1385,7 @@ function findInfo(url, node, noHtml, skipHost) {
   for (var i = 0, len = hosts.length, tn = tag(node), h, m, html, urls;
        i < len && (h = hosts[i]);
        i++) {
-    if (h.e && !matches(node, h.e) || h == skipHost) {
+    if (h.e && !matches(node, h.e) || h === skipHost) {
       continue;
     }
     if (h.r) {
@@ -1468,7 +1468,7 @@ function downloadPage(url, cb) {
     url: url,
     onload: function (res) {
       try {
-        if (req != _.req) {
+        if (req !== _.req) {
           return;
         }
         delete _.req;
@@ -1481,7 +1481,7 @@ function downloadPage(url, cb) {
       }
     },
     onerror: function (res) {
-      if (req == _.req) {
+      if (req === _.req) {
         handleError(res);
       }
     },
@@ -1511,7 +1511,7 @@ function downloadImage(url, referer) {
       'Referer': referer,
     },
     onprogress: function (e) {
-      if (req != _.req) {
+      if (req !== _.req) {
         return;
       }
       if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5) {
@@ -1525,7 +1525,7 @@ function downloadImage(url, referer) {
     },
     onload: function (res) {
       try {
-        if (req != _.req) {
+        if (req !== _.req) {
           return;
         }
         delete _.req;
@@ -1561,7 +1561,7 @@ function downloadImage(url, referer) {
           type = ext in types ? types[ext] : 'application/octet-stream';
         }
         var b = new Blob([ui8.buffer], {type: type});
-        if (wn.URL && _.xhr != 'data') {
+        if (wn.URL && _.xhr !== 'data') {
           return setPopup(wn.URL.createObjectURL(b));
         }
         var fr = new FileReader();
@@ -1575,7 +1575,7 @@ function downloadImage(url, referer) {
       }
     },
     onerror: function (res) {
-      if (req == _.req) {
+      if (req === _.req) {
         handleError(res);
       }
     },
@@ -1589,7 +1589,7 @@ function findRedirect(url, cb) {
     method: 'HEAD',
     headers: {Referer: location.href.replace(location.hash, '')},
     onload: function (res) {
-      if (req == _.req) {
+      if (req === _.req) {
         cb(res.finalUrl);
       }
     },
@@ -1686,7 +1686,8 @@ function checkProgress(start) {
   if (!_.bar) {
     showFileInfo();
   }
-  if (_.large = _.nwidth > p.clientWidth + _.mbw || _.nheight > p.clientHeight + _.mbh) {
+  _.large = _.nwidth > p.clientWidth + _.mbw || _.nheight > p.clientHeight + _.mbh;
+  if (_.large) {
     setStatus('large');
   }
   if (cfg.imgtab && imgtab || cfg.zoom === 'auto') {
@@ -1719,13 +1720,13 @@ function updateScales() {
   for (var i = scales.length; i--;) {
     var val = parseFloat(scales[i]) || fit;
     var opt = typeof scales[i] === 'string' ? scales[i].slice(-1) : 0;
-    if (opt == '!') {
+    if (opt === '!') {
       cutoff = val;
     }
-    if (opt == '*') {
+    if (opt === '*') {
       _.zscale = val;
     }
-    if (val != _.scale) {
+    if (val !== _.scale) {
       _.scales.push(val);
     }
   }
@@ -1751,7 +1752,7 @@ function showFileInfo() {
   if (_.gItems) {
     var item = _.gItems[_.gIndex];
     var c = _.gItems.length > 1 ? '[' + (_.gIndex + 1) + '/' + _.gItems.length + '] ' : '';
-    if (_.gIndex == 0 && _.gItems.title && (!item.desc || !contains(item.desc, _.gItems.title))) {
+    if (_.gIndex === 0 && _.gItems.title && (!item.desc || !contains(item.desc, _.gItems.title))) {
       c += _.gItems.title + (item.desc ? ' - ' : '');
     }
     if (item.desc) {
@@ -1841,7 +1842,7 @@ function toggleZoom() {
   placePopup();
   updateTitle();
   setStatus(_.zoom ? 'zoom' : false);
-  if (cfg.zoom != 'auto') {
+  if (cfg.zoom !== 'auto') {
     setBar(false);
   }
   if (!_.zoom) {
@@ -1897,7 +1898,7 @@ function setStatus(status, flag) {
   if (flag === 'remove') {
     cn = cn.replace('mpiv-' + status, '');
   } else {
-    if (flag != 'add') {
+    if (flag !== 'add') {
       cn = cn.replace(/mpiv-[a-z]+/g, '');
     }
     if (status && !contains(cn, 'mpiv-' + status)) {
@@ -1927,7 +1928,7 @@ function setPopup(src) {
   if (!src) {
     return;
   }
-  if (src.substr(0, 5) != 'data:' && /\.(webm|mp4)($|\?)/.test(src) || src.substr(0, 10) ==
+  if (src.substr(0, 5) !== 'data:' && /\.(webm|mp4)($|\?)/.test(src) || src.substr(0, 10) ===
       'data:video') {
     var start = Date.now();
     var bar;
@@ -2009,7 +2010,7 @@ function rel2abs(rel, abs) {
   if (rel.indexOf('//') === 0) {
     return RegExp.$1 + rel;
   }
-  if (rel[0] == '/') {
+  if (rel[0] === '/') {
     return abs.substr(0, abs.indexOf('/', RegExp.lastMatch.length)) + rel;
   }
   return abs.substr(0, abs.lastIndexOf('/')) + '/' + rel;
@@ -2019,7 +2020,7 @@ function replace(s, m) {
   if (!m) {
     return s;
   }
-  if (s.charAt(0) == '/' && s.charAt(1) != '/') {
+  if (s.charAt(0) === '/' && s.charAt(1) !== '/') {
     var mid = /[^\\]\//.exec(s).index + 1;
     var end = s.lastIndexOf('/');
     var re = new RegExp(s.substring(1, mid), s.substr(end + 1));
@@ -2048,7 +2049,7 @@ function styleSum(s, p) {
 function findScale(url, parent) {
   var imgs = qsa('img, video', parent);
   for (var i = imgs.length, img; i-- && (img = imgs[i]);) {
-    if (img.src != url) {
+    if (img.src !== url) {
       continue;
     }
     var s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
@@ -2071,7 +2072,7 @@ function rect(node, q) {
   var n;
   if (q) {
     n = node;
-    while (tag(n = n.parentNode) != 'BODY') {
+    while (tag(n = n.parentNode) !== 'BODY') {
       if (matches(n, q)) {
         return n.getBoundingClientRect();
       }
@@ -2359,7 +2360,7 @@ if (contains(hostname, 'google')) {
   on(wn, 'message', onMessage);
   on(d, 'click', function (e) {
     var t = e.target;
-    if (e.which != 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
+    if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
         !/^\s*\{\s*".+:.+\}\s*$/.test(t.textContent)) {
       return;
     }
