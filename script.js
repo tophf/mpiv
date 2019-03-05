@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name        Mouseover Popup Image Viewer
-// @namespace   http://w9p.co/userscripts/
+// @namespace   https://w9p.co/userscripts/
 // @description Shows images and videos behind links and thumbnails.
 // @version     2017.9.29
 // @author      kuehlschrank
-// @homepage    http://w9p.co/userscripts/mpiv/
+// @homepage    https://w9p.co/userscripts/mpiv/
 // @icon        https://w9p.co/userscripts/mpiv/icon.png
 // @include     http*
 // @grant       GM_getValue
@@ -2307,7 +2307,7 @@ function setup() {
     e.target.parentNode.innerHTML = `
       <span>Loading...</span>
       <iframe
-          src="http://w9p.co/userscripts/mpiv/more_host_rules.html"
+          src="https://w9p.co/userscripts/mpiv/more_host_rules.html"
           onload="
             this.style.display = '';
             this.previousElementSibling.style.display = 'none';
@@ -2450,7 +2450,7 @@ function setup() {
     d.body.appendChild(div);
     div.innerHTML = `
       <div>
-        <a href="http://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
+        <a href="https://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
         <span style="float:right">
           <a href="#" id="mpiv-import">Import</a> |
           <a href="#" id="mpiv-export">Export</a>
@@ -2512,11 +2512,11 @@ function setup() {
           </label>
         </li>
         <li>
-          <a href="http://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
+          <a href="https://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
           <div><textarea id="mpiv-css" spellcheck="false"></textarea></div>
         </li>
         <li>
-          <a href="http://w9p.co/userscripts/mpiv/host_rules.html"
+          <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
              target="_blank">Custom host rules:</a>
           <input id="mpiv-search" placeholder="Search" style="
             display: none;
