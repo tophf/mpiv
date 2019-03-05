@@ -2375,7 +2375,10 @@ function setup() {
         padding: 20px 30px;
         background: #eee;
         width: 640px;
+        max-height: calc(100vh - 100px);
         border: 1px solid black;
+        display: flex;
+        flex-direction: column;
       }
       #mpiv-setup * {
         color: black;
@@ -2398,6 +2401,8 @@ function setup() {
         list-style: none;
         background: #eee;
         border: 0;
+        display: flex;
+        flex-direction: column;
       }
       #mpiv-setup input, #mpiv-setup select, #mpiv-css {
         display: inline;
@@ -2429,8 +2434,6 @@ function setup() {
         margin-left: 18px;
       }
       #mpiv-hosts {
-        max-height: 150px;
-        overflow-y: auto;
         padding: 2px;
         margin: 4px 0;
         clear: both;
@@ -2515,7 +2518,7 @@ function setup() {
           <a href="https://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
           <div><textarea id="mpiv-css" spellcheck="false"></textarea></div>
         </li>
-        <li>
+        <li style="overflow-y:auto">
           <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
              target="_blank">Custom host rules:</a>
           <input id="mpiv-search" placeholder="Search" style="
@@ -2588,7 +2591,6 @@ function setup() {
     $('start-' + cfg.start).selected = true;
     update();
     const free = viewRect().height - div.offsetHeight - 60;
-    $('hosts').style.maxHeight = parseInt($('hosts').offsetHeight + 0.8 * free) + 'px';
     $('css').style.height = parseInt($('css').offsetHeight + 0.2 * free) + 'px';
     div = null;
   };
