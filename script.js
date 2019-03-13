@@ -600,7 +600,7 @@ function loadHosts() {
       d: 'kat.cr',
       r: /confirm\/url\/([^\/]+)/,
       s: function (m) {
-        return wn.atob(decodeURIComponent(m[1]));
+        return atob(decodeURIComponent(m[1]));
       },
       follow: true,
     },
@@ -803,7 +803,7 @@ function loadHosts() {
     {
       r: /twimg\.com\/1\/proxy.+?t=(.+?)[&_]/i,
       s: function (m) {
-        return wn.atob(m[1]).match(/http.+/);
+        return atob(m[1]).match(/http.+/);
       },
     },
     {
@@ -954,12 +954,10 @@ function onMouseOver(e) {
       startPopup();
       setStatus('preloading', 'add');
     } else {
-      _.timeout = wn.setTimeout(startPopup, cfg.delay);
+      _.timeout = setTimeout(startPopup, cfg.delay);
     }
     if (cfg.preload) {
-      wn.setTimeout(function () {
-        setStatus('preloading', 'remove');
-      }, cfg.delay);
+      setTimeout(setStatus, cfg.delay, 'preloading', 'remove');
     }
   } else {
     setStatus('ready');
@@ -1143,10 +1141,10 @@ function saveFile(url, name, onError) {
     responseType: 'blob',
     onload: function (res) {
       try {
-        const ou = wn.URL.createObjectURL(res.response);
+        const ou = URL.createObjectURL(res.response);
         save(ou);
-        wn.setTimeout(function () {
-          wn.URL.revokeObjectURL(ou);
+        setTimeout(function () {
+          URL.revokeObjectURL(ou);
         }, 1000);
       } catch (ex) {
         onError(ex);
@@ -1167,9 +1165,7 @@ function onContext(e) {
     startPopup();
     return drop(e);
   }
-  wn.setTimeout(function () {
-    deactivate(true);
-  }, 50);
+  setTimeout(deactivate, 50, true);
 }
 
 function onMessage(e) {
@@ -1259,7 +1255,7 @@ function startGalleryPopup() {
           throw 'empty';
         }
         _.gIndex = findGalleryPosition(_.url);
-        wn.setTimeout(nextGalleryItem, 0);
+        setTimeout(nextGalleryItem, 0);
       };
       const items = _.g(text, url, cb);
       if (typeof items !== 'undefined') {
@@ -1424,7 +1420,7 @@ function activate(node, force) {
 }
 
 function deactivate(wait) {
-  wn.clearTimeout(_.timeout);
+  clearTimeout(_.timeout);
   if (_.req) {
     try {
       _.req.abort();
@@ -1449,7 +1445,7 @@ function deactivate(wait) {
   off(d, 'onwheel' in d ? 'wheel' : 'mousewheel', onMouseScroll);
   if (wait) {
     enabled = false;
-    wn.setTimeout(function () {
+    setTimeout(function () {
       enabled = true;
     }, 200);
   }
@@ -1681,8 +1677,8 @@ function downloadImage(url, referer) {
         if (b.type !== type) {
           b = b.slice(0, b.size, type);
         }
-        if (wn.URL && _.xhr !== 'data') {
-          return setPopup(wn.URL.createObjectURL(b));
+        if (URL && _.xhr !== 'data') {
+          return setPopup(URL.createObjectURL(b));
         }
         const fr = new FileReader();
         fr.onload = function () {
@@ -1774,23 +1770,23 @@ function findCaption(n) {
 function checkProgress(start) {
   if (start === true) {
     if (checkProgress.interval) {
-      wn.clearInterval(checkProgress.interval);
+      clearInterval(checkProgress.interval);
     }
-    checkProgress.interval = wn.setInterval(checkProgress, 150);
+    checkProgress.interval = setInterval(checkProgress, 150);
     return;
   }
   const p = _.popup;
   if (!p) {
-    return wn.clearInterval(checkProgress.interval);
+    return clearInterval(checkProgress.interval);
   }
   if (!updateSize()) {
     return;
   }
-  wn.clearInterval(checkProgress.interval);
+  clearInterval(checkProgress.interval);
   if (_.preloadStart) {
     const wait = _.preloadStart + cfg.delay - Date.now();
     if (wait > 0) {
-      return _.timeout = wn.setTimeout(checkProgress, wait);
+      return _.timeout = setTimeout(checkProgress, wait);
     }
   }
   if (_.urls && _.urls.length && Math.max(_.nheight, _.nwidth) < 130) {
@@ -1823,7 +1819,7 @@ function updateSize() {
 }
 
 function updateSpacing() {
-  const s = wn.getComputedStyle(_.popup);
+  const s = getComputedStyle(_.popup);
   _.pw = styleSum(s, ['padding-left', 'padding-right']);
   _.ph = styleSum(s, ['padding-top', 'padding-bottom']);
   _.mbw = styleSum(s, ['margin-left', 'margin-right', 'border-left-width', 'border-right-width']);
@@ -2041,7 +2037,7 @@ function setPopup(src) {
     }
     if (!_.lazyUnload) {
       if (p.src.substr(0, 5) === 'blob:') {
-        wn.URL.revokeObjectURL(p.src);
+        URL.revokeObjectURL(p.src);
       }
       p.src = '';
     }
@@ -2310,14 +2306,14 @@ function setup() {
     const s = JSON.stringify(getCfg());
     if (typeof GM_setClipboard === 'function') {
       GM_setClipboard(s);
-      wn.alert('Settings copied to clipboard!');
+      alert('Settings copied to clipboard!');
     } else {
-      wn.alert(s);
+      alert(s);
     }
   };
   const imp = function (e) {
     drop(e);
-    const s = wn.prompt('Paste settings:');
+    const s = prompt('Paste settings:');
     if (!s) {
       return;
     }
@@ -2691,7 +2687,7 @@ if (contains(hostname, 'google')) {
         !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
       return;
     }
-    wn.postMessage('mpiv-rule ' + t.textContent, '*');
+    postMessage('mpiv-rule ' + t.textContent, '*');
     e.preventDefault();
   });
 }
