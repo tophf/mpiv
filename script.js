@@ -79,7 +79,8 @@ function fixCfg(s, save) {
 }
 
 function saveCfg(newCfg) {
-  GM_setValue('cfg', JSON.stringify(cfg = newCfg));
+  cfg = newCfg;
+  GM_setValue('cfg', JSON.stringify(cfg));
 }
 
 function loadHosts() {
@@ -115,12 +116,9 @@ function loadHosts() {
     {
       d: 'amazon.',
       r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
-      s: function (m) {
+      s: m => {
         const uh = d.getElementById('universal-hover');
-        if (uh) {
-          return '';
-        }
-        return m[1] + '.jpg';
+        return uh ? '' : m[1] + '.jpg';
       },
       css: '#zoomWindow{display:none!important;}',
     },
@@ -134,9 +132,10 @@ function loadHosts() {
     },
     {
       r: /deviantart\.com\/art\//,
-      s: function (m, node) {
-        return /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? '' : m.input;
-      },
+      s: (m, node) =>
+        /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
+          '' :
+          m.input,
       q: [
         '#download-button[href*=".jpg"]',
         '#download-button[href*=".jpeg"]',
@@ -152,7 +151,7 @@ function loadHosts() {
     },
     {
       r: /dropbox\.com\/sh?\/.+\.(jpe?g|gif|png)/i,
-      q: function (text, doc) {
+      q: (text, doc) => {
         const i = qs('img.absolute-center', doc);
         return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
       },
@@ -164,19 +163,16 @@ function loadHosts() {
     },
     {
       r: /ebay\.[^\/]+\/itm\//,
-      q: function (text) {
-        return text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/,
-          '~~60_57');
-      },
+      q: text =>
+        text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
+          .replace(/~~60_\d+/, '~~60_57'),
     },
     {
       r: /i.ebayimg.com/,
-      s: function (m, node) {
-        if (qs('.zoom_trigger_mask', node.parentNode)) {
-          return '';
-        }
-        return m.input.replace(/~~60_\d+/, '~~60_57');
-      },
+      s: (m, node) =>
+        qs('.zoom_trigger_mask', node.parentNode) ?
+          '' :
+          m.input.replace(/~~60_\d+/, '~~60_57'),
     },
     {
       r: /fastpic\.ru\/view\//,
@@ -185,45 +181,37 @@ function loadHosts() {
     {
       d: 'facebook.com',
       e: 'a[href*="ref=hovercard"]',
-      s: function (m, node) {
-        return 'https://www.facebook.com/photo.php?fbid=' +
-               /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1];
-      },
+      s: (m, node) =>
+        'https://www.facebook.com/photo.php?fbid=' +
+        /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
       follow: true,
     },
     {
       d: 'facebook.com',
       r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
-      s: function (m, node) {
-        return contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
+      s: (m, node) =>
+        contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
           '' :
-          decodeURIComponent(m[4]);
-      },
+          decodeURIComponent(m[4]),
       html: true,
       follow: true,
     },
     {
       r: /facebook\.com\/(photo\.php|[^\/]+\/photos\/)/,
-      s: function (m, node) {
-        if (node.id === 'fbPhotoImage') {
-          return false;
-        }
-        if (/gradient\.png$/.test(m.input)) {
-          return '';
-        }
-        return m.input.replace('www.facebook.com', 'mbasic.facebook.com');
-      },
+      s: (m, node) =>
+        node.id === 'fbPhotoImage' ? false :
+        /gradient\.png$/.test(m.input) ? '' :
+          m.input.replace('www.facebook.com', 'mbasic.facebook.com'),
       q: 'div + span > a:first-child:not([href*="tag_faces"]), div + span > a[href*="tag_faces"] ~ a',
       rect: '#fbProfileCover',
     },
     {
       r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
-      s: function (m) {
-        try {
-          if (/[.^]facebook\.com$/.test(hostname)) {
+      s: m => {
+        if (/[.^]facebook\.com$/.test(hostname)) {
+          try {
             return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
-          }
-        } catch (ex) {
+          } catch (ex) {}
         }
         return false;
       },
@@ -231,7 +219,7 @@ function loadHosts() {
     },
     {
       r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
-      s: function (m, node) {
+      s: (m, node) => {
         if (node.id === 'fbPhotoImage') {
           const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
           if (a) {
@@ -258,15 +246,12 @@ function loadHosts() {
     },
     {
       r: /flickr\.com\/photos\/([0-9]+@N[0-9]+|[a-z0-9_\-]+)\/([0-9]+)/,
-      s: function (m) {
-        return m.input.indexOf('/sizes/') < 0 ?
-          'https://www.flickr.com/photos/' + m[1] + '/' + m[2] + '/sizes/sq/' :
-          false;
-      },
-      q: function (text, doc) {
-        const links = qsa('.sizes-list a', doc);
-        return 'https://www.flickr.com' + links[links.length - 1].getAttribute('href');
-      },
+      s: m =>
+        m.input.indexOf('/sizes/') < 0 ?
+          `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
+          false,
+      q: (text, doc) =>
+        'https://www.flickr.com' + qsa('.sizes-list a', doc).pop().getAttribute('href'),
       follow: true,
     },
     {
@@ -288,20 +273,19 @@ function loadHosts() {
     },
     {
       r: /googleusercontent\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
-      s: function (m) {
-        return m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0');
-      },
+      s: m =>
+        m[2] ?
+          decodeURIComponent(m[2]) :
+          m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
     },
     {
       r: /(googleusercontent|ggpht)\.com\//,
-      s: function (m, node) {
-        if (contains(m.input, 'webcache.') || node.outerHTML.match(
-          /favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
-            matches(node, '.g-hovercard *, a[href*="profile_redirector"] > img')) {
-          return '';
-        }
-        return m.input.replace(/\/s\d{2,}-[^\/]+|\/w\d+-h\d+/, '/s0').replace(/=[^\/]+$/, '');
-      },
+      s: (m, node) =>
+        contains(m.input, 'webcache.') ||
+        node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
+        matches(node, '.g-hovercard *, a[href*="profile_redirector"] > img') ?
+          '' :
+          m.input.replace(/\/s\d{2,}-[^\/]+|\/w\d+-h\d+/, '/s0').replace(/=[^\/]+$/, ''),
     },
     {
       r: /heberger-image\.fr\/images/,
@@ -318,9 +302,7 @@ function loadHosts() {
     },
     {
       r: /imagefap\.com\/(image|photo)/,
-      q: function (text, doc) {
-        return qs('*[itemprop="contentUrl"]', doc).textContent;
-      },
+      q: (text, doc) => qs('*[itemprop="contentUrl"]', doc).textContent,
     },
     {
       r: /imagebam\.com\/image\//,
@@ -432,10 +414,10 @@ function loadHosts() {
         'xxxscreens.com',
         'xxxupload.org',
       ])})/img-|imgbb\\.net/v-`),
-      s: function (m) {
-        return m.input.replace(/\/(v-[0-9a-f]+)_.+/, '$1')
-          .replace('http://img.yt', 'https://img.yt');
-      },
+      s: m =>
+        m.input
+          .replace(/\/(v-[0-9a-f]+)_.+/, '$1')
+          .replace('http://img.yt', 'https://img.yt'),
       q: ['img.centred_resized, #image', 'img[src*="/upload/big/"]'],
       xhr: true,
       post: 'imgContinue=Continue%20to%20image%20...%20',
@@ -458,15 +440,11 @@ function loadHosts() {
       ])})/([a-z0-9]+)`),
       q: 'img.pic',
       xhr: true,
-      post: function (m) {
-        return 'op=view&id=' + m[2] + '&pre=1&submit=Continue%20to%20image...';
-      },
+      post: m => `op=view&id=${m[2]}&pre=1&submit=Continue%20to%20image...`,
     },
     {
       r: /imgflip\.com\/(i|gif)\/([^\/?#]+)/,
-      s: function (m) {
-        return 'https://i.imgflip.com/' + m[2] + (m[1] === 'i' ? '.jpg' : '.mp4');
-      },
+      s: m => `https://i.imgflip.com/${m[2]}${m[1] === 'i' ? '.jpg' : '.mp4'}`,
     },
     {
       r: /imgsen\.se\/upload\//,
@@ -479,16 +457,14 @@ function loadHosts() {
     },
     {
       r: /imgur\.com\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
-      s: function (m) {
-        return 'https://imgur.com/' + m[1] + '/' + m[2] + '' + (m[3] || '');
-      },
-      g: function (text, url, cb) {
-        const mk = function (o, imgs) {
+      s: m => `https://imgur.com/${m[1]}/${m[2]}${m[3] || ''}`,
+      g: (text, url, cb) => {
+        const mk = (o, imgs) => {
           const items = [];
           if (!o || !imgs) {
             return items;
           }
-          for (var i = 0, len = imgs.length, cur; i < len && (cur = imgs[i]); i++) {
+          for (const cur of imgs) {
             let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
             if (cur.ext === '.gif' && !(cur.animated === false)) {
               iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
@@ -516,13 +492,12 @@ function loadHosts() {
         }
         GM_xmlhttpRequest({
           method: 'GET',
-          url: 'https://imgur.com/ajaxalbums/getimages/' + o.hash + '/hit.json?all=true',
-          onload: function (res) {
+          url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
+          onload: res => {
             let imgs;
             try {
               imgs = JSON.parse(res.responseText).data.images;
-            } catch (ex) {
-            }
+            } catch (ex) {}
             cb(mk(o, imgs));
           },
         });
@@ -531,16 +506,17 @@ function loadHosts() {
     },
     {
       r: /imgur\.com\/.+,/i,
-      g: function (text, url) {
-        const hn = /([a-z]{2,}\.)?imgur\.com/.exec(url)[0];
-        return /.+\/([a-z0-9,]+)/i.exec(url)[1].split(',').map(function (id) {
-          return {url: 'https://i.' + hn + '/' + id + '.jpg'};
-        });
-      },
+      g: (text, url) =>
+        /.+\/([a-z0-9,]+)/i
+          .exec(url)[1]
+          .split(',')
+          .map(id => ({
+            url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
+          })),
     },
     {
       r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
-      s: function (m, node) {
+      s: (m, node) => {
         if (/memegen|random|register|search|signin/.test(m.input)) {
           return '';
         }
@@ -564,7 +540,7 @@ function loadHosts() {
         'article div',
         'article div div img',
       ],
-      s: function (m, node) {
+      s: (m, node) => {
         const n = closest(node, 'a[href*="/p/"], article');
         if (!n) {
           return false;
@@ -576,20 +552,15 @@ function loadHosts() {
     },
     {
       r: /instagr(\.am|am\.com)\/p\//i,
-      s: function (m) {
-        return m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1';
-      },
-      q: function (text) {
+      s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
+      q: text => {
         const m = JSON.parse(text).graphql.shortcode_media;
         return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/').replace(/\?.+/, '');
       },
       rect: 'div.PhotoGridMediaItem',
-      c: function (text) {
+      c: text => {
         const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
-        if (m === undefined) {
-          return '(no caption)';
-        }
-        return m.node.text;
+        return m === undefined ? '(no caption)' : m.node.text;
       },
     },
     {
@@ -599,9 +570,7 @@ function loadHosts() {
     {
       d: 'kat.cr',
       r: /confirm\/url\/([^\/]+)/,
-      s: function (m) {
-        return atob(decodeURIComponent(m[1]));
-      },
+      s: m => atob(decodeURIComponent(m[1])),
       follow: true,
     },
     {
@@ -644,14 +613,14 @@ function loadHosts() {
     },
     {
       r: /(min\.us|minus\.com)\/m[a-z0-9]+$/i,
-      g: function (text) {
+      g: text => {
         const m = /gallerydata = ({[\w\W]+?});/.exec(text);
         const o = JSON.parse(m[1]);
         const items = [];
         items.title = o.name;
-        for (var i = 0, len = o.items.length, cur; i < len && (cur = o.items[i]); i++) {
+        for (const cur of o.items) {
           items.push({
-            url: 'https://i.minus.com/i' + cur.id + '.jpg',
+            url: `https://i.minus.com/i${cur.id}.jpg`,
             desc: cur.caption,
           });
         }
@@ -724,9 +693,7 @@ function loadHosts() {
     },
     {
       r: /radikal\.ru\/(fp|.+\.html)/,
-      q: function (text) {
-        return text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9\/]+\.(jpg|gif|png)/i)[0];
-      },
+      q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9\/]+\.(jpg|gif|png)/i)[0],
     },
     {
       d: 'reddit.com',
@@ -791,9 +758,7 @@ function loadHosts() {
     {
       d: 'tumblr.com',
       e: 'div.photo_stage_img, div.photo_stage > canvas',
-      s: function (m, node) {
-        return /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0];
-      },
+      s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
       follow: true,
     },
     {
@@ -802,23 +767,17 @@ function loadHosts() {
     },
     {
       r: /twimg\.com\/1\/proxy.+?t=(.+?)[&_]/i,
-      s: function (m) {
-        return atob(m[1]).match(/http.+/);
-      },
+      s: m => atob(m[1]).match(/http.+/),
     },
     {
       r: /pic\.twitter\.com\/[a-z0-9]+/i,
-      q: function (text) {
-        return text.match(/https?:\/\/twitter\.com\/[^\/]+\/status\/\d+\/photo\/\d+/i)[0];
-      },
+      q: text => text.match(/https?:\/\/twitter\.com\/[^\/]+\/status\/\d+\/photo\/\d+/i)[0],
       follow: true,
     },
     {
       d: 'tweetdeck.twitter.com',
       e: 'a.media-item, a.js-media-image-link',
-      s: function (m, node) {
-        return /http[^)]+/.exec(node.style.backgroundImage)[0];
-      },
+      s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
       follow: true,
     },
     {
@@ -836,16 +795,12 @@ function loadHosts() {
         '.AdaptiveMedia-twoThirdsWidthPhoto img',
         '.AdaptiveMedia-threeQuartersWidthPhoto img',
       ],
-      follow: function (url) {
-        return !/\.mp4$/.test(url);
-      },
+      follow: url => !/\.mp4$/.test(url),
     },
     {
       d: 'twitter.com',
       e: '.grid-tweet > .media-overlay',
-      s: function (m, node) {
-        return node.previousElementSibling.src;
-      },
+      s: (m, node) => node.previousElementSibling.src,
       follow: true,
     },
     {
@@ -858,12 +813,12 @@ function loadHosts() {
     },
     {
       r: /(web\.stagr(\.am|am\.com)|websta\.me)\/p\//i,
-      q: function (text, doc) {
+      q: (text, doc) => {
         const node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
         return findFile(node, _.url).replace(/\/[sp]\d+x\d+\//, '/');
       },
       rect: 'div.PhotoGridMediaItem',
-      c: function (text, doc) {
+      c: (text, doc) => {
         const s = qs('meta[name="description"]', doc).getAttribute('content');
         return s.substr(0, s.lastIndexOf(' | '));
       },
@@ -920,9 +875,7 @@ function loadHosts() {
       }
     }
   }
-  return hosts.filter(function (h) {
-    return !h.d || contains(hostname, h.d);
-  });
+  return hosts.filter(h => !h.d || contains(hostname, h.d));
 }
 
 function onMouseOver(e) {
@@ -1080,8 +1033,8 @@ function onKeyUp(e) {
       if (!contains(name, '.')) {
         name += '.jpg';
       }
-      saveFile(_.popup.src, name, function () {
-        setBar('Could not download ' + name + '.', 'error');
+      saveFile(_.popup.src, name, () => {
+        setBar(`Could not download ${name}.`, 'error');
       });
       break;
     case 84:
@@ -1126,7 +1079,7 @@ function onKeyUp(e) {
 }
 
 function saveFile(url, name, onError) {
-  const save = function (url) {
+  const save = url => {
     const a = ce('a');
     a.href = url;
     a.download = name;
@@ -1139,11 +1092,11 @@ function saveFile(url, name, onError) {
     method: 'GET',
     url: url,
     responseType: 'blob',
-    onload: function (res) {
+    onload: res => {
       try {
         const ou = URL.createObjectURL(res.response);
         save(ou);
-        setTimeout(function () {
+        setTimeout(() => {
           URL.revokeObjectURL(ou);
         }, 1000);
       } catch (ex) {
@@ -1192,7 +1145,7 @@ function startSinglePopup(url) {
   setStatus('loading');
   delete _.iurl;
   if (_.follow && !_.q && !_.s) {
-    return findRedirect(_.url, function (url) {
+    return findRedirect(_.url, url => {
       const info = findInfo(url, _.node, true);
       if (!info || !info.url) {
         throw 'Couldn\'t follow redirection target: ' + url;
@@ -1210,7 +1163,7 @@ function startSinglePopup(url) {
     _.iurl = url;
     return _.xhr ? downloadImage(url, _.url) : setPopup(url);
   }
-  parsePage(url, function (iurl, cap, url) {
+  parsePage(url, (iurl, cap, url) => {
     if (!iurl) {
       throw 'File not found.';
     }
@@ -1243,9 +1196,9 @@ function restartSinglePopup(info) {
 function startGalleryPopup() {
   setStatus('loading');
   const startUrl = _.url;
-  downloadPage(_.url, function (text, url) {
+  downloadPage(_.url, (text, url) => {
     try {
-      const cb = function (items) {
+      const cb = items => {
         if (!_.url || _.url !== startUrl) {
           return;
         }
@@ -1297,15 +1250,17 @@ function loadGalleryParser(g) {
   if (typeof g === 'string') {
     return new Function('text', 'url', 'cb', g);
   }
-  return function (text, url) {
+  return (text, url) => {
     const qE = g.entry;
     let qC = g.caption;
     const qI = g.image;
     const qT = g.title;
-    const fix = (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
-              function (s) {
-                return s.trim();
-              };
+    const fix =
+      (typeof g.fix === 'string' ?
+        new Function('s', 'isURL', g.fix) :
+        g.fix
+      ) ||
+      (s => s.trim());
     const doc = createDoc(text);
     const items = [];
     const nodes = qsa(qE || qI, doc);
@@ -1316,10 +1271,10 @@ function loadGalleryParser(g) {
       const item = {};
       try {
         item.url = fix(findFile(qE ? qs(qI, node) : node, url), true);
-        item.desc = qC.reduce(function (prev, q) {
+        item.desc = qC.reduce((prev, q) => {
           let n = qs(q, node);
           if (!n) {
-            [node.previousElementSibling, node.nextElementSibling].forEach(function (es) {
+            [node.previousElementSibling, node.nextElementSibling].forEach(es => {
               if (es && matches(es, qE) === false) {
                 n = matches(es, q) ? es : qs(q, es);
               }
@@ -1368,9 +1323,8 @@ function preloadNextGalleryItem(dir) {
     if (Array.isArray(url)) {
       url = url[0];
     }
-    on(_.popup, 'load', function () {
-      const img = ce('img');
-      img.src = url;
+    on(_.popup, 'load', () => {
+      ce('img').src = url;
     });
   }
 }
@@ -1397,11 +1351,10 @@ function activate(node, force) {
                (_.css ? _.css : ''));
   }
   _.zooming = contains(cfg.css, 'mpiv-zooming');
-  [_.node.parentNode, _.node, _.node.firstElementChild].some(function (n) {
+  [_.node.parentNode, _.node, _.node.firstElementChild].some(n => {
     if (n && n.title && n.title !== n.textContent && !contains(d.title, n.title) &&
         !/^http\S+$/.test(n.title)) {
-      _.tooltip =
-      {
+      _.tooltip = {
         node: n,
         text: n.title,
       };
@@ -1445,7 +1398,7 @@ function deactivate(wait) {
   off(d, 'onwheel' in d ? 'wheel' : 'mousewheel', onMouseScroll);
   if (wait) {
     enabled = false;
-    setTimeout(function () {
+    setTimeout(() => {
       enabled = true;
     }, 200);
   }
@@ -1524,15 +1477,13 @@ function findInfo(url, node, noHtml, skipHost) {
       continue;
     }
     if ('s' in h) {
-      urls = (Array.isArray(h.s) ? h.s : [h.s]).map(function (s) {
-        if (typeof s === 'string') {
-          return decodeURIComponent(replace(s, m));
-        }
-        if (typeof s === 'function') {
-          return s(m, node);
-        }
-        return s;
-      });
+      urls = (Array.isArray(h.s) ? h.s : [h.s])
+        .map(s =>
+          typeof s === 'string' ?
+            decodeURIComponent(replace(s, m)) :
+          typeof s === 'function' ?
+            s(m, node) :
+            s);
       if (h.q && urls.length > 1) {
         console.log('Rule discarded. Substitution arrays can\'t be combined with property q.');
         continue;
@@ -1543,9 +1494,7 @@ function findInfo(url, node, noHtml, skipHost) {
       if (urls[0] === false) {
         continue;
       }
-      urls = urls.map(function (u) {
-        return u ? decodeURIComponent(u) : u;
-      });
+      urls = urls.map(u => u ? decodeURIComponent(u) : u);
     } else {
       urls = [m.input];
     }
@@ -1584,7 +1533,7 @@ function downloadPage(url, cb) {
   const opts = {
     method: 'GET',
     url: url,
-    onload: function (res) {
+    onload: res => {
       try {
         if (req !== _.req) {
           return;
@@ -1598,7 +1547,7 @@ function downloadPage(url, cb) {
         handleError(ex);
       }
     },
-    onerror: function (res) {
+    onerror: res => {
       if (req === _.req) {
         handleError(res);
       }
@@ -1628,7 +1577,7 @@ function downloadImage(url, referer) {
       'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
       'Referer': referer,
     },
-    onprogress: function (e) {
+    onprogress: e => {
       if (req !== _.req) {
         return;
       }
@@ -1641,7 +1590,7 @@ function downloadImage(url, referer) {
           'xhr');
       }
     },
-    onload: function (res) {
+    onload: res => {
       try {
         if (req !== _.req) {
           return;
@@ -1681,7 +1630,7 @@ function downloadImage(url, referer) {
           return setPopup(URL.createObjectURL(b));
         }
         const fr = new FileReader();
-        fr.onload = function () {
+        fr.onload = () => {
           setPopup(fr.result);
         };
         fr.onerror = handleError;
@@ -1690,7 +1639,7 @@ function downloadImage(url, referer) {
         handleError(ex);
       }
     },
-    onerror: function (res) {
+    onerror: res => {
       if (req === _.req) {
         handleError(res);
       }
@@ -1704,7 +1653,7 @@ function findRedirect(url, cb) {
     url: url,
     method: 'HEAD',
     headers: {Referer: location.href.replace(location.hash, '')},
-    onload: function (res) {
+    onload: res => {
       if (req === _.req) {
         cb(res.finalUrl);
       }
@@ -1713,7 +1662,7 @@ function findRedirect(url, cb) {
 }
 
 function parsePage(url, cb) {
-  downloadPage(url, function (html, url) {
+  downloadPage(url, (html, url) => {
     let iurl;
     let cap;
     const doc = createDoc(html);
@@ -1846,12 +1795,8 @@ function updateScales() {
       _.scales.push(val);
     }
   }
-  _.scales = _.scales.filter(function (x) {
-    return x >= cutoff;
-  });
-  _.scales.sort(function (a, b) {
-    return a - b;
-  });
+  _.scales = _.scales.filter(x => x >= cutoff);
+  _.scales.sort((a, b) => a - b);
   _.scales.unshift(_.scale);
 }
 
@@ -2051,7 +1996,7 @@ function setPopup(src) {
       'data:video') {
     const start = Date.now();
     let bar;
-    const onProgress = function (e) {
+    const onProgress = e => {
       const p = e.target;
       if (!p.duration || !p.buffered.length || Date.now() - start < 2000) {
         return;
@@ -2070,7 +2015,7 @@ function setPopup(src) {
     p.volume = 0.5;
     p.controls = false;
     on(p, 'progress', onProgress);
-    on(p, 'canplaythrough', function (e) {
+    on(p, 'canplaythrough', e => {
       off(e.target, 'progress', onProgress);
       if (_.bar && _.bar.classList.contains('mpiv-xhr')) {
         setBar(false);
@@ -2086,7 +2031,7 @@ function setPopup(src) {
     this.loaded = true;
   });
   if (_.zooming) {
-    on(p, 'transitionend', function (e) {
+    on(p, 'transitionend', e => {
       e.target.classList.remove('mpiv-zooming');
     });
   }
@@ -2267,20 +2212,24 @@ function contains(a, b) {
 }
 
 function setup() {
-  const $ = function (s) {
+
+  function $(s) {
     return d.getElementById('mpiv-' + s);
-  };
-  const close = function () {
+  }
+
+  function close() {
     rm($('setup'));
     if (!contains(trusted, hostname)) {
       off(wn, 'message', onMessage);
     }
-  };
-  const update = function () {
+  }
+
+  function update() {
     $('delay').parentNode.style.display =
       $('preload').parentNode.style.display = $('start-auto').selected ? '' : 'none';
-  };
-  const check = function (e) {
+  }
+
+  function check(e) {
     const t = e.target;
     let ok;
     try {
@@ -2300,8 +2249,9 @@ function setup() {
     } catch (ex) {
     }
     t.style.backgroundColor = ok ? '' : '#ffaaaa';
-  };
-  const exp = function (e) {
+  }
+
+  function exp(e) {
     drop(e);
     const s = JSON.stringify(getCfg());
     if (typeof GM_setClipboard === 'function') {
@@ -2310,16 +2260,18 @@ function setup() {
     } else {
       alert(s);
     }
-  };
-  const imp = function (e) {
+  }
+
+  function imp(e) {
     drop(e);
     const s = prompt('Paste settings:');
     if (!s) {
       return;
     }
     init(fixCfg(s));
-  };
-  const install = function (e) {
+  }
+
+  function install(e) {
     drop(e);
     e.target.parentNode.innerHTML = `
       <span>Loading...</span>
@@ -2337,8 +2289,9 @@ function setup() {
             display: none;
           "></iframe>
     `;
-  };
-  var getCfg = function () {
+  }
+
+  function getCfg() {
     const cfg = {};
     const delay = parseInt($('delay').value);
     if (!isNaN(delay) && delay >= 0) {
@@ -2359,11 +2312,11 @@ function setup() {
     cfg.close = $('close').selected;
     cfg.preload = $('preload').checked;
     cfg.css = $('css').value.trim();
-    cfg.scales = $('scales').value.trim().split(/[,;]*\s+/).map(function (x) {
-      return x.replace(',', '.');
-    }).filter(function (x) {
-      return !isNaN(parseFloat(x));
-    });
+    cfg.scales = $('scales').value
+      .trim()
+      .split(/[,;]*\s+/)
+      .map(x => x.replace(',','.'))
+      .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
     const inps = qsa('input', $('hosts'));
     const lines = [];
@@ -2376,8 +2329,9 @@ function setup() {
     lines.sort();
     cfg.hosts = lines.join('\n');
     return fixCfg(JSON.stringify(cfg));
-  };
-  var init = function (cfg) {
+  }
+
+  function init(cfg) {
     close();
     if (!contains(trusted, hostname)) {
       on(wn, 'message', onMessage);
@@ -2567,13 +2521,16 @@ function setup() {
       }
       if (lines.length > 5 || setup.search) {
         const se = $('search');
-        const sf = function () {
+        const sf = () => {
           const inps = qsa('input', $('hosts'));
           const s = se.value.toLowerCase();
           setup.search = s;
-          for (let i = 0; i < inps.length; i++) {
-            inps[i].style.display =
-              !inps[i].value || contains(inps[i].value.toLowerCase(), s) ? '' : 'none';
+          for (const inp of inps) {
+            inp.style.display =
+              !inp.value ||
+              contains(inp.value.toLowerCase(), s) ?
+                '' :
+                'none';
           }
         };
         on(se, 'input', sf);
@@ -2590,7 +2547,7 @@ function setup() {
     on($('import'), 'click', imp);
     on($('hosts'), 'input', check);
     on($('install'), 'click', install);
-    on($('ok'), 'click', function () {
+    on($('ok'), 'click', () => {
       saveCfg(getCfg());
       hosts = loadHosts();
       close();
@@ -2610,7 +2567,8 @@ function setup() {
     const free = viewRect().height - div.offsetHeight - 60;
     $('css').style.height = parseInt($('css').offsetHeight + 0.2 * free) + 'px';
     div = null;
-  };
+  }
+
   init(loadCfg());
 }
 
@@ -2681,7 +2639,7 @@ if (contains(hostname, 'google')) {
   }
 } else if (contains(trusted, hostname)) {
   on(wn, 'message', onMessage);
-  on(d, 'click', function (e) {
+  on(d, 'click', e => {
     const t = e.target;
     if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
         !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
