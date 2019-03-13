@@ -926,9 +926,25 @@ function loadHosts() {
 }
 
 function onMouseOver(e) {
-  if (!enabled || e.shiftKey || _.zoom || !activate(e.target, e.ctrlKey)) {
+  if (!enabled || e.shiftKey || _.zoom)
     return;
+  let node = e.target;
+  if (node === _.popup || node === d.body || node === d.documentElement)
+    return;
+  const shadowRoots = [];
+  for (let root; (root = node.shadowRoot);) {
+    shadowRoots.push(root);
+    const inner = root.elementFromPoint(e.clientX, e.clientY);
+    if (!inner || inner === node)
+      break;
+    node = inner;
   }
+  for (const root of shadowRoots) {
+    on(root, 'mouseover', onMouseOver);
+    on(root, 'mouseout', onMouseOutShadow);
+  }
+  if (!activate(node, e.ctrlKey))
+    return;
   updateMouse(e);
   if (e.ctrlKey) {
     startPopup();
@@ -953,6 +969,14 @@ function onMouseOver(e) {
 function onMouseOut(e) {
   if (!e.relatedTarget && !e.shiftKey) {
     deactivate();
+  }
+}
+
+function onMouseOutShadow(e) {
+  const root = e.target.shadowRoot;
+  if (root) {
+    off(root, 'mouseover', onMouseOver);
+    off(root, 'mouseout', onMouseOutShadow);
   }
 }
 
@@ -1356,9 +1380,6 @@ function preloadNextGalleryItem(dir) {
 }
 
 function activate(node, force) {
-  if (node === _.popup || node === d.body || node === d.documentElement) {
-    return;
-  }
   const info = parseNode(node);
   if (!info || !info.url || info.node === _.node) {
     return;
