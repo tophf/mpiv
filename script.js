@@ -2,18 +2,25 @@
 // @name        Mouseover Popup Image Viewer
 // @namespace   https://w9p.co/userscripts/
 // @description Shows images and videos behind links and thumbnails.
-// @version     2017.9.29
-// @author      kuehlschrank
-// @homepage    https://w9p.co/userscripts/mpiv/
-// @icon        https://w9p.co/userscripts/mpiv/icon.png
+
 // @include     http*
+// @connect-src *
+
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
-// @connect-src *
+
+// @version     1.0.0
+// @author      tophf
+
+// @original-version 2017.9.29
+// @original-author  kuehlschrank
+
+// @homepage    https://w9p.co/userscripts/mpiv/
+// @icon        https://w9p.co/userscripts/mpiv/icon.png
 // ==/UserScript==
 
 'use strict';
@@ -2440,7 +2447,7 @@ function setup() {
               <option id="mpiv-start-ctrl">ctrl
             </select>
           </label>
-          <label>after <input id="mpiv-delay"> ms</label> 
+          <label>after <input id="mpiv-delay"> ms</label>
           <label><input type="checkbox" id="mpiv-preload"> Start loading immediately</label>
         </li>
         <li>
@@ -2451,7 +2458,7 @@ function setup() {
         </li>
         <li>
           <label><input type="checkbox" id="mpiv-center"> Always centered</label>
-          <label><input type="checkbox" id="mpiv-imgtab"> Run in image tabs</label> 
+          <label><input type="checkbox" id="mpiv-imgtab"> Run in image tabs</label>
           <label><input type="checkbox" id="mpiv-xhr" onclick="
             return this.checked ||
                    confirm('Do not disable this unless you spoof the HTTP headers yourself.')">
