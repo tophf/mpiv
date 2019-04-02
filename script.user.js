@@ -2500,7 +2500,6 @@ addStyle(`
   }
   .mpiv-ready *, .mpiv-large * {
     cursor: zoom-in !important;
-    cursor: -webkit-zoom-in !important;
   }
   .mpiv-shift * {
     cursor: default !important;
