@@ -524,29 +524,60 @@ function loadHosts() {
           url;
       },
     },
-    {
-      d: 'instagram.com',
-      e: [
-        'a[href*="/p/"]',
-        'a[role="button"][data-reactid*="scontent-"]',
-        'article div',
-        'article div div img',
-      ],
-      s: (m, node) => {
-        const n = closest(node, 'a[href*="/p/"], article');
+    (() => {
+      const LINK_SEL = 'a[href*="/p/"]';
+      const getInstagramData = node => {
+        const n = closest(node, `${LINK_SEL}, article`);
         if (!n)
-          return false;
-        const a = matches(n, 'a[href*="/p/"]') ? n : qs('a[href*="/p/"]', n);
-        return a.href;
-      },
-      follow: true,
-    },
+          return;
+        const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
+        if (!a)
+          return;
+        try {
+          const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
+          return {
+            a,
+            data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
+              .graphql.user.edge_owner_to_timeline_media.edges
+              .find(e => e.node.shortcode === shortcode)
+              .node,
+          };
+        } catch (e) {}
+        return {a};
+      }
+      const RULE = {
+        d: 'instagram.com',
+        e: [
+          LINK_SEL,
+          'a[role="button"][data-reactid*="scontent-"]',
+          'article div',
+          'article div div img',
+        ],
+        s: (m, node) => {
+          const {a, data} = getInstagramData(node) || {};
+          RULE.follow = !data;
+          return (
+            !a ? false :
+              !data ? a.href :
+                data.video_url || data.display_url.replace(/\/[sp]\d+x\d+\//, '/'));
+        },
+        c: (html, doc, node) => {
+          try {
+            return getInstagramData(node).data.edge_media_to_caption.edges[0].node.text;
+          } catch (e) {
+            return '';
+          }
+        },
+        follow: true,
+      };
+      return RULE;
+    })(),
     {
       r: /instagr(\.am|am\.com)\/p\//i,
       s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
       q: text => {
         const m = JSON.parse(text).graphql.shortcode_media;
-        return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/').replace(/\?.+/, '');
+        return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/');
       },
       rect: 'div.PhotoGridMediaItem',
       c: text => {
