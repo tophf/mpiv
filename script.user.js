@@ -66,22 +66,18 @@ function fixCfg(s, save) {
     return cfg;
   }
   for (const dp in def) {
-    if (def.hasOwnProperty(dp) && typeof cfg[dp] !== typeof def[dp]) {
+    if (def.hasOwnProperty(dp) && typeof cfg[dp] !== typeof def[dp])
       cfg[dp] = def[dp];
-    }
   }
-  if (cfg.version === 3 && cfg.scales[0] === 0) {
+  if (cfg.version === 3 && cfg.scales[0] === 0)
     cfg.scales[0] = '0!';
-  }
   for (const cp in cfg) {
-    if (!def.hasOwnProperty(cp)) {
+    if (!def.hasOwnProperty(cp))
       delete cfg[cp];
-    }
   }
   cfg.version = def.version;
-  if (save) {
+  if (save)
     saveCfg(cfg);
-  }
   return cfg;
 }
 
@@ -229,20 +225,16 @@ function loadHosts() {
       s: (m, node) => {
         if (node.id === 'fbPhotoImage') {
           const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
-          if (a) {
+          if (a)
             return contains(a.href, m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
-          }
         }
-        if (m[4]) {
+        if (m[4])
           return false;
-        }
-        if (contains(node.parentNode.outerHTML, '/hovercard/')) {
+        if (contains(node.parentNode.outerHTML, '/hovercard/'))
           return '';
-        }
         const gp = node.parentNode.parentNode;
-        if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo')) {
+        if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo'))
           return false;
-        }
         return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
       },
       rect: '.photoWrap',
@@ -468,14 +460,12 @@ function loadHosts() {
       g: (text, url, cb) => {
         const mk = (o, imgs) => {
           const items = [];
-          if (!o || !imgs) {
+          if (!o || !imgs)
             return items;
-          }
           for (const cur of imgs) {
             let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
-            if (cur.ext === '.gif' && !(cur.animated === false)) {
+            if (cur.ext === '.gif' && !(cur.animated === false))
               iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
-            }
             items.push({
               url: iu,
               desc: cur.title && cur.description ?
@@ -483,20 +473,17 @@ function loadHosts() {
                 (cur.title || cur.description),
             });
           }
-          if (o.is_album && !contains(items[0].desc, o.title)) {
+          if (o.is_album && !contains(items[0].desc, o.title))
             items.title = o.title;
-          }
           return items;
         };
-        const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(
-          text);
+        const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(text);
         const o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
           .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
         const o = o1.image || o1.album;
         const imgs = o.is_album ? o.album_images.images : [o];
-        if (!o.num_images || o.num_images <= imgs.length) {
+        if (!o.num_images || o.num_images <= imgs.length)
           return mk(o, imgs);
-        }
         GM_xmlhttpRequest({
           method: 'GET',
           url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
@@ -524,13 +511,11 @@ function loadHosts() {
     {
       r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
       s: (m, node) => {
-        if (/memegen|random|register|search|signin/.test(m.input)) {
+        if (/memegen|random|register|search|signin/.test(m.input))
           return '';
-        }
-        if (/(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(
-          node.parentNode.href || node.parentNode.parentNode.href)) {
+        if (/(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/
+            .test(node.parentNode.href || node.parentNode.parentNode.href))
           return false;
-        }
         const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
                   m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
                   (m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg');
@@ -549,9 +534,8 @@ function loadHosts() {
       ],
       s: (m, node) => {
         const n = closest(node, 'a[href*="/p/"], article');
-        if (!n) {
+        if (!n)
           return false;
-        }
         const a = matches(n, 'a[href*="/p/"]') ? n : qs('a[href*="/p/"]', n);
         return a.href;
       },
@@ -864,18 +848,14 @@ function loadHosts() {
     for (var i = lines.length, s; i-- && (s = lines[i]);) {
       try {
         const h = JSON.parse(s);
-        if (h.r) {
+        if (h.r)
           h.r = new RegExp(h.r, 'i');
-        }
-        if (h.s && typeof h.s === 'string' && contains(h.s, 'return ')) {
+        if (h.s && typeof h.s === 'string' && contains(h.s, 'return '))
           h.s = new Function('m', 'node', h.s);
-        }
-        if (h.q && typeof h.q === 'string' && contains(h.q, 'return ')) {
+        if (h.q && typeof h.q === 'string' && contains(h.q, 'return '))
           h.q = new Function('text', 'doc', 'node', h.q);
-        }
-        if (contains(h.c, 'return ')) {
+        if (contains(h.c, 'return '))
           h.c = new Function('text', 'doc', 'node', h.c);
-        }
         hosts.splice(0, 0, h);
       } catch (ex) {
         handleError('Host rule invalid: ' + s);
@@ -916,18 +896,16 @@ function onMouseOver(e) {
     } else {
       _.timeout = setTimeout(startPopup, cfg.delay);
     }
-    if (cfg.preload) {
+    if (cfg.preload)
       setTimeout(setStatus, cfg.delay, 'preloading', 'remove');
-    }
   } else {
     setStatus('ready');
   }
 }
 
 function onMouseOut(e) {
-  if (!e.relatedTarget && !e.shiftKey) {
+  if (!e.relatedTarget && !e.shiftKey)
     deactivate();
-  }
 }
 
 function onMouseOutShadow(e) {
@@ -940,12 +918,10 @@ function onMouseOutShadow(e) {
 
 function onMouseMove(e) {
   updateMouse(e);
-  if (e.shiftKey) {
+  if (e.shiftKey)
     return (_.lazyUnload = true);
-  }
-  if (!_.zoomed && !_.cr) {
+  if (!_.zoomed && !_.cr)
     return deactivate();
-  }
   if (_.zoom) {
     placePopup();
     const bx = _.view.width / 6;
@@ -970,19 +946,16 @@ function onMouseScroll(e) {
   if (_.zoom) {
     drop(e);
     const idx = _.scales.indexOf(_.scale) - dir;
-    if (idx >= 0 && idx < _.scales.length) {
+    if (idx >= 0 && idx < _.scales.length)
       _.scale = _.scales[idx];
-    }
     if (idx === 0 && cfg.close) {
-      if (!_.gItems || _.gItems.length < 2) {
+      if (!_.gItems || _.gItems.length < 2)
         return deactivate(true);
-      }
       _.zoom = false;
       showFileInfo();
     }
-    if (_.zooming) {
+    if (_.zooming)
       _.popup.classList.add('mpiv-zooming');
-    }
     placePopup();
     updateTitle();
   } else if (_.gItems && _.gItems.length > 1 && _.popup) {
@@ -999,9 +972,8 @@ function onMouseScroll(e) {
 function onKeyDown(e) {
   if (e.which === 16) {
     setStatus('shift', 'add');
-    if (_.popup && 'controls' in _.popup) {
+    if (_.popup && 'controls' in _.popup)
       _.popup.controls = true;
-    }
   } else if (e.which === 17 && (cfg.start !== 'auto' || _.manual) && !_.popup) {
     startPopup();
   }
@@ -1011,12 +983,10 @@ function onKeyUp(e) {
   switch (e.which) {
     case 16:
       setStatus('shift', 'remove');
-      if (_.popup.controls) {
+      if (_.popup.controls)
         _.popup.controls = false;
-      }
-      if (_.controlled) {
+      if (_.controlled)
         return _.controlled = false;
-      }
       _.popup && (_.zoomed || !('cr' in _) || _.cr) ? toggleZoom() : deactivate(true);
       break;
     case 17:
@@ -1037,9 +1007,8 @@ function onKeyUp(e) {
     case 68:
       drop(e);
       var name = (_.iurl || _.popup.src).split('/').pop().replace(/[:#?].*/, '');
-      if (!contains(name, '.')) {
+      if (!contains(name, '.'))
         name += '.jpg';
-      }
       saveFile(_.popup.src, name, () => {
         setBar(`Could not download ${name}.`, 'error');
       });
@@ -1092,9 +1061,8 @@ function saveFile(url, name, onError) {
     a.download = name;
     a.dispatchEvent(new MouseEvent('click'));
   };
-  if (contains(['blob:', 'data:'], url.substr(0, 5))) {
+  if (contains(['blob:', 'data:'], url.substr(0, 5)))
     return save(url);
-  }
   GM_xmlhttpRequest({
     method: 'GET',
     url: url,
@@ -1115,12 +1083,10 @@ function saveFile(url, name, onError) {
 }
 
 function onContext(e) {
-  if (e.shiftKey) {
+  if (e.shiftKey)
     return;
-  }
-  if (cfg.zoom === 'context' && _.popup && toggleZoom()) {
+  if (cfg.zoom === 'context' && _.popup && toggleZoom())
     return drop(e);
-  }
   if ((cfg.start === 'context' || (cfg.start === 'auto' && _.manual)) && !_.status && !_.popup) {
     startPopup();
     return drop(e);
@@ -1133,9 +1099,8 @@ function onMessage(e) {
       'string' || e.data.indexOf('mpiv-rule ') !== 0) {
     return;
   }
-  if (!qs('#mpiv-setup', d)) {
+  if (!qs('#mpiv-setup', d))
     setup();
-  }
   const inp = qs('#mpiv-hosts input:first-of-type', d);
   inp.value = e.data.substr(10).trim();
   inp.dispatchEvent(new Event('input', {bubbles: true}));
@@ -1154,9 +1119,8 @@ function startSinglePopup(url) {
   if (_.follow && !_.q && !_.s) {
     return findRedirect(_.url, url => {
       const info = findInfo(url, _.node, true);
-      if (!info || !info.url) {
+      if (!info || !info.url)
         throw 'Couldn\'t follow redirection target: ' + url;
-      }
       restartSinglePopup(info);
     });
   }
@@ -1171,17 +1135,14 @@ function startSinglePopup(url) {
     return _.xhr ? downloadImage(url, _.url) : setPopup(url);
   }
   parsePage(url, (iurl, cap, url) => {
-    if (!iurl) {
+    if (!iurl)
       throw 'File not found.';
-    }
-    if (typeof cap !== 'undefined') {
+    if (typeof cap !== 'undefined')
       _.caption = cap;
-    }
     if (_.follow === true || typeof _.follow === 'function' && _.follow(iurl)) {
       const info = findInfo(iurl, _.node, true);
-      if (!info || !info.url) {
+      if (!info || !info.url)
         throw 'Couldn\'t follow URL: ' + iurl;
-      }
       return restartSinglePopup(info);
     }
     _.iurl = iurl;
@@ -1206,9 +1167,8 @@ function startGalleryPopup() {
   downloadPage(_.url, (text, url) => {
     try {
       const cb = items => {
-        if (!_.url || _.url !== startUrl) {
+        if (!_.url || _.url !== startUrl)
           return;
-        }
         _.gItems = items;
         if (_.gItems.length === 0) {
           _.gItems = false;
@@ -1218,9 +1178,8 @@ function startGalleryPopup() {
         setTimeout(nextGalleryItem, 0);
       };
       const items = _.g(text, url, cb);
-      if (typeof items !== 'undefined') {
+      if (typeof items !== 'undefined')
         cb(items);
-      }
     } catch (ex) {
       handleError('Parsing error: ' + ex);
     }
@@ -1236,9 +1195,8 @@ function findGalleryPosition(gUrl) {
     } else {
       for (let i = _.gItems.length; i--;) {
         let url = _.gItems[i].url;
-        if (Array.isArray(url)) {
+        if (Array.isArray(url))
           url = url[0];
-        }
         const file = url.substr(url.lastIndexOf('/') + 1);
         if (contains(file, sel)) {
           dir += i;
@@ -1251,12 +1209,10 @@ function findGalleryPosition(gUrl) {
 }
 
 function loadGalleryParser(g) {
-  if (typeof g === 'function') {
+  if (typeof g === 'function')
     return g;
-  }
-  if (typeof g === 'string') {
+  if (typeof g === 'string')
     return new Function('text', 'url', 'cb', g);
-  }
   return (text, url) => {
     const qE = g.entry;
     let qC = g.caption;
@@ -1271,9 +1227,8 @@ function loadGalleryParser(g) {
     const doc = createDoc(text);
     const items = [];
     const nodes = qsa(qE || qI, doc);
-    if (!Array.isArray(qC)) {
+    if (!Array.isArray(qC))
       qC = [qC];
-    }
     for (var i = 0, node, len = nodes.length; i < len && (node = nodes[i]); i++) {
       const item = {};
       try {
@@ -1282,23 +1237,20 @@ function loadGalleryParser(g) {
           let n = qs(q, node);
           if (!n) {
             [node.previousElementSibling, node.nextElementSibling].forEach(es => {
-              if (es && matches(es, qE) === false) {
+              if (es && matches(es, qE) === false)
                 n = matches(es, q) ? es : qs(q, es);
-              }
             });
           }
           return n ? (prev ? prev + ' - ' : '') + fix(n.textContent) : prev;
         }, '');
       } catch (ex) {
       }
-      if (item.url) {
+      if (item.url)
         items.push(item);
-      }
     }
     const title = qs(qT, doc);
-    if (title) {
+    if (title)
       items.title = fix(title.getAttribute('content') || title.textContent);
-    }
     return items;
   };
 }
@@ -1327,9 +1279,8 @@ function preloadNextGalleryItem(dir) {
   const idx = _.gIndex + dir;
   if (_.popup && idx >= 0 && idx < _.gItems.length) {
     let url = _.gItems[idx].url;
-    if (Array.isArray(url)) {
+    if (Array.isArray(url))
       url = url[0];
-    }
     on(_.popup, 'load', () => {
       ce('img').src = url;
     });
@@ -1338,18 +1289,15 @@ function preloadNextGalleryItem(dir) {
 
 function activate(node, force) {
   const info = parseNode(node);
-  if (!info || !info.url || info.node === _.node) {
+  if (!info || !info.url || info.node === _.node)
     return;
-  }
   if (info.distinct && !force) {
     const scale = findScale(info.url, info.node.parentNode);
-    if (scale && scale < cfg.scale) {
+    if (scale && scale < cfg.scale)
       return;
-    }
   }
-  if (_.node) {
+  if (_.node)
     deactivate();
-  }
   _ = info;
   _.view = viewRect();
   if (cfg.css || _.css) {
@@ -1387,9 +1335,8 @@ function deactivate(wait) {
     } catch (ex) {
     }
   }
-  if (_.tooltip) {
+  if (_.tooltip)
     _.tooltip.node.title = _.tooltip.text;
-  }
   updateTitle(true);
   setStatus(false);
   setPopup(false);
@@ -1422,14 +1369,12 @@ function parseNode(node) {
   } else {
     if (tag(node) === 'IMG') {
       img = node;
-      if (img.src.substr(0, 5) !== 'data:') {
+      if (img.src.substr(0, 5) !== 'data:')
         url = rel2abs(img.src, location.href);
-      }
     }
     info = findInfo(url, node);
-    if (info) {
+    if (info)
       return info;
-    }
     a =
       tag(node.parentNode) === 'A' ?
         node.parentNode :
@@ -1445,9 +1390,8 @@ function parseNode(node) {
       url = 'http://' + a.textContent;
     }
     info = findInfo(url, a);
-    if (info) {
+    if (info)
       return info;
-    }
   }
   if (img) {
     return {
@@ -1463,14 +1407,12 @@ function findInfo(url, node, noHtml, skipHost) {
   for (var i = 0, len = hosts.length, tn = tag(node), h, m, html, urls;
        i < len && (h = hosts[i]);
        i++) {
-    if (h.e && !matches(node, h.e) || h === skipHost) {
+    if (h.e && !matches(node, h.e) || h === skipHost)
       continue;
-    }
     if (h.r) {
       if (h.html && !noHtml && (tn === 'A' || tn === 'IMG' || h.e)) {
-        if (!html) {
+        if (!html)
           html = node.outerHTML;
-        }
         m = h.r.exec(html);
       } else if (url) {
         m = h.r.exec(url);
@@ -1480,9 +1422,8 @@ function findInfo(url, node, noHtml, skipHost) {
     } else {
       m = url ? /.*/.exec(url) : [];
     }
-    if (!m || tn === 'IMG' && !('s' in h)) {
+    if (!m || tn === 'IMG' && !('s' in h))
       continue;
-    }
     if ('s' in h) {
       urls = (Array.isArray(h.s) ? h.s : [h.s])
         .map(s =>
@@ -1495,19 +1436,16 @@ function findInfo(url, node, noHtml, skipHost) {
         console.log('Rule discarded. Substitution arrays can\'t be combined with property q.');
         continue;
       }
-      if (Array.isArray(urls[0])) {
+      if (Array.isArray(urls[0]))
         urls = urls[0];
-      }
-      if (urls[0] === false) {
+      if (urls[0] === false)
         continue;
-      }
       urls = urls.map(u => u ? decodeURIComponent(u) : u);
     } else {
       urls = [m.input];
     }
-    if ((h.follow === true || typeof h.follow === 'function' && h.follow(urls[0])) && !h.q && h.s) {
+    if ((h.follow === true || typeof h.follow === 'function' && h.follow(urls[0])) && !h.q && h.s)
       return findInfo(urls[0], node, false, h);
-    }
     const info = {
       node: node,
       url: urls.shift(),
@@ -1542,22 +1480,19 @@ function downloadPage(url, cb) {
     url: url,
     onload: res => {
       try {
-        if (req !== _.req) {
+        if (req !== _.req)
           return;
-        }
         delete _.req;
-        if (res.status > 399) {
+        if (res.status > 399)
           throw 'Server error: ' + res.status;
-        }
         cb(res.responseText, res.finalUrl || url);
       } catch (ex) {
         handleError(ex);
       }
     },
     onerror: res => {
-      if (req === _.req) {
+      if (req === _.req)
         handleError(res);
-      }
     },
   };
   if (_.post) {
@@ -1585,12 +1520,10 @@ function downloadImage(url, referer) {
       'Referer': referer,
     },
     onprogress: e => {
-      if (req !== _.req) {
+      if (req !== _.req)
         return;
-      }
-      if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5) {
+      if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
         bar = true;
-      }
       if (bar) {
         setBar(
           parseInt(e.loaded / e.total * 100) + '% of ' + (e.total / 1000000).toFixed(1) + ' MB',
@@ -1599,14 +1532,12 @@ function downloadImage(url, referer) {
     },
     onload: res => {
       try {
-        if (req !== _.req) {
+        if (req !== _.req)
           return;
-        }
         delete _.req;
         setBar(false);
-        if (res.status > 399) {
+        if (res.status > 399)
           throw 'HTTP error ' + res.status;
-        }
         let type;
         if (/Content-Type:\s*(.+)/i.exec(res.responseHeaders) &&
             !contains(RegExp.$1, 'text/plain')) {
@@ -1630,12 +1561,10 @@ function downloadImage(url, referer) {
           type = ext in types ? types[ext] : 'application/octet-stream';
         }
         let b = res.response;
-        if (b.type !== type) {
+        if (b.type !== type)
           b = b.slice(0, b.size, type);
-        }
-        if (URL && _.xhr !== 'data') {
+        if (URL && _.xhr !== 'data')
           return setPopup(URL.createObjectURL(b));
-        }
         const fr = new FileReader();
         fr.onload = () => {
           setPopup(fr.result);
@@ -1647,9 +1576,8 @@ function downloadImage(url, referer) {
       }
     },
     onerror: res => {
-      if (req === _.req) {
+      if (req === _.req)
         handleError(res);
-      }
     },
   });
 }
@@ -1661,9 +1589,8 @@ function findRedirect(url, cb) {
     method: 'HEAD',
     headers: {Referer: location.href.replace(location.hash, '')},
     onload: res => {
-      if (req === _.req) {
+      if (req === _.req)
         cb(res.finalUrl);
-      }
     },
   });
 }
@@ -1695,17 +1622,14 @@ function parsePage(url, cb) {
 
 function findNode(q, doc) {
   let node;
-  if (!q) {
+  if (!q)
     return;
-  }
-  if (!Array.isArray(q)) {
+  if (!Array.isArray(q))
     q = [q];
-  }
   for (let i = 0, len = q.length; i < len; i++) {
     node = qs(q[i], doc);
-    if (node) {
+    if (node)
       break;
-    }
   }
   return node;
 }
@@ -1725,29 +1649,24 @@ function findCaption(n) {
 
 function checkProgress(start) {
   if (start === true) {
-    if (checkProgress.interval) {
+    if (checkProgress.interval)
       clearInterval(checkProgress.interval);
-    }
     checkProgress.interval = setInterval(checkProgress, 150);
     return;
   }
   const p = _.popup;
-  if (!p) {
+  if (!p)
     return clearInterval(checkProgress.interval);
-  }
-  if (!updateSize()) {
+  if (!updateSize())
     return;
-  }
   clearInterval(checkProgress.interval);
   if (_.preloadStart) {
     const wait = _.preloadStart + cfg.delay - Date.now();
-    if (wait > 0) {
+    if (wait > 0)
       return _.timeout = setTimeout(checkProgress, wait);
-    }
   }
-  if (_.urls && _.urls.length && Math.max(_.nheight, _.nwidth) < 130) {
+  if (_.urls && _.urls.length && Math.max(_.nheight, _.nwidth) < 130)
     return handleError({type: 'error'});
-  }
   setStatus(false);
   p.clientHeight;
   p.className = 'mpiv-show';
@@ -1755,16 +1674,13 @@ function checkProgress(start) {
   updateScales();
   updateTitle();
   placePopup();
-  if (!_.bar) {
+  if (!_.bar)
     showFileInfo();
-  }
   _.large = _.nwidth > p.clientWidth + _.mbw || _.nheight > p.clientHeight + _.mbh;
-  if (_.large) {
+  if (_.large)
     setStatus('large');
-  }
-  if (cfg.imgtab && imgtab || cfg.zoom === 'auto') {
+  if (cfg.imgtab && imgtab || cfg.zoom === 'auto')
     toggleZoom();
-  }
 }
 
 function updateSize() {
@@ -1792,15 +1708,12 @@ function updateScales() {
   for (let i = scales.length; i--;) {
     const val = parseFloat(scales[i]) || fit;
     const opt = typeof scales[i] === 'string' ? scales[i].slice(-1) : 0;
-    if (opt === '!') {
+    if (opt === '!')
       cutoff = val;
-    }
-    if (opt === '*') {
+    if (opt === '*')
       _.zscale = val;
-    }
-    if (val !== _.scale) {
+    if (val !== _.scale)
       _.scales.push(val);
-    }
   }
   _.scales = _.scales.filter(x => x >= cutoff);
   _.scales.sort((a, b) => a - b);
@@ -1811,24 +1724,20 @@ function updateMouse(e) {
   _.cx = e.clientX;
   _.cy = e.clientY;
   const r = _.rect;
-  if (r) {
+  if (r)
     _.cr = _.cx < r.right + 2 && _.cx > r.left - 2 && _.cy < r.bottom + 2 && _.cy > r.top - 2;
-  }
 }
 
 function showFileInfo() {
   if (_.gItems) {
     const item = _.gItems[_.gIndex];
     let c = _.gItems.length > 1 ? '[' + (_.gIndex + 1) + '/' + _.gItems.length + '] ' : '';
-    if (_.gIndex === 0 && _.gItems.title && (!item.desc || !contains(item.desc, _.gItems.title))) {
+    if (_.gIndex === 0 && _.gItems.title && (!item.desc || !contains(item.desc, _.gItems.title)))
       c += _.gItems.title + (item.desc ? ' - ' : '');
-    }
-    if (item.desc) {
+    if (item.desc)
       c += item.desc;
-    }
-    if (c) {
+    if (c)
       setBar(c.trim(), 'gallery', true);
-    }
   } else if ('caption' in _) {
     setBar(_.caption, 'caption');
   } else if (_.tooltip) {
@@ -1838,22 +1747,19 @@ function showFileInfo() {
 
 function updateTitle(reset) {
   if (reset) {
-    if (typeof _.title === 'string') {
+    if (typeof _.title === 'string')
       d.title = _.title;
-    }
   } else {
-    if (typeof _.title !== 'string') {
+    if (typeof _.title !== 'string')
       _.title = d.title;
-    }
     d.title = Math.round(_.scale * 100) + '% - ' + _.nwidth + 'x' + _.nheight;
   }
 }
 
 function placePopup() {
   const p = _.popup;
-  if (!p) {
+  if (!p)
     return;
-  }
   let x = null;
   let y = null;
   const w = Math.round(_.scale * _.nwidth);
@@ -1867,14 +1773,12 @@ function placePopup() {
     const rx = (r.left + r.right) / 2;
     const ry = (r.top + r.bottom) / 2;
     if (vw - r.right - 40 > w + _.mbw || w + _.mbw < r.left - 40) {
-      if (h + _.mbh < vh - 60) {
+      if (h + _.mbh < vh - 60)
         y = Math.min(Math.max(ry - h / 2, 30), vh - h - 30);
-      }
       x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
     } else if (vh - r.bottom - 40 > h + _.mbh || h + _.mbh < r.top - 40) {
-      if (w + _.mbw < vw - 60) {
+      if (w + _.mbw < vw - 60)
         x = Math.min(Math.max(rx - w / 2, 30), vw - w - 30);
-      }
       y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
     }
   }
@@ -1900,25 +1804,21 @@ function placePopup() {
 
 function toggleZoom() {
   const p = _.popup;
-  if (!p || !_.scales || _.scales.length < 2) {
+  if (!p || !_.scales || _.scales.length < 2)
     return;
-  }
   _.zoom = !_.zoom;
   _.zoomed = true;
   _.scale =
     _.scales[_.zoom ? (_.scales.indexOf(_.zscale) > 0 ? _.scales.indexOf(_.zscale) : 1) : 0];
-  if (_.zooming) {
+  if (_.zooming)
     p.classList.add('mpiv-zooming');
-  }
   placePopup();
   updateTitle();
   setStatus(_.zoom ? 'zoom' : false);
-  if (cfg.zoom !== 'auto') {
+  if (cfg.zoom !== 'auto')
     setBar(false);
-  }
-  if (!_.zoom) {
+  if (!_.zoom)
     showFileInfo();
-  }
   return _.zoom;
 }
 
@@ -1932,18 +1832,14 @@ function handleError(o) {
         o)),
   ];
   try {
-    if (o.stack) {
+    if (o.stack)
       m.push(' @ ' + o.stack.replace(/<?@file:.+?\.js/g, ''));
-    }
-    if (_.r) {
+    if (_.r)
       m.push('RegExp: ' + _.r);
-    }
-    if (_.url) {
+    if (_.url)
       m.push('URL: ' + _.url);
-    }
-    if (_.iurl) {
+    if (_.iurl)
       m.push('File: ' + _.iurl);
-    }
     console.log(m.join('\n'));
   } catch (ex) {
   }
@@ -1969,12 +1865,10 @@ function setStatus(status, flag) {
   if (flag === 'remove') {
     cn = cn.replace('mpiv-' + status, '');
   } else {
-    if (flag !== 'add') {
+    if (flag !== 'add')
       cn = cn.replace(/mpiv-[a-z]+/g, '');
-    }
-    if (status && !contains(cn, 'mpiv-' + status)) {
+    if (status && !contains(cn, 'mpiv-' + status))
       cn += ' mpiv-' + status;
-    }
   }
   de.className = cn;
 }
@@ -1984,37 +1878,31 @@ function setPopup(src) {
   if (p) {
     _.zoom = false;
     off(p, 'error', handleError);
-    if (typeof p.pause === 'function') {
+    if (typeof p.pause === 'function')
       p.pause();
-    }
     if (!_.lazyUnload) {
-      if (p.src.substr(0, 5) === 'blob:') {
+      if (p.src.substr(0, 5) === 'blob:')
         URL.revokeObjectURL(p.src);
-      }
       p.src = '';
     }
     rm(p);
     delete _.popup;
   }
-  if (!src) {
+  if (!src)
     return;
-  }
   if (src.substr(0, 5) !== 'data:' && /\.(webm|mp4)($|\?)/.test(src) || src.substr(0, 10) ===
       'data:video') {
     const start = Date.now();
     let bar;
     const onProgress = e => {
       const p = e.target;
-      if (!p.duration || !p.buffered.length || Date.now() - start < 2000) {
+      if (!p.duration || !p.buffered.length || Date.now() - start < 2000)
         return;
-      }
       const per = parseInt(p.buffered.end(0) / p.duration * 100);
-      if (!bar && per > 0 && per < 50) {
+      if (!bar && per > 0 && per < 50)
         bar = true;
-      }
-      if (bar) {
+      if (bar)
         setBar(per + '% of ' + Math.round(p.duration) + 's', 'xhr');
-      }
     };
     p = _.popup = ce('video');
     p.autoplay = true;
@@ -2068,29 +1956,23 @@ function setBar(label, cn) {
 }
 
 function rel2abs(rel, abs) {
-  if (rel.substr(0, 5) === 'data:') {
+  if (rel.substr(0, 5) === 'data:')
     return rel;
-  }
   const re = /^([a-z]+:)\/\//;
-  if (re.test(rel)) {
+  if (re.test(rel))
     return rel;
-  }
-  if (!re.exec(abs)) {
+  if (!re.exec(abs))
     return;
-  }
-  if (rel.indexOf('//') === 0) {
+  if (rel.indexOf('//') === 0)
     return RegExp.$1 + rel;
-  }
-  if (rel[0] === '/') {
+  if (rel[0] === '/')
     return abs.substr(0, abs.indexOf('/', RegExp.lastMatch.length)) + rel;
-  }
   return abs.substr(0, abs.lastIndexOf('/')) + '/' + rel;
 }
 
 function replace(s, m) {
-  if (!m) {
+  if (!m)
     return s;
-  }
   if (s.charAt(0) === '/' && s.charAt(1) !== '/') {
     const mid = /[^\\]\//.exec(s).index + 1;
     const end = s.lastIndexOf('/');
@@ -2120,14 +2002,12 @@ function styleSum(s, p) {
 function findScale(url, parent) {
   const imgs = qsa('img, video', parent);
   for (var i = imgs.length, img; i-- && (img = imgs[i]);) {
-    if (img.src !== url) {
+    if (img.src !== url)
       continue;
-    }
     const s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
       (img.naturalWidth || img.videoWidth) / img.offsetWidth);
-    if (isFinite(s)) {
+    if (isFinite(s))
       return s;
-    }
   }
 }
 
@@ -2144,16 +2024,14 @@ function rect(node, q) {
   if (q) {
     n = node;
     while (tag(n = n.parentNode) !== 'BODY') {
-      if (matches(n, q)) {
+      if (matches(n, q))
         return n.getBoundingClientRect();
-      }
     }
   }
   const nodes = qsa('*', node);
   for (let i = nodes.length; i-- && (n = nodes[i]);) {
-    if (n.offsetHeight > node.offsetHeight) {
+    if (n.offsetHeight > node.offsetHeight)
       node = n;
-    }
   }
   return node.getBoundingClientRect();
 }
@@ -2161,16 +2039,14 @@ function rect(node, q) {
 function matches(n, q) {
   const p = Element.prototype;
   const m = p.matches || p.mozMatchesSelector || p.webkitMatchesSelector || p.oMatchesSelector;
-  if (m) {
+  if (m)
     return m.call(n, q);
-  }
 }
 
 function closest(n, q) {
   while (n) {
-    if (matches(n, q)) {
+    if (matches(n, q))
       return n;
-    }
     n = n.parentNode;
   }
 }
@@ -2184,9 +2060,8 @@ function createDoc(text) {
 }
 
 function rm(n) {
-  if (n) {
+  if (n)
     n.remove();
-  }
 }
 
 function on(n, e, f) {
@@ -2226,9 +2101,8 @@ function setup() {
 
   function close() {
     rm($('setup'));
-    if (!contains(trusted, hostname)) {
+    if (!contains(trusted, hostname))
       off(wn, 'message', onMessage);
-    }
   }
 
   function update() {
@@ -2272,9 +2146,8 @@ function setup() {
   function imp(e) {
     drop(e);
     const s = prompt('Paste settings:');
-    if (!s) {
+    if (!s)
       return;
-    }
     init(fixCfg(s));
   }
 
@@ -2301,13 +2174,11 @@ function setup() {
   function getCfg() {
     const cfg = {};
     const delay = parseInt($('delay').value);
-    if (!isNaN(delay) && delay >= 0) {
+    if (!isNaN(delay) && delay >= 0)
       cfg.delay = delay;
-    }
     const scale = parseFloat($('scale').value.replace(',', '.'));
-    if (!isNaN(scale)) {
+    if (!isNaN(scale))
       cfg.scale = Math.max(1, scale);
-    }
     cfg.start =
       $('start-context').selected ? 'context' : ($('start-ctrl').selected ? 'ctrl' : 'auto');
     cfg.zoom =
@@ -2329,9 +2200,8 @@ function setup() {
     const lines = [];
     for (let i = 0; i < inps.length; i++) {
       const s = inps[i].value.trim();
-      if (s) {
+      if (s)
         lines.push(s);
-      }
     }
     lines.sort();
     cfg.hosts = lines.join('\n');
@@ -2340,9 +2210,8 @@ function setup() {
 
   function init(cfg) {
     close();
-    if (!contains(trusted, hostname)) {
+    if (!contains(trusted, hostname))
       on(wn, 'message', onMessage);
-    }
     // language=CSS
     addStyle(`
       #mpiv-setup {
@@ -2542,9 +2411,8 @@ function setup() {
         };
         on(se, 'input', sf);
         se.value = setup.search || '';
-        if (se.value) {
+        if (se.value)
           sf();
-        }
         se.style.display = '';
       }
     }
@@ -2641,9 +2509,8 @@ addStyle(`
 on(d, 'mouseover', onMouseOver);
 if (contains(hostname, 'google')) {
   var node = d.getElementById('main');
-  if (node) {
+  if (node)
     on(node, 'mouseover', onMouseOver);
-  }
 } else if (contains(trusted, hostname)) {
   on(wn, 'message', onMessage);
   on(d, 'click', e => {
