@@ -305,7 +305,7 @@ function loadHosts() {
     },
     {
       r: /imagebam\.com\/image\//,
-      q: 'img[id]',
+      q: 'meta[property="og:image"]',
       tabfix: true,
       xhr: contains(hostname, 'planetsuzy'),
     },
