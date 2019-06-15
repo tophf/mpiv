@@ -1354,7 +1354,7 @@ function activate(node, force) {
   on(d, 'contextmenu', onContext);
   on(d, 'keydown', onKeyDown);
   on(d, 'keyup', onKeyUp);
-  on(d, 'onwheel' in d ? 'wheel' : 'mousewheel', onMouseScroll);
+  on(d, 'onwheel' in d ? 'wheel' : 'mousewheel', onMouseScroll, {passive: false});
   return true;
 }
 
@@ -2095,8 +2095,8 @@ function rm(n) {
     n.remove();
 }
 
-function on(n, e, f) {
-  n.addEventListener(e, f);
+function on(n, e, f, options) {
+  n.addEventListener(e, f, options);
 }
 
 function off(n, e, f) {
