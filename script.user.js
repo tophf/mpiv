@@ -2230,7 +2230,6 @@ function setup() {
         padding: 20px 30px;
         background: #eee;
         width: 640px;
-        max-height: calc(100vh - 100px);
         border: 1px solid black;
         display: flex;
         flex-direction: column;
@@ -2251,6 +2250,7 @@ function setup() {
         text-decoration: underline !important;
       }
       #mpiv-setup ul {
+        max-height: calc(100vh - 200px);
         margin: 10px 0 15px 0;
         padding: 0;
         list-style: none;
