@@ -24,23 +24,110 @@
 // ==/UserScript==
 
 'use strict';
+/*
+global unsafeWindow
+global GM_getValue
+global GM_setValue
+global GM_xmlhttpRequest
+global GM_openInTab
+global GM_registerMenuCommand
+global GM_setClipboard
+*/
+/* eslint-disable no-eval, no-new-func */
+/* eslint camelcase: [2, {properties: never, allow: ["^GM_\w+"]}] */
 
-var d = document;
-var wn = window;
-var hostname = location.hostname;
-var trusted = ['greasyfork.org', 'w9p.co'];
-var imgtab = d.images.length === 1 && d.images[0].parentNode === d.body && !d.links.length;
-var cfg = loadCfg();
-var enabled = cfg.imgtab || !imgtab;
-var _ = {};
-var hosts;
+const d = document;
+const hostname = location.hostname;
+const trusted = ['greasyfork.org', 'w9p.co'];
+const imgtab = d.images.length === 1 && d.images[0].parentNode === d.body && !d.links.length;
+
+let cfg = loadCfg();
+let enabled = cfg.imgtab || !imgtab;
+let _ = {};
+let hosts;
+
+on(d, 'mouseover', onMouseOver);
+
+if (contains(hostname, 'google')) {
+  const node = d.getElementById('main');
+  if (node)
+    on(node, 'mouseover', onMouseOver);
+} else if (contains(trusted, hostname)) {
+  on(window, 'message', onMessage);
+  on(d, 'click', e => {
+    const t = e.target;
+    if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
+        !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
+      return;
+    }
+    postMessage('mpiv-rule ' + t.textContent, '*');
+    e.preventDefault();
+  });
+}
+
+addStyle(/*language=CSS*/ `
+  #mpiv-bar {
+    position: fixed;
+    z-index: 2147483647;
+    left: 0;
+    right: 0;
+    top: 0;
+    transform: scaleY(0);
+    -webkit-transform: scaleY(0);
+    transform-origin: top;
+    -webkit-transform-origin: top;
+    transition: transform 500ms ease 1000ms;
+    -webkit-transition: -webkit-transform 500ms ease 1000ms;
+    text-align: center;
+    font-family: sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 4px 10px;
+  }
+  #mpiv-bar.mpiv-show {
+    transform: scaleY(1);
+    -webkit-transform: scaleY(1);
+  }
+  #mpiv-popup.mpiv-show {
+    display: inline;
+  }
+  #mpiv-popup {
+    display: none;
+    border: 1px solid gray;
+    box-sizing: content-box;
+    background-color: white;
+    position: fixed;
+    z-index: 2147483647;
+    margin: 0;
+    max-width: none;
+    max-height: none;
+    will-change: display, width, height, left, top;
+    cursor: none;
+  }
+  .mpiv-loading:not(.mpiv-preloading) * {
+    cursor: wait !important;
+  }
+  .mpiv-edge #mpiv-popup {
+    cursor: default;
+  }
+  .mpiv-error * {
+    cursor: not-allowed !important;
+  }
+  .mpiv-ready *, .mpiv-large * {
+    cursor: zoom-in !important;
+  }
+  .mpiv-shift * {
+    cursor: default !important;
+  }
+`);
 
 function loadCfg() {
   return fixCfg(GM_getValue('cfg'), true);
 }
 
 function fixCfg(s, save) {
-  let cfg;
   const def = {
     version: 5,
     delay: 500,
@@ -56,10 +143,10 @@ function fixCfg(s, save) {
     scale: 1.5,
     xhr: true,
   };
+  let cfg;
   try {
     cfg = JSON.parse(s);
-  } catch (ex) {
-  }
+  } catch (ex) {}
   if (typeof cfg !== 'object' || !cfg) {
     cfg = {};
   } else if (cfg.version === def.version) {
@@ -89,794 +176,682 @@ function saveCfg(newCfg) {
 function loadHosts() {
   const re = (str, flags) => new RegExp(str, flags);
   const join = sites => sites.join('|').replace(/\./g, '\\.');
-  const hosts = [
-    {
-      d: 'startpage',
-      r: /\boiu=(.+)/,
-      s: '$1',
-      follow: true,
+  const hosts = [{
+    d: 'startpage',
+    r: /\boiu=(.+)/,
+    s: '$1',
+    follow: true,
+  }, {
+    r: /[/?=](https?.+?)(&|$)/,
+    s: '$1',
+    follow: true,
+  }, {
+    d: '4chan.org',
+    e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
+    q: '.op .fileText a',
+    css: '#post-preview{display:none}',
+  }, {
+    r: /500px\.com\/photo\//,
+    q: 'meta[property="og:image"]',
+  }, {r: /attachment\.php.+attachmentid/},
+  {
+    r: /abload\.de\/image/,
+    q: '#image',
+  }, {
+    d: 'amazon.',
+    r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
+    s: m => {
+      const uh = d.getElementById('universal-hover');
+      return uh ? '' : m[1] + '.jpg';
     },
-    {
-      r: /[/?=](https?.+?)(&|$)/,
-      s: '$1',
-      follow: true,
+    css: '#zoomWindow{display:none!important;}',
+  }, {
+    r: /(chronos\.to|coreimg\.net)\/t\/([0-9]+)\/([0-9]+)\/([a-z0-9]+)/,
+    s: 'http://i$2.$1/i/$3/$4.jpg',
+  }, {
+    r: /de?pic\.me\/[0-9a-z]{8,}/,
+    q: '#pic',
+  }, {
+    r: /deviantart\.com\/art\//,
+    s: (m, node) =>
+      /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
+        '' :
+        m.input,
+    q: [
+      '#download-button[href*=".jpg"]',
+      '#download-button[href*=".jpeg"]',
+      '#download-button[href*=".gif"]',
+      '#download-button[href*=".png"]',
+      '#gmi-ResViewSizer_fullimg',
+      'img.dev-content-full',
+    ],
+  }, {
+    r: /disqus\.com/,
+    s: '',
+  }, {
+    r: /dropbox\.com\/sh?\/.+\.(jpe?g|gif|png)/i,
+    q: (text, doc) => {
+      const i = qs('img.absolute-center', doc);
+      return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
     },
-    {
-      d: '4chan.org',
-      e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
-      q: '.op .fileText a',
-      css: '#post-preview{display:none}',
-    },
-    {
-      r: /500px\.com\/photo\//,
-      q: 'meta[property="og:image"]',
-    },
-    {r: /attachment\.php.+attachmentid/},
-    {
-      r: /abload\.de\/image/,
-      q: '#image',
-    },
-    {
-      d: 'amazon.',
-      r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
-      s: m => {
-        const uh = d.getElementById('universal-hover');
-        return uh ? '' : m[1] + '.jpg';
-      },
-      css: '#zoomWindow{display:none!important;}',
-    },
-    {
-      r: /(chronos\.to|coreimg\.net)\/t\/([0-9]+)\/([0-9]+)\/([a-z0-9]+)/,
-      s: 'http://i$2.$1/i/$3/$4.jpg',
-    },
-    {
-      r: /de?pic\.me\/[0-9a-z]{8,}/,
-      q: '#pic',
-    },
-    {
-      r: /deviantart\.com\/art\//,
-      s: (m, node) =>
-        /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
-          '' :
-          m.input,
-      q: [
-        '#download-button[href*=".jpg"]',
-        '#download-button[href*=".jpeg"]',
-        '#download-button[href*=".gif"]',
-        '#download-button[href*=".png"]',
-        '#gmi-ResViewSizer_fullimg',
-        'img.dev-content-full',
-      ],
-    },
-    {
-      r: /disqus\.com/,
-      s: '',
-    },
-    {
-      r: /dropbox\.com\/sh?\/.+\.(jpe?g|gif|png)/i,
-      q: (text, doc) => {
-        const i = qs('img.absolute-center', doc);
-        return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
-      },
-    },
-    {
-      d: 'dropbox.com',
-      r: /(.+?&size_mode)=\d+(.*)/,
-      s: '$1=5$2',
-    },
-    {
-      r: /ebay\.[^\/]+\/itm\//,
-      q: text =>
-        text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
-          .replace(/~~60_\d+/, '~~60_57'),
-    },
-    {
-      r: /i.ebayimg.com/,
-      s: (m, node) =>
-        qs('.zoom_trigger_mask', node.parentNode) ?
-          '' :
-          m.input.replace(/~~60_\d+/, '~~60_57'),
-    },
-    {
-      r: /fastpic\.ru\/view\//,
-      q: '#image',
-    },
-    {
-      d: 'facebook.com',
-      e: 'a[href*="ref=hovercard"]',
-      s: (m, node) =>
-        'https://www.facebook.com/photo.php?fbid=' +
-        /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
-      follow: true,
-    },
-    {
-      d: 'facebook.com',
-      r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
-      s: (m, node) =>
-        contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
-          '' :
-          decodeURIComponent(m[4]),
-      html: true,
-      follow: true,
-    },
-    {
-      r: /facebook\.com\/(photo\.php|[^\/]+\/photos\/)/,
-      s: (m, node) =>
-        node.id === 'fbPhotoImage' ? false :
+  }, {
+    d: 'dropbox.com',
+    r: /(.+?&size_mode)=\d+(.*)/,
+    s: '$1=5$2',
+  }, {
+    r: /ebay\.[^/]+\/itm\//,
+    q: text =>
+      text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
+        .replace(/~~60_\d+/, '~~60_57'),
+  }, {
+    r: /i.ebayimg.com/,
+    s: (m, node) =>
+      qs('.zoom_trigger_mask', node.parentNode) ?
+        '' :
+        m.input.replace(/~~60_\d+/, '~~60_57'),
+  }, {
+    r: /fastpic\.ru\/view\//,
+    q: '#image',
+  }, {
+    d: 'facebook.com',
+    e: 'a[href*="ref=hovercard"]',
+    s: (m, node) =>
+      'https://www.facebook.com/photo.php?fbid=' +
+      /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
+    follow: true,
+  }, {
+    d: 'facebook.com',
+    r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
+    s: (m, node) =>
+      contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
+        '' :
+        decodeURIComponent(m[4]),
+    html: true,
+    follow: true,
+  }, {
+    r: /facebook\.com\/(photo\.php|[^/]+\/photos\/)/,
+    s: (m, node) =>
+      node.id === 'fbPhotoImage' ? false :
         /gradient\.png$/.test(m.input) ? '' :
           m.input.replace('www.facebook.com', 'mbasic.facebook.com'),
-      q: 'div + span > a:first-child:not([href*="tag_faces"]), div + span > a[href*="tag_faces"] ~ a',
-      rect: '#fbProfileCover',
-    },
-    {
-      r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
-      s: m => {
-        if (/[.^]facebook\.com$/.test(hostname)) {
-          try {
-            return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
-          } catch (ex) {}
-        }
-        return false;
-      },
-      manual: true,
-    },
-    {
-      r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
-      s: (m, node) => {
-        if (node.id === 'fbPhotoImage') {
-          const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
-          if (a)
-            return contains(a.href, m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
-        }
-        if (m[4])
-          return false;
-        if (contains(node.parentNode.outerHTML, '/hovercard/'))
-          return '';
-        const gp = node.parentNode.parentNode;
-        if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo'))
-          return false;
-        return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
-      },
-      rect: '.photoWrap',
-    },
-    {
-      r: /firepic\.org\/\?v=/,
-      q: '.well img[src*="firepic.org"]',
-    },
-    {
-      r: /flickr\.com\/photos\/([0-9]+@N[0-9]+|[a-z0-9_\-]+)\/([0-9]+)/,
-      s: m =>
-        m.input.indexOf('/sizes/') < 0 ?
-          `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
-          false,
-      q: (text, doc) =>
-        'https://www.flickr.com' + qsa('.sizes-list a', doc).pop().getAttribute('href'),
-      follow: true,
-    },
-    {
-      r: /flickr\.com\/photos\/.+\/sizes\//,
-      q: '#allsizes-photo > img',
-    },
-    {
-      r: /gallery(nova|sense)\.se\/site\/v\//,
-      q: 'a[href*="/upload/"]',
-    },
-    {
-      r: /gifbin\.com\/.+\.gif$/,
-      xhr: true,
-    },
-    {
-      r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
-      s: 'https://$1$3',
-      q: ['meta[content$=".webm"]', '#webmsource', 'source[src$=".webm"]'],
-    },
-    {
-      r: /googleusercontent\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
-      s: m =>
-        m[2] ?
-          decodeURIComponent(m[2]) :
-          m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
-    },
-    {
-      r: /(googleusercontent|ggpht)\.com\//,
-      s: (m, node) =>
-        contains(m.input, 'webcache.') ||
-        node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
-        matches(node, '.g-hovercard *, a[href*="profile_redirector"] > img') ?
-          '' :
-          m.input.replace(/\/s\d{2,}-[^\/]+|\/w\d+-h\d+/, '/s0').replace(/=[^\/]+$/, ''),
-    },
-    {
-      r: /heberger-image\.fr\/images/,
-      q: '#myimg',
-    },
-    {
-      r: /hostingkartinok\.com\/show-image\.php.*/,
-      q: '.image img',
-    },
-    {
-      r: /imagearn\.com\/image/,
-      q: '#img',
-      xhr: true,
-    },
-    {
-      r: /imagefap\.com\/(image|photo)/,
-      q: (text, doc) => qs('*[itemprop="contentUrl"]', doc).textContent,
-    },
-    {
-      r: /imagebam\.com\/image\//,
-      q: 'meta[property="og:image"]',
-      tabfix: true,
-      xhr: contains(hostname, 'planetsuzy'),
-    },
-    {
-      r: re(join([
-        'cweb-pix.com',
-        'imageban.(ru|net)/show',
-        '(imagebunk|imagewaste).com/(image|pictures/[0-9]+)',
-        'imgnova.com',
-      ])),
-      q: '#img_obj',
-      xhr: true,
-    },
-    {
-      r: re(`(${join([
-        'freeimgup.com/xxx',
-        'imagepdb.com',
-        'imgsure.com',
-        'imgwiki.org',
-        'www.pixoverflow.com',
-      ])})/\\?v=([0-9]+$|.+(?=\\.[a-z]+))`),
-      s: 'http://$1/images/$2.jpg',
-      xhr: true,
-    },
-    {
-      r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
-      s: 'https://$2/download/$1/$3$4',
-    },
-    {
-      r: /imageshack\.us\/i\//,
-      q: '#share-dl',
-    },
-    {
-      r: /imageshost\.ru\/photo\//i,
-      q: '#bphoto',
-    },
-    {
-      r: /imageteam\.org\/img/,
-      q: 'img[alt="image"]',
-    },
-    {
-      r: /(imagetwist\.com|imageshimage\.com|imgflare\.com|imgearn\.net)\/[a-z0-9]{8,}/,
-      q: 'img.pic',
-      xhr: true,
-    },
-    {
-      r: /imageupper\.com\/i\//,
-      q: '#img',
-      xhr: true,
-    },
-    {
-      r: /imagepix\.org\/image\/(.+)\.html$/,
-      s: 'http://imagepix.org/full/$1.jpg',
-      xhr: true,
-    },
-    {
-      r: /imageporter\.com\/i\//,
-      s: '/_t//',
-      xhr: true,
-    },
-    {
-      r: /imagevenue\.com\/img\.php/,
-      q: '#thepic',
-    },
-    {
-      r: /imagezilla\.net\/show\//,
-      q: '#photo',
-      xhr: true,
-    },
-    {
-      r: /(images-na\.ssl-images-amazon.com|media-imdb\.com)\/images\/.+?\.jpg/,
-      s: '/V1\\.?_.+?\\.//g',
-      distinct: true,
-    },
-    {
-      r: /imgbox\.com\/([a-z0-9]+)$/i,
-      q: '#img',
-      xhr: hostname !== 'imgbox.com',
-    },
-    {
-      r: /imgchili\.(net|com)\/show/,
-      q: '#show_image',
-      xhr: true,
-    },
-    {
-      r: re(`(${join([
-        'hosturimage.com',
-        'imageboom.net',
-        'imageon.org',
-        'imageontime.org',
-        'img.yt',
-        'img4ever.net',
-        'imgcandy.net',
-        'imgcredit.xyz',
-        'imgdevil.com',
-        'imggoo.com',
-        'imgrun.net',
-        'imgtrial.com',
-        'imgult.com',
-        'imgwel.com',
-        'picspornfree.me',
-        'pixliv.com',
-        'pixxx.me',
-        'uplimg.com',
-        'xxxscreens.com',
-        'xxxupload.org',
-      ])})/img-|imgbb\\.net/v-`),
-      s: m =>
-        m.input
-          .replace(/\/(v-[0-9a-f]+)_.+/, '$1')
-          .replace('http://img.yt', 'https://img.yt'),
-      q: ['img.centred_resized, #image', 'img[src*="/upload/big/"]'],
-      xhr: true,
-      post: 'imgContinue=Continue%20to%20image%20...%20',
-    },
-    {
-      r: re(`(${join([
-        'foxyimg.link',
-        'imageeer.com',
-        'imgclick.net',
-        'imgdiamond.com',
-        'imgdragon.com',
-        'imgmaid.net',
-        'imgmega.com',
-        'imgpaying.com',
-        'imgsee.me',
-        'imgtiger.org',
-        'imgtrex.com',
-        'pic-maniac.com',
-        'picexposed.com',
-      ])})/([a-z0-9]+)`),
-      q: 'img.pic',
-      xhr: true,
-      post: m => `op=view&id=${m[2]}&pre=1&submit=Continue%20to%20image...`,
-    },
-    {
-      r: /imgflip\.com\/(i|gif)\/([^\/?#]+)/,
-      s: m => `https://i.imgflip.com/${m[2]}${m[1] === 'i' ? '.jpg' : '.mp4'}`,
-    },
-    {
-      r: /imgsen\.se\/upload\//,
-      s: '/small/big/',
-      xhr: false,
-    },
-    {
-      r: /imgtheif\.com\/image\//,
-      q: 'a > img[src*="/pictures/"]',
-    },
-    {
-      r: /imgur\.com\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
-      s: m => `https://imgur.com/${m[1]}/${m[2]}${m[3] || ''}`,
-      g: (text, url, cb) => {
-        const mk = (o, imgs) => {
-          const items = [];
-          if (!o || !imgs)
-            return items;
-          for (const cur of imgs) {
-            let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
-            if (cur.ext === '.gif' && !(cur.animated === false))
-              iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
-            items.push({
-              url: iu,
-              desc: cur.title && cur.description ?
-                cur.title + ' - ' + cur.description :
-                (cur.title || cur.description),
-            });
-          }
-          if (o.is_album && !contains(items[0].desc, o.title))
-            items.title = o.title;
-          return items;
-        };
-        const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(text);
-        const o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
-          .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
-        const o = o1.image || o1.album;
-        const imgs = o.is_album ? o.album_images.images : [o];
-        if (!o.num_images || o.num_images <= imgs.length)
-          return mk(o, imgs);
-        GM_xmlhttpRequest({
-          method: 'GET',
-          url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
-          onload: res => {
-            let imgs;
-            try {
-              imgs = JSON.parse(res.responseText).data.images;
-            } catch (ex) {}
-            cb(mk(o, imgs));
-          },
-        });
-      },
-      css: '.post > .hover { display:none!important; }',
-    },
-    {
-      r: /imgur\.com\/.+,/i,
-      g: (text, url) =>
-        /.+\/([a-z0-9,]+)/i
-          .exec(url)[1]
-          .split(',')
-          .map(id => ({
-            url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
-          })),
-    },
-    {
-      r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
-      s: (m, node) => {
-        if (/memegen|random|register|search|signin/.test(m.input))
-          return '';
-        if (/(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/
-            .test(node.parentNode.href || node.parentNode.parentNode.href))
-          return false;
-        const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
-                  m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
-                  (m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg');
-        return contains(url, '.webm') ?
-          [url, url.replace('.webm', '.mp4'), url.replace('.webm', '.gif')] :
-          url;
-      },
-    },
-    (() => {
-      const LINK_SEL = 'a[href*="/p/"]';
-      const getInstagramData = node => {
-        const n = closest(node, `${LINK_SEL}, article`);
-        if (!n)
-          return;
-        const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
-        if (!a)
-          return;
+    q: 'div + span > a:first-child:not([href*="tag_faces"]), div + span > a[href*="tag_faces"] ~ a',
+    rect: '#fbProfileCover',
+  }, {
+    r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
+    s: m => {
+      if (/[.^]facebook\.com$/.test(hostname)) {
         try {
-          const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
-          return {
-            a,
-            data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
-              .graphql.user.edge_owner_to_timeline_media.edges
-              .find(e => e.node.shortcode === shortcode)
-              .node,
-          };
-        } catch (e) {}
-        return {a};
+          return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
+        } catch (ex) {}
       }
-      const RULE = {
-        d: 'instagram.com',
-        e: [
-          LINK_SEL,
-          'a[role="button"][data-reactid*="scontent-"]',
-          'article div',
-          'article div div img',
-        ],
-        s: (m, node) => {
-          const {a, data} = getInstagramData(node) || {};
-          RULE.follow = !data;
-          return (
-            !a ? false :
-              !data ? a.href :
-                data.video_url || data.display_url.replace(/\/[sp]\d+x\d+\//, '/'));
-        },
-        c: (html, doc, node) => {
-          try {
-            return getInstagramData(node).data.edge_media_to_caption.edges[0].node.text;
-          } catch (e) {
-            return '';
-          }
-        },
-        follow: true,
-      };
-      return RULE;
-    })(),
-    {
-      r: /instagr(\.am|am\.com)\/p\//i,
-      s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
-      q: text => {
-        const m = JSON.parse(text).graphql.shortcode_media;
-        return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/');
-      },
-      rect: 'div.PhotoGridMediaItem',
-      c: text => {
-        const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
-        return m === undefined ? '(no caption)' : m.node.text;
-      },
+      return false;
     },
-    {
-      r: /(istoreimg\.com\/i|itmages\.ru\/image\/view)\//,
-      q: '#image',
+    manual: true,
+  }, {
+    r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
+    s: (m, node) => {
+      if (node.id === 'fbPhotoImage') {
+        const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', d.body);
+        if (a)
+          return contains(a.href, m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
+      }
+      if (m[4])
+        return false;
+      if (contains(node.parentNode.outerHTML, '/hovercard/'))
+        return '';
+      const gp = node.parentNode.parentNode;
+      if (contains(node.outerHTML, 'profile') && contains(gp.href, '/photo'))
+        return false;
+      return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
     },
-    {
-      d: 'kat.cr',
-      r: /confirm\/url\/([^\/]+)/,
-      s: m => atob(decodeURIComponent(m[1])),
-      follow: true,
-    },
-    {
-      r: /(lazygirls\.info\/.+_.+?\/[a-z0-9_]+)($|\?)/i,
-      s: 'http://www.$1?display=fullsize',
-      q: 'img.photo',
-      xhr: hostname !== 'www.lazygirls.info',
-    },
-    {
-      r: /ld-host\.de\/show/,
-      q: '#image',
-    },
-    {
-      r: /(listal|lisimg)\.com\/(view)?image\/([0-9]+)/,
-      s: 'http://iv1.lisimg.com/image/$3/0full.jpg',
-    },
-    {
-      r: /(livememe\.com|lvme\.me)\/([^.]+)$/,
-      s: 'http://i.lvme.me/$2.jpg',
-    },
-    {
-      r: /lostpic\.net\/\?(photo|view)/,
-      q: ['#cool > img', '.casem img'],
-    },
-    {
-      r: /makeameme\.org\/meme\/([^\/?#]+)/,
-      s: 'https://media.makeameme.org/created/$1.jpg',
-    },
-    {
-      r: /modelmayhem\.com\/photos\//,
-      s: '/_m//',
-    },
-    {
-      r: /modelmayhem\.com\/avatars\//,
-      s: '/_t/_m/',
-    },
-    {
-      r: /(min\.us|minus\.com)\/(i\/|l)([a-z0-9]+)$/i,
-      s: 'https://i.minus.com/i$3.jpg',
-    },
-    {
-      r: /(min\.us|minus\.com)\/m[a-z0-9]+$/i,
-      g: text => {
-        const m = /gallerydata = ({[\w\W]+?});/.exec(text);
-        const o = JSON.parse(m[1]);
+    rect: '.photoWrap',
+  }, {
+    r: /firepic\.org\/\?v=/,
+    q: '.well img[src*="firepic.org"]',
+  }, {
+    r: /flickr\.com\/photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
+    s: m =>
+      m.input.indexOf('/sizes/') < 0 ?
+        `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
+        false,
+    q: (text, doc) =>
+      'https://www.flickr.com' + qsa('.sizes-list a', doc).pop().getAttribute('href'),
+    follow: true,
+  }, {
+    r: /flickr\.com\/photos\/.+\/sizes\//,
+    q: '#allsizes-photo > img',
+  }, {
+    r: /gallery(nova|sense)\.se\/site\/v\//,
+    q: 'a[href*="/upload/"]',
+  }, {
+    r: /gifbin\.com\/.+\.gif$/,
+    xhr: true,
+  }, {
+    r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
+    s: 'https://$1$3',
+    q: ['meta[content$=".webm"]', '#webmsource', 'source[src$=".webm"]'],
+  }, {
+    r: /googleusercontent\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
+    s: m =>
+      m[2] ?
+        decodeURIComponent(m[2]) :
+        m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
+  }, {
+    r: /(googleusercontent|ggpht)\.com\//,
+    s: (m, node) =>
+      contains(m.input, 'webcache.') ||
+      node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
+      matches(node, '.g-hovercard *, a[href*="profile_redirector"] > img') ?
+        '' :
+        m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0').replace(/=[^/]+$/, ''),
+  }, {
+    r: /heberger-image\.fr\/images/,
+    q: '#myimg',
+  }, {
+    r: /hostingkartinok\.com\/show-image\.php.*/,
+    q: '.image img',
+  }, {
+    r: /imagearn\.com\/image/,
+    q: '#img',
+    xhr: true,
+  }, {
+    r: /imagefap\.com\/(image|photo)/,
+    q: (text, doc) => qs('*[itemprop="contentUrl"]', doc).textContent,
+  }, {
+    r: /imagebam\.com\/image\//,
+    q: 'meta[property="og:image"]',
+    tabfix: true,
+    xhr: contains(hostname, 'planetsuzy'),
+  }, {
+    r: re(join([
+      'cweb-pix.com',
+      'imageban.(ru|net)/show',
+      '(imagebunk|imagewaste).com/(image|pictures/[0-9]+)',
+      'imgnova.com',
+    ])),
+    q: '#img_obj',
+    xhr: true,
+  }, {
+    r: re(`(${join([
+      'freeimgup.com/xxx',
+      'imagepdb.com',
+      'imgsure.com',
+      'imgwiki.org',
+      'www.pixoverflow.com',
+    ])})/\\?v=([0-9]+$|.+(?=\\.[a-z]+))`),
+    s: 'http://$1/images/$2.jpg',
+    xhr: true,
+  }, {
+    r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
+    s: 'https://$2/download/$1/$3$4',
+  }, {
+    r: /imageshack\.us\/i\//,
+    q: '#share-dl',
+  }, {
+    r: /imageshost\.ru\/photo\//i,
+    q: '#bphoto',
+  }, {
+    r: /imageteam\.org\/img/,
+    q: 'img[alt="image"]',
+  }, {
+    r: /(imagetwist\.com|imageshimage\.com|imgflare\.com|imgearn\.net)\/[a-z0-9]{8,}/,
+    q: 'img.pic',
+    xhr: true,
+  }, {
+    r: /imageupper\.com\/i\//,
+    q: '#img',
+    xhr: true,
+  }, {
+    r: /imagepix\.org\/image\/(.+)\.html$/,
+    s: 'http://imagepix.org/full/$1.jpg',
+    xhr: true,
+  }, {
+    r: /imageporter\.com\/i\//,
+    s: '/_t//',
+    xhr: true,
+  }, {
+    r: /imagevenue\.com\/img\.php/,
+    q: '#thepic',
+  }, {
+    r: /imagezilla\.net\/show\//,
+    q: '#photo',
+    xhr: true,
+  }, {
+    r: /(images-na\.ssl-images-amazon.com|media-imdb\.com)\/images\/.+?\.jpg/,
+    s: '/V1\\.?_.+?\\.//g',
+    distinct: true,
+  }, {
+    r: /imgbox\.com\/([a-z0-9]+)$/i,
+    q: '#img',
+    xhr: hostname !== 'imgbox.com',
+  }, {
+    r: /imgchili\.(net|com)\/show/,
+    q: '#show_image',
+    xhr: true,
+  }, {
+    r: re(`(${join([
+      'hosturimage.com',
+      'imageboom.net',
+      'imageon.org',
+      'imageontime.org',
+      'img.yt',
+      'img4ever.net',
+      'imgcandy.net',
+      'imgcredit.xyz',
+      'imgdevil.com',
+      'imggoo.com',
+      'imgrun.net',
+      'imgtrial.com',
+      'imgult.com',
+      'imgwel.com',
+      'picspornfree.me',
+      'pixliv.com',
+      'pixxx.me',
+      'uplimg.com',
+      'xxxscreens.com',
+      'xxxupload.org',
+    ])})/img-|imgbb\\.net/v-`),
+    s: m =>
+      m.input
+        .replace(/\/(v-[0-9a-f]+)_.+/, '$1')
+        .replace('http://img.yt', 'https://img.yt'),
+    q: ['img.centred_resized, #image', 'img[src*="/upload/big/"]'],
+    xhr: true,
+    post: 'imgContinue=Continue%20to%20image%20...%20',
+  }, {
+    r: re(`(${join([
+      'foxyimg.link',
+      'imageeer.com',
+      'imgclick.net',
+      'imgdiamond.com',
+      'imgdragon.com',
+      'imgmaid.net',
+      'imgmega.com',
+      'imgpaying.com',
+      'imgsee.me',
+      'imgtiger.org',
+      'imgtrex.com',
+      'pic-maniac.com',
+      'picexposed.com',
+    ])})/([a-z0-9]+)`),
+    q: 'img.pic',
+    xhr: true,
+    post: m => `op=view&id=${m[2]}&pre=1&submit=Continue%20to%20image...`,
+  }, {
+    r: /imgflip\.com\/(i|gif)\/([^/?#]+)/,
+    s: m => `https://i.imgflip.com/${m[2]}${m[1] === 'i' ? '.jpg' : '.mp4'}`,
+  }, {
+    r: /imgsen\.se\/upload\//,
+    s: '/small/big/',
+    xhr: false,
+  }, {
+    r: /imgtheif\.com\/image\//,
+    q: 'a > img[src*="/pictures/"]',
+  }, {
+    r: /imgur\.com\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
+    s: m => `https://imgur.com/${m[1]}/${m[2]}${m[3] || ''}`,
+    g: (text, url, cb) => {
+      const mk = (o, imgs) => {
         const items = [];
-        items.title = o.name;
-        for (const cur of o.items) {
+        if (!o || !imgs)
+          return items;
+        for (const cur of imgs) {
+          let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
+          if (cur.ext === '.gif' && !(cur.animated === false))
+            iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
           items.push({
-            url: `https://i.minus.com/i${cur.id}.jpg`,
-            desc: cur.caption,
+            url: iu,
+            desc: cur.title && cur.description ?
+              cur.title + ' - ' + cur.description :
+              (cur.title || cur.description),
           });
         }
+        if (o.is_album && !contains(items[0].desc, o.title))
+          items.title = o.title;
         return items;
-      },
+      };
+      const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(text);
+      const o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
+        .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
+      const o = o1.image || o1.album;
+      const imgs = o.is_album ? o.album_images.images : [o];
+      if (!o.num_images || o.num_images <= imgs.length)
+        return mk(o, imgs);
+      GM_xmlhttpRequest({
+        method: 'GET',
+        url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
+        onload: res => {
+          let imgs;
+          try {
+            imgs = JSON.parse(res.responseText).data.images;
+          } catch (ex) {}
+          cb(mk(o, imgs));
+        },
+      });
     },
-    {
-      r: /(panoramio\.com\/.*?photo(\/|_id=)|google\.com\/mw-panoramio\/photos\/[a-z]+\/)(\d+)/,
-      s: 'http://static.panoramio.com/photos/original/$3.jpg',
+    css: '.post > .hover { display:none!important; }',
+  }, {
+    r: /imgur\.com\/.+,/i,
+    g: (text, url) =>
+      /.+\/([a-z0-9,]+)/i
+        .exec(url)[1]
+        .split(',')
+        .map(id => ({
+          url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
+        })),
+  }, {
+    r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
+    s: (m, node) => {
+      if (/memegen|random|register|search|signin/.test(m.input))
+        return '';
+      if (/(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/
+          .test(node.parentNode.href || node.parentNode.parentNode.href))
+        return false;
+      const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
+                m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
+                (m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg');
+      return contains(url, '.webm') ?
+        [url, url.replace('.webm', '.mp4'), url.replace('.webm', '.gif')] :
+        url;
     },
-    {
-      r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
-      s: 'http://i$1$3',
-      xhr: !contains(hostname, 'photobucket.com'),
-    },
-    {
-      r: /(photosex\.biz|posteram\.ru)\/.+?id=/i,
-      q: 'img[src*="/pic_b/"]',
-      xhr: true,
-    },
-    {
-      r: /pic4all\.eu\/(images\/|view\.php\?filename=)(.+)/,
-      s: 'http://$1/images/$3',
-    },
-    {
-      r: /piccy\.info\/view3\/(.*)\//,
-      s: 'http://piccy.info/view3/$1/orig/',
-      q: '#mainim',
-    },
-    {
-      r: /picsee\.net\/([\d\-]+)\/(.+?)\.html/,
-      s: 'http://picsee.net/upload/$1/$2',
-    },
-    {
-      r: /picturescream\.com\/\?v=/,
-      q: '#imagen img',
-    },
-    {
-      r: /(picturescream\.[a-z\/]+|imagescream\.com\/img)\/(soft|x)/,
-      q: 'a > img[src*="/images/"]',
-    },
-    {
-      r: /pimpandhost\.com\/image\/([0-9]+)/,
-      s: 'http://pimpandhost.com/image/$1?size=original',
-      q: 'img.original',
-    },
-    {
-      r: /pixhost\.org\/show\//,
-      q: '#image',
-      xhr: true,
-    },
-    {
-      r: /pixhub\.eu\/images/,
-      q: '.image-show img',
-      xhr: true,
-    },
-    {
-      r: /(pixroute|imgspice)\.com\/.+\.html$/,
-      q: 'img[id]',
-      xhr: true,
-    },
-    {
-      r: /(pixsor\.com|euro-pic\.eu)\/share-([a-z0-9_]+)/i,
-      s: 'http://www.$1/image.php?id=$2',
-      xhr: true,
-    },
-    {
-      r: /postima?ge?\.org\/image\/\w+/,
-      q: ['a[href*="dl="]', '#main-image'],
-    },
-    {
-      r: /radikal\.ru\/(fp|.+\.html)/,
-      q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9\/]+\.(jpg|gif|png)/i)[0],
-    },
-    {
-      d: 'reddit.com',
-      r: /i\.reddituploads\.com/,
-    },
-    {
-      r: /screenlist\.ru\/details/,
-      q: '#picture',
-    },
-    {
-      r: /sharenxs\.com\/.+original$/,
-      q: 'img.view_photo',
-      xhr: true,
-    },
-    {
-      r: /sharenxs\.com\/(gallery|view)\//,
-      q: 'a[href$="original"]',
-      follow: true,
-    },
-    {
-      r: /stooorage\.com\/show\//,
-      q: '#page_body div div img',
-      xhr: true,
-    },
-    {
-      r: re(`(${join([
-        'awsmpic.com',
-        'damimage.com',
-        'dragimage.org',
-        'gogoimage.org',
-        'image.re',
-        'imagedecode.com',
-        'imgflash.net',
-        'imgget.net',
-        'imghit.com',
-        'imgproof.net',
-        'imgs.it',
-        'imgserve.net',
-        'imgspot.org',
-        'imgstudio.org',
-        'madimage.org',
-        'ocaload.com',
-        'swoopic.com',
-      ])})/img-`),
-      q: 'img.centred_resized, img.centred',
-      xhr: true,
-    },
-    {
-      r: /turboimagehost\.com\/p\//,
-      q: '#imageid',
-      xhr: true,
-    },
-    {
-      r: /twimg.+\/profile_images/i,
-      s: '/_(reasonably_small|normal|bigger|\d+x\d+)\\././g',
-    },
-    {
-      r: /([a-z0-9-]+\.twimg\.com\/media\/[a-z0-9_-]+\.(jpe?g|png|gif))/i,
-      s: 'https://$1:orig',
-      rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
-    },
-    {
-      d: 'tumblr.com',
-      e: 'div.photo_stage_img, div.photo_stage > canvas',
-      s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
-      follow: true,
-    },
-    {
-      r: /tumblr\.com.+_500\.jpg/,
-      s: ['/_500/_1280/', ''],
-    },
-    {
-      r: /twimg\.com\/1\/proxy.+?t=(.+?)[&_]/i,
-      s: m => atob(m[1]).match(/http.+/),
-    },
-    {
-      r: /pic\.twitter\.com\/[a-z0-9]+/i,
-      q: text => text.match(/https?:\/\/twitter\.com\/[^\/]+\/status\/\d+\/photo\/\d+/i)[0],
-      follow: true,
-    },
-    {
-      d: 'tweetdeck.twitter.com',
-      e: 'a.media-item, a.js-media-image-link',
-      s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
-      follow: true,
-    },
-    {
-      r: /twitpic\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
-      s: 'https://twitpic.com/show/large/$2',
-    },
-    {
-      r: /twitter\.com\/.+\/status\/.+\/photo\//,
-      q: [
-        '.OldMedia img',
-        '.media img',
-        'video.animated-gif',
-        '.AdaptiveMedia-singlePhoto img',
-        '.AdaptiveMedia-halfWidthPhoto img',
-        '.AdaptiveMedia-twoThirdsWidthPhoto img',
-        '.AdaptiveMedia-threeQuartersWidthPhoto img',
+  }, (() => {
+    const LINK_SEL = 'a[href*="/p/"]';
+    const getInstagramData = node => {
+      const n = closest(node, `${LINK_SEL}, article`);
+      if (!n)
+        return;
+      const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
+      if (!a)
+        return;
+      try {
+        const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
+        return {
+          a,
+          data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
+            .graphql.user.edge_owner_to_timeline_media.edges
+            .find(e => e.node.shortcode === shortcode)
+            .node,
+        };
+      } catch (e) {}
+      return {a};
+    };
+    const RULE = {
+      d: 'instagram.com',
+      e: [
+        LINK_SEL,
+        'a[role="button"][data-reactid*="scontent-"]',
+        'article div',
+        'article div div img',
       ],
-      follow: url => !/\.mp4$/.test(url),
-    },
-    {
-      d: 'twitter.com',
-      e: '.grid-tweet > .media-overlay',
-      s: (m, node) => node.previousElementSibling.src,
+      s: (m, node) => {
+        const {a, data} = getInstagramData(node) || {};
+        RULE.follow = !data;
+        return (
+          !a ? false :
+            !data ? a.href :
+              data.video_url || data.display_url.replace(/\/[sp]\d+x\d+\//, '/'));
+      },
+      c: (html, doc, node) => {
+        try {
+          return getInstagramData(node).data.edge_media_to_caption.edges[0].node.text;
+        } catch (e) {
+          return '';
+        }
+      },
       follow: true,
+    };
+    return RULE;
+  })(),
+  {
+    r: /instagr(\.am|am\.com)\/p\//i,
+    s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
+    q: text => {
+      const m = JSON.parse(text).graphql.shortcode_media;
+      return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/');
     },
-    {
-      r: /upix\.me\/files/,
-      s: '/#//',
+    rect: 'div.PhotoGridMediaItem',
+    c: text => {
+      const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
+      return m === undefined ? '(no caption)' : m.node.text;
     },
-    {
-      r: /(vine|seenive)\.com?\/v\//,
-      q: 'video source, meta[property="twitter:player:stream"]',
+  }, {
+    r: /(istoreimg\.com\/i|itmages\.ru\/image\/view)\//,
+    q: '#image',
+  }, {
+    d: 'kat.cr',
+    r: /confirm\/url\/([^/]+)/,
+    s: m => atob(decodeURIComponent(m[1])),
+    follow: true,
+  }, {
+    r: /(lazygirls\.info\/.+_.+?\/[a-z0-9_]+)($|\?)/i,
+    s: 'http://www.$1?display=fullsize',
+    q: 'img.photo',
+    xhr: hostname !== 'www.lazygirls.info',
+  }, {
+    r: /ld-host\.de\/show/,
+    q: '#image',
+  }, {
+    r: /(listal|lisimg)\.com\/(view)?image\/([0-9]+)/,
+    s: 'http://iv1.lisimg.com/image/$3/0full.jpg',
+  }, {
+    r: /(livememe\.com|lvme\.me)\/([^.]+)$/,
+    s: 'http://i.lvme.me/$2.jpg',
+  }, {
+    r: /lostpic\.net\/\?(photo|view)/,
+    q: ['#cool > img', '.casem img'],
+  }, {
+    r: /makeameme\.org\/meme\/([^/?#]+)/,
+    s: 'https://media.makeameme.org/created/$1.jpg',
+  }, {
+    r: /modelmayhem\.com\/photos\//,
+    s: '/_m//',
+  }, {
+    r: /modelmayhem\.com\/avatars\//,
+    s: '/_t/_m/',
+  }, {
+    r: /(min\.us|minus\.com)\/(i\/|l)([a-z0-9]+)$/i,
+    s: 'https://i.minus.com/i$3.jpg',
+  }, {
+    r: /(min\.us|minus\.com)\/m[a-z0-9]+$/i,
+    g: text => {
+      const m = /gallerydata = ({[\w\W]+?});/.exec(text);
+      const o = JSON.parse(m[1]);
+      const items = [];
+      items.title = o.name;
+      for (const cur of o.items) {
+        items.push({
+          url: `https://i.minus.com/i${cur.id}.jpg`,
+          desc: cur.caption,
+        });
+      }
+      return items;
     },
-    {
-      r: /(web\.stagr(\.am|am\.com)|websta\.me)\/p\//i,
-      q: (text, doc) => {
-        const node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
-        return findFile(node, _.url).replace(/\/[sp]\d+x\d+\//, '/');
-      },
-      rect: 'div.PhotoGridMediaItem',
-      c: (text, doc) => {
-        const s = qs('meta[name="description"]', doc).getAttribute('content');
-        return s.substr(0, s.lastIndexOf(' | '));
-      },
+  }, {
+    r: /(panoramio\.com\/.*?photo(\/|_id=)|google\.com\/mw-panoramio\/photos\/[a-z]+\/)(\d+)/,
+    s: 'http://static.panoramio.com/photos/original/$3.jpg',
+  }, {
+    r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
+    s: 'http://i$1$3',
+    xhr: !contains(hostname, 'photobucket.com'),
+  }, {
+    r: /(photosex\.biz|posteram\.ru)\/.+?id=/i,
+    q: 'img[src*="/pic_b/"]',
+    xhr: true,
+  }, {
+    r: /pic4all\.eu\/(images\/|view\.php\?filename=)(.+)/,
+    s: 'http://$1/images/$3',
+  }, {
+    r: /piccy\.info\/view3\/(.*)\//,
+    s: 'http://piccy.info/view3/$1/orig/',
+    q: '#mainim',
+  }, {
+    r: /picsee\.net\/([\d-]+)\/(.+?)\.html/,
+    s: 'http://picsee.net/upload/$1/$2',
+  }, {
+    r: /picturescream\.com\/\?v=/,
+    q: '#imagen img',
+  }, {
+    r: /(picturescream\.[a-z/]+|imagescream\.com\/img)\/(soft|x)/,
+    q: 'a > img[src*="/images/"]',
+  }, {
+    r: /pimpandhost\.com\/image\/([0-9]+)/,
+    s: 'http://pimpandhost.com/image/$1?size=original',
+    q: 'img.original',
+  }, {
+    r: /pixhost\.org\/show\//,
+    q: '#image',
+    xhr: true,
+  }, {
+    r: /pixhub\.eu\/images/,
+    q: '.image-show img',
+    xhr: true,
+  }, {
+    r: /(pixroute|imgspice)\.com\/.+\.html$/,
+    q: 'img[id]',
+    xhr: true,
+  }, {
+    r: /(pixsor\.com|euro-pic\.eu)\/share-([a-z0-9_]+)/i,
+    s: 'http://www.$1/image.php?id=$2',
+    xhr: true,
+  }, {
+    r: /postima?ge?\.org\/image\/\w+/,
+    q: ['a[href*="dl="]', '#main-image'],
+  }, {
+    r: /radikal\.ru\/(fp|.+\.html)/,
+    q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
+  }, {
+    d: 'reddit.com',
+    r: /i\.reddituploads\.com/,
+  }, {
+    r: /screenlist\.ru\/details/,
+    q: '#picture',
+  }, {
+    r: /sharenxs\.com\/.+original$/,
+    q: 'img.view_photo',
+    xhr: true,
+  }, {
+    r: /sharenxs\.com\/(gallery|view)\//,
+    q: 'a[href$="original"]',
+    follow: true,
+  }, {
+    r: /stooorage\.com\/show\//,
+    q: '#page_body div div img',
+    xhr: true,
+  }, {
+    r: re(`(${join([
+      'awsmpic.com',
+      'damimage.com',
+      'dragimage.org',
+      'gogoimage.org',
+      'image.re',
+      'imagedecode.com',
+      'imgflash.net',
+      'imgget.net',
+      'imghit.com',
+      'imgproof.net',
+      'imgs.it',
+      'imgserve.net',
+      'imgspot.org',
+      'imgstudio.org',
+      'madimage.org',
+      'ocaload.com',
+      'swoopic.com',
+    ])})/img-`),
+    q: 'img.centred_resized, img.centred',
+    xhr: true,
+  }, {
+    r: /turboimagehost\.com\/p\//,
+    q: '#imageid',
+    xhr: true,
+  }, {
+    r: /twimg.+\/profile_images/i,
+    s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
+  }, {
+    r: /([a-z0-9-]+\.twimg\.com\/media\/[a-z0-9_-]+\.(jpe?g|png|gif))/i,
+    s: 'https://$1:orig',
+    rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
+  }, {
+    d: 'tumblr.com',
+    e: 'div.photo_stage_img, div.photo_stage > canvas',
+    s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
+    follow: true,
+  }, {
+    r: /tumblr\.com.+_500\.jpg/,
+    s: ['/_500/_1280/', ''],
+  }, {
+    r: /twimg\.com\/1\/proxy.+?t=(.+?)[&_]/i,
+    s: m => atob(m[1]).match(/http.+/),
+  }, {
+    r: /pic\.twitter\.com\/[a-z0-9]+/i,
+    q: text => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
+    follow: true,
+  }, {
+    d: 'tweetdeck.twitter.com',
+    e: 'a.media-item, a.js-media-image-link',
+    s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
+    follow: true,
+  }, {
+    r: /twitpic\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
+    s: 'https://twitpic.com/show/large/$2',
+  }, {
+    r: /twitter\.com\/.+\/status\/.+\/photo\//,
+    q: [
+      '.OldMedia img',
+      '.media img',
+      'video.animated-gif',
+      '.AdaptiveMedia-singlePhoto img',
+      '.AdaptiveMedia-halfWidthPhoto img',
+      '.AdaptiveMedia-twoThirdsWidthPhoto img',
+      '.AdaptiveMedia-threeQuartersWidthPhoto img',
+    ],
+    follow: url => !/\.mp4$/.test(url),
+  }, {
+    d: 'twitter.com',
+    e: '.grid-tweet > .media-overlay',
+    s: (m, node) => node.previousElementSibling.src,
+    follow: true,
+  }, {
+    r: /upix\.me\/files/,
+    s: '/#//',
+  }, {
+    r: /(vine|seenive)\.com?\/v\//,
+    q: 'video source, meta[property="twitter:player:stream"]',
+  }, {
+    r: /(web\.stagr(\.am|am\.com)|websta\.me)\/p\//i,
+    q: (text, doc) => {
+      const node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
+      return findFile(node, _.url).replace(/\/[sp]\d+x\d+\//, '/');
     },
-    {
-      r: /wiki.+\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
-      s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$//g',
-      xhr: !contains(hostname, 'wiki'),
+    rect: 'div.PhotoGridMediaItem',
+    c: (text, doc) => {
+      const s = qs('meta[name="description"]', doc).getAttribute('content');
+      return s.substr(0, s.lastIndexOf(' | '));
     },
-    {
-      r: /((xxxhost|tinypix)\.me|(xxxces|imgsin)\.com)\/viewer/,
-      q: ['.text_align_center > img', 'img[alt]'],
-      xhr: true,
-    },
-    {
-      r: /(i[0-9]*\.ytimg\.com\/vi\/[^\/]+)/,
-      s: 'https://$1/0.jpg',
-      rect: '.video-list-item',
-    },
-    {
-      r: /\/\/([^\/]+)\/viewer\.php\?file=(.+)/,
-      s: 'http://$1/images/$2',
-      xhr: true,
-    },
-    {
-      r: /\/albums.+\/thumb_[^\/]/,
-      s: '/thumb_//',
-    },
-    {
-      r: /\/\/[^\/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
-      distinct: true,
-    },
-  ];
+  }, {
+    r: /wiki.+\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
+    s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$//g',
+    xhr: !contains(hostname, 'wiki'),
+  }, {
+    r: /((xxxhost|tinypix)\.me|(xxxces|imgsin)\.com)\/viewer/,
+    q: ['.text_align_center > img', 'img[alt]'],
+    xhr: true,
+  }, {
+    r: /(i[0-9]*\.ytimg\.com\/vi\/[^/]+)/,
+    s: 'https://$1/0.jpg',
+    rect: '.video-list-item',
+  }, {
+    r: /\/\/([^/]+)\/viewer\.php\?file=(.+)/,
+    s: 'http://$1/images/$2',
+    xhr: true,
+  }, {
+    r: /\/albums.+\/thumb_[^/]/,
+    s: '/thumb_//',
+  }, {
+    r: /\/\/[^/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
+    distinct: true,
+  }];
   if (cfg.hosts) {
-    const lines = cfg.hosts.split(/[\r\n]+/);
-    for (var i = lines.length, s; i-- && (s = lines[i]);) {
+    for (const s of cfg.hosts.split(/[\r\n]+/).reverse()) {
       try {
         const h = JSON.parse(s);
         if (h.r)
@@ -1017,7 +992,7 @@ function onKeyUp(e) {
       if (_.popup.controls)
         _.popup.controls = false;
       if (_.controlled)
-        return _.controlled = false;
+        return (_.controlled = false);
       _.popup && (_.zoomed || !('cr' in _) || _.cr) ? toggleZoom() : deactivate(true);
       break;
     case 17:
@@ -1035,15 +1010,16 @@ function onKeyUp(e) {
       drop(e);
       nextGalleryItem(-1);
       break;
-    case 68:
+    case 68: {
       drop(e);
-      var name = (_.iurl || _.popup.src).split('/').pop().replace(/[:#?].*/, '');
+      let name = (_.iurl || _.popup.src).split('/').pop().replace(/[:#?].*/, '');
       if (!contains(name, '.'))
         name += '.jpg';
       saveFile(_.popup.src, name, () => {
         setBar(`Could not download ${name}.`, 'error');
       });
       break;
+    }
     case 84:
       _.lazyUnload = true;
       if (_.tabfix && !_.xhr && tag(_.popup) === 'IMG' && contains(navigator.userAgent, 'Gecko/')) {
@@ -1260,17 +1236,17 @@ function loadGalleryParser(g) {
     const nodes = qsa(qE || qI, doc);
     if (!Array.isArray(qC))
       qC = [qC];
-    for (var i = 0, node, len = nodes.length; i < len && (node = nodes[i]); i++) {
+    for (const node of nodes) {
       const item = {};
       try {
         item.url = fix(findFile(qE ? qs(qI, node) : node, url), true);
         item.desc = qC.reduce((prev, q) => {
           let n = qs(q, node);
           if (!n) {
-            [node.previousElementSibling, node.nextElementSibling].forEach(es => {
+            for (const es of [node.previousElementSibling, node.nextElementSibling]) {
               if (es && matches(es, qE) === false)
                 n = matches(es, q) ? es : qs(q, es);
-            });
+            }
           }
           return n ? (prev ? prev + ' - ' : '') + fix(n.textContent) : prev;
         }, '');
@@ -1435,11 +1411,11 @@ function parseNode(node) {
 }
 
 function findInfo(url, node, noHtml, skipHost) {
-  for (var i = 0, len = hosts.length, tn = tag(node), h, m, html, urls;
-       i < len && (h = hosts[i]);
-       i++) {
+  const tn = tag(node);
+  for (const h of hosts) {
     if (h.e && !matches(node, h.e) || h === skipHost)
       continue;
+    let m, html, urls;
     if (h.r) {
       if (h.html && !noHtml && (tn === 'A' || tn === 'IMG' || h.e)) {
         if (!html)
@@ -1458,11 +1434,9 @@ function findInfo(url, node, noHtml, skipHost) {
     if ('s' in h) {
       urls = (Array.isArray(h.s) ? h.s : [h.s])
         .map(s =>
-          typeof s === 'string' ?
-            decodeURIComponent(replace(s, m)) :
-          typeof s === 'function' ?
-            s(m, node) :
-            s);
+          typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
+            typeof s === 'function' ? s(m, node) :
+              s);
       if (h.q && urls.length > 1) {
         console.log('Rule discarded. Substitution arrays can\'t be combined with property q.');
         continue;
@@ -1557,7 +1531,7 @@ function downloadImage(url, referer) {
         bar = true;
       if (bar) {
         setBar(
-          parseInt(e.loaded / e.total * 100) + '% of ' + (e.total / 1000000).toFixed(1) + ' MB',
+          `${(e.loaded / e.total * 100).toFixed()}% of ${(e.total / 1000000).toFixed(1)} MB`,
           'xhr');
       }
     },
@@ -1669,7 +1643,7 @@ function findFile(n, url) {
   const base = qs('base[href]', n.ownerDocument);
   const path = n.getAttribute('src') || n.getAttribute('data-m4v') || n.getAttribute('href') ||
              n.getAttribute('content') ||
-             /https?:\/\/[.\/a-z0-9_+%\-]+\.(jpe?g|gif|png|svg|webm|mp4)/i.exec(n.outerHTML) &&
+             /https?:\/\/[./a-z0-9_+%-]+\.(jpe?g|gif|png|svg|webm|mp4)/i.exec(n.outerHTML) &&
              RegExp.lastMatch;
   return path ? rel2abs(path.trim(), base ? base.getAttribute('href') : url) : false;
 }
@@ -1694,11 +1668,12 @@ function checkProgress(start) {
   if (_.preloadStart) {
     const wait = _.preloadStart + cfg.delay - Date.now();
     if (wait > 0)
-      return _.timeout = setTimeout(checkProgress, wait);
+      return (_.timeout = setTimeout(checkProgress, wait));
   }
   if (_.urls && _.urls.length && Math.max(_.nheight, _.nwidth) < 130)
     return handleError({type: 'error'});
   setStatus(false);
+  // do a forced layout
   p.clientHeight;
   p.className = 'mpiv-show';
   updateSpacing();
@@ -1791,8 +1766,7 @@ function placePopup() {
   const p = _.popup;
   if (!p)
     return;
-  let x = null;
-  let y = null;
+  let x, y;
   const w = Math.round(_.scale * _.nwidth);
   const h = Math.round(_.scale * _.nheight);
   const cx = _.cx;
@@ -1813,17 +1787,17 @@ function placePopup() {
       y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
     }
   }
-  if (x == null) {
-    x =
-      Math.round((vw > w ?
-                 vw / 2 - w / 2 :
-        -1 * Math.min(1, Math.max(0, 5 / 3 * (cx / vw - 0.2))) * (w - vw)) - (_.pw + _.mbw) / 2);
+  if (x === undefined) {
+    const mid = vw > w ?
+      vw / 2 - w / 2 :
+      -1 * Math.min(1, Math.max(0, 5 / 3 * (cx / vw - 0.2))) * (w - vw);
+    x = Math.round(mid - (_.pw + _.mbw) / 2);
   }
-  if (y == null) {
-    y =
-      Math.round((vh > h ?
-                 vh / 2 - h / 2 :
-        -1 * Math.min(1, Math.max(0, 5 / 3 * (cy / vh - 0.2))) * (h - vh)) - (_.ph + _.mbh) / 2);
+  if (y === undefined) {
+    const mid = vh > h ?
+      vh / 2 - h / 2 :
+      -1 * Math.min(1, Math.max(0, 5 / 3 * (cy / vh - 0.2))) * (h - vh);
+    y = Math.round(mid - (_.ph + _.mbh) / 2);
   }
   p.style.cssText = `
     width: ${w}px !important;
@@ -1929,7 +1903,7 @@ function setPopup(src) {
       const p = e.target;
       if (!p.duration || !p.buffered.length || Date.now() - start < 2000)
         return;
-      const per = parseInt(p.buffered.end(0) / p.duration * 100);
+      const per = Math.round(p.buffered.end(0) / p.duration * 100);
       if (!bar && per > 0 && per < 50)
         bar = true;
       if (bar)
@@ -1954,6 +1928,7 @@ function setPopup(src) {
   p.id = 'mpiv-popup';
   on(p, 'error', handleError);
   on(p, 'load', function () {
+    // eslint-disable-next-line no-invalid-this
     this.loaded = true;
   });
   if (_.zooming) {
@@ -1981,6 +1956,7 @@ function setBar(label, cn) {
   b.innerHTML = label;
   if (!b.parentNode) {
     d.body.appendChild(b);
+    // do a forced layout
     b.clientHeight;
   }
   b.className = 'mpiv-show mpiv-' + cn;
@@ -2024,15 +2000,16 @@ function addStyle(css) {
 }
 
 function styleSum(s, p) {
-  for (var i = p.length, x = 0; i--;) {
-    x += parseInt(s.getPropertyValue([p[i]])) || 0;
-  }
+  let x = 0;
+  let i = p.length;
+  while (i--)
+    x += parseInt(s.getPropertyValue(p[i])) || 0;
   return x;
 }
 
 function findScale(url, parent) {
   const imgs = qsa('img, video', parent);
-  for (var i = imgs.length, img; i-- && (img = imgs[i]);) {
+  for (let i = imgs.length, img; i-- && (img = imgs[i]);) {
     if (img.src !== url)
       continue;
     const s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
@@ -2133,7 +2110,7 @@ function setup() {
   function close() {
     rm($('setup'));
     if (!contains(trusted, hostname))
-      off(wn, 'message', onMessage);
+      off(window, 'message', onMessage);
   }
 
   function update() {
@@ -2224,7 +2201,7 @@ function setup() {
     cfg.scales = $('scales').value
       .trim()
       .split(/[,;]*\s+/)
-      .map(x => x.replace(',','.'))
+      .map(x => x.replace(',', '.'))
       .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
     const inps = qsa('input', $('hosts'));
@@ -2242,7 +2219,7 @@ function setup() {
   function init(cfg) {
     close();
     if (!contains(trusted, hostname))
-      on(wn, 'message', onMessage);
+      on(window, 'message', onMessage);
     // language=CSS
     addStyle(`
       #mpiv-setup {
@@ -2420,7 +2397,7 @@ function setup() {
     if (cfg.hosts) {
       const parent = $('hosts');
       const lines = cfg.hosts.split(/[\r\n]+/);
-      for (var i = 0, s; i < lines.length && (s = lines[i]); i++) {
+      for (const s of lines) {
         const inp = parent.firstElementChild.cloneNode();
         inp.value = s;
         parent.appendChild(inp);
@@ -2476,80 +2453,4 @@ function setup() {
   }
 
   init(loadCfg());
-}
-
-// language=CSS
-addStyle(`
-  #mpiv-bar {
-    position: fixed;
-    z-index: 2147483647;
-    left: 0;
-    right: 0;
-    top: 0;
-    transform: scaleY(0);
-    -webkit-transform: scaleY(0);
-    transform-origin: top;
-    -webkit-transform-origin: top;
-    transition: transform 500ms ease 1000ms;
-    -webkit-transition: -webkit-transform 500ms ease 1000ms;
-    text-align: center;
-    font-family: sans-serif;
-    font-size: 15px;
-    font-weight: bold;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 4px 10px;
-  }
-  #mpiv-bar.mpiv-show {
-    transform: scaleY(1);
-    -webkit-transform: scaleY(1);
-  }
-  #mpiv-popup.mpiv-show {
-    display: inline;
-  }
-  #mpiv-popup {
-    display: none;
-    border: 1px solid gray;
-    box-sizing: content-box;
-    background-color: white;
-    position: fixed;
-    z-index: 2147483647;
-    margin: 0;
-    max-width: none;
-    max-height: none;
-    will-change: display, width, height, left, top;
-    cursor: none;
-  }
-  .mpiv-loading:not(.mpiv-preloading) * {
-    cursor: wait !important;
-  }
-  .mpiv-edge #mpiv-popup {
-    cursor: default;
-  }
-  .mpiv-error * {
-    cursor: not-allowed !important;
-  }
-  .mpiv-ready *, .mpiv-large * {
-    cursor: zoom-in !important;
-  }
-  .mpiv-shift * {
-    cursor: default !important;
-  }
-`);
-on(d, 'mouseover', onMouseOver);
-if (contains(hostname, 'google')) {
-  var node = d.getElementById('main');
-  if (node)
-    on(node, 'mouseover', onMouseOver);
-} else if (contains(trusted, hostname)) {
-  on(wn, 'message', onMessage);
-  on(d, 'click', e => {
-    const t = e.target;
-    if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
-        !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
-      return;
-    }
-    postMessage('mpiv-rule ' + t.textContent, '*');
-    e.preventDefault();
-  });
 }
