@@ -2265,7 +2265,7 @@ function setup() {
           border: 1px solid gray;
           padding: 2px;
         }
-        #css {
+        textarea {
           resize: vertical;
         }
         #scales {
@@ -2285,7 +2285,7 @@ function setup() {
           margin: 4px 0;
           clear: both;
         }
-        #hosts input, #css {
+        #hosts textarea, #css {
           width: 98%;
           margin: 1px 0;
           font-family: Consolas, monospace;
@@ -2381,7 +2381,7 @@ function setup() {
               padding: 1px 2px;
               font-size: 10px;
             ">
-            <div id="hosts"><input spellcheck="false"></div>
+            <div id="hosts"><textarea rows="1" spellcheck="false"></textarea></div>
           </li>
           <li>
             <a href="#" id="install">Install rule from repository...</a>
@@ -2402,6 +2402,17 @@ function setup() {
         parent.appendChild(inp);
         check({target: inp});
       }
+      on(parent, 'focusin', ({target: el}) => {
+        if (el.localName === 'textarea') {
+          const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
+          if (h > el.offsetHeight)
+            el.style.height = h + 'px';
+        }
+      });
+      on(parent, 'focusout', ({target: el}) => {
+        if (el.localName === 'textarea' && el.style.height)
+          el.style.height = '';
+      });
       if (lines.length > 5 || setup.search) {
         const se = $('search');
         const sf = () => {
