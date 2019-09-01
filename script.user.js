@@ -26,6 +26,7 @@
 'use strict';
 /*
 global unsafeWindow
+global GM_info
 global GM_getValue
 global GM_setValue
 global GM_xmlhttpRequest
@@ -2101,14 +2102,20 @@ function contains(a, b) {
   return a && a.indexOf(b) > -1;
 }
 
+function clamp(v, min, max) {
+  return v < min ? min : v > max ? max : v;
+}
+
 function setup() {
+  const ID = GM_info.script.name.replace(/\s+/g, '.') + ':setup';
+  let div, root;
 
   function $(s) {
-    return d.getElementById('mpiv-' + s);
+    return root.getElementById(s);
   }
 
   function close() {
-    rm($('setup'));
+    rm(d.getElementById(ID));
     if (!contains(trusted, hostname))
       off(window, 'message', onMessage);
   }
@@ -2135,8 +2142,7 @@ function setup() {
         rm(t);
       }
       ok = 1;
-    } catch (ex) {
-    }
+    } catch (ex) {}
     t.style.backgroundColor = ok ? '' : '#ffaaaa';
   }
 
@@ -2154,9 +2160,8 @@ function setup() {
   function imp(e) {
     drop(e);
     const s = prompt('Paste settings:');
-    if (!s)
-      return;
-    init(fixCfg(s));
+    if (s)
+      init(fixCfg(s));
   }
 
   function install(e) {
@@ -2220,179 +2225,173 @@ function setup() {
     close();
     if (!contains(trusted, hostname))
       on(window, 'message', onMessage);
-    // language=CSS
-    addStyle(`
-      #mpiv-setup {
-        position: fixed;
-        z-index: 2147483647;
-        top: 20px;
-        right: 20px;
-        padding: 20px 30px;
-        background: #eee;
-        width: 640px;
-        border: 1px solid black;
-        display: flex;
-        flex-direction: column;
-      }
-      #mpiv-setup * {
-        color: black;
-        text-align: left;
-        min-height: unset;
-        margin: unset;
-        padding: unset;
-        line-height: 15px;
-        font-size: 12px;
-        font-family: sans-serif;
-        box-shadow: none;
-      }
-      #mpiv-setup a {
-        color: darkblue !important;
-        text-decoration: underline !important;
-      }
-      #mpiv-setup ul {
-        max-height: calc(100vh - 200px);
-        margin: 10px 0 15px 0;
-        padding: 0;
-        list-style: none;
-        background: #eee;
-        border: 0;
-        display: flex;
-        flex-direction: column;
-      }
-      #mpiv-setup input, #mpiv-setup select, #mpiv-css {
-        display: inline;
-        border: 1px solid gray;
-        padding: 2px;
-        background: white;
-      }
-      #mpiv-css {
-        resize: vertical;
-        height: 45px;
-      }
-      #mpiv-scales {
-        width: 130px;
-      }
-      #mpiv-setup li {
-        margin: 0;
-        padding: 7px 0;
-        vertical-align: middle;
-        background: #eee;
-        border: 0
-      }
-      #mpiv-zoom {
-        margin-right: 18px;
-      }
-      #mpiv-delay, #mpiv-scale {
-        width: 36px;
-      }
-      #mpiv-cursor, #mpiv-imgtab, #mpiv-xhr, #mpiv-preload {
-        margin-left: 18px;
-      }
-      #mpiv-hosts {
-        padding: 2px;
-        margin: 4px 0;
-        clear: both;
-      }
-      #mpiv-hosts input, #mpiv-css {
-        width: 98%;
-        margin: 3px 0;
-      }
-      #mpiv-setup button {
-        width: 150px;
-        margin: 0 10px;
-        text-align: center;
-      }
-    `);
-    let div = ce('div');
-    div.id = 'mpiv-setup';
-    d.body.appendChild(div);
-    div.innerHTML = `
-      <div>
-        <a href="https://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
-        <span style="float:right">
-          <a href="#" id="mpiv-import">Import</a> |
-          <a href="#" id="mpiv-export">Export</a>
-        </span>
-      </div>
-      <ul>
-        <li>
-          <label>
-            Popup:
-            <select>
-              <option id="mpiv-start-auto">automatically
-              <option id="mpiv-start-context">right click or ctrl
-              <option id="mpiv-start-ctrl">ctrl
-            </select>
-          </label>
-          <label>after <input id="mpiv-delay"> ms</label>
-          <label><input type="checkbox" id="mpiv-preload"> Start loading immediately</label>
-        </li>
-        <li>
-          <label>
-            Only show popup over scaled-down image when natural size is
-            <input id="mpiv-scale"> times larger
-          </label>
-        </li>
-        <li>
-          <label><input type="checkbox" id="mpiv-center"> Always centered</label>
-          <label><input type="checkbox" id="mpiv-imgtab"> Run in image tabs</label>
-          <label><input type="checkbox" id="mpiv-xhr" onclick="
-            return this.checked ||
-                   confirm('Do not disable this unless you spoof the HTTP headers yourself.')">
-            Anti-hotlinking workaround
-          </label>
-        </li>
-        <li>
-          <label>
-            Zoom:
-            <select id="mpiv-zoom">
-              <option id="mpiv-zoom-context">right click or shift
-              <option id="mpiv-zoom-wheel">wheel up or shift
-              <option id="mpiv-zoom-shift">shift
-              <option id="mpiv-zoom-auto">automatically
-            </select>
-          </label>
-          <label>
-            Custom scale factors: <input id="mpiv-scales" placeholder="e.g. 0 0.5 1* 2">
-          </label>
-          <span title="values smaller than non-zoomed size are ignored,
-                       0 = fit to window, 0! = same as 0 but also removes smaller values,
-                       asterisk after value marks default zoom factor (e.g. 1*)"
-                style="cursor:help">(?)</span>
-        </li>
-        <li>
-          <label>
-            If zooming out further is not possible,
-            <select>
-              <option>stay in zoom mode
-              <option id="mpiv-close">close popup
-            </select>
-          </label>
-        </li>
-        <li>
-          <a href="https://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
-          <div><textarea id="mpiv-css" spellcheck="false"></textarea></div>
-        </li>
-        <li style="overflow-y:auto">
-          <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
-             target="_blank">Custom host rules:</a>
-          <input id="mpiv-search" placeholder="Search" style="
-            display: none;
-            float: right;
-            width: 70px;
-            padding: 1px 2px;
-            font-size: 10px;
-          ">
-          <div id="mpiv-hosts"><input spellcheck="false"></div>
-        </li>
-        <li>
-          <a href="#" id="mpiv-install">Install rule from repository...</a>
-        </li>
-      </ul>
-      <div style="text-align:center">
-        <button id="mpiv-ok">OK</button>
-        <button id="mpiv-cancel">Cancel</button>
-      </div>
+    div = ce('div');
+    div.id = ID;
+    root = div.attachShadow({mode: 'open'});
+    root.innerHTML = `
+      <style>
+        :host {
+          all: initial !important;
+          position: fixed !important;
+          z-index: 2147483647 !important;
+          top: 20px !important;
+          right: 20px !important;
+          padding: 20px 30px !important;
+          color: #000 !important;
+          background: #eee !important;
+          box-shadow: 5px 5px 25px 2px #000 !important;
+          width: 640px !important;
+          border: 1px solid black !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        main {
+          font: 12px/15px sans-serif;
+        }
+        ul {
+          max-height: calc(100vh - 200px);
+          margin: 10px 0 15px 0;
+          padding: 0;
+          list-style: none;
+          display: flex;
+          flex-direction: column;
+        }
+        li {
+          margin: 0;
+          padding: 2px 0;
+          vertical-align: middle;
+        }
+        input, select, #css {
+          border: 1px solid gray;
+          padding: 2px;
+        }
+        #css {
+          resize: vertical;
+        }
+        #scales {
+          width: 130px;
+        }
+        #zoom {
+          margin-right: 18px;
+        }
+        #delay, #scale {
+          width: 36px;
+        }
+        #cursor, #imgtab, #xhr, #preload {
+          margin-left: 18px;
+        }
+        #hosts {
+          padding: 2px;
+          margin: 4px 0;
+          clear: both;
+        }
+        #hosts input, #css {
+          width: 98%;
+          margin: 1px 0;
+          font-family: Consolas, monospace;
+        }
+        button {
+          width: 150px;
+          margin: 0 10px;
+        }
+        @media (prefers-color-scheme: dark) {
+          :host {
+            color: #aaa !important;
+            background: #333 !important;
+          }
+          a {
+            color: deepskyblue;
+          }
+        }
+      </style>
+      <main>
+        <div>
+          <a href="https://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
+          <span style="float:right">
+            <a href="#" id="import">Import</a> |
+            <a href="#" id="export">Export</a>
+          </span>
+        </div>
+        <ul>
+          <li>
+            <label>
+              Popup:
+              <select>
+                <option id="start-auto">automatically
+                <option id="start-context">right click or ctrl
+                <option id="start-ctrl">ctrl
+              </select>
+            </label>
+            <label>after <input id="delay"> ms</label>
+            <label><input type="checkbox" id="preload"> Start loading immediately</label>
+          </li>
+          <li>
+            <label>
+              Only show popup over scaled-down image when natural size is
+              <input id="scale"> times larger
+            </label>
+          </li>
+          <li>
+            <label><input type="checkbox" id="center"> Always centered</label>
+            <label><input type="checkbox" id="imgtab"> Run in image tabs</label>
+            <label><input type="checkbox" id="xhr" onclick="
+              return this.checked ||
+                     confirm('Do not disable this unless you spoof the HTTP headers yourself.')">
+              Anti-hotlinking workaround
+            </label>
+          </li>
+          <li>
+            <label>
+              Zoom:
+              <select id="zoom">
+                <option id="zoom-context">right click or shift
+                <option id="zoom-wheel">wheel up or shift
+                <option id="zoom-shift">shift
+                <option id="zoom-auto">automatically
+              </select>
+            </label>
+            <label>
+              Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2">
+            </label>
+            <span title="values smaller than non-zoomed size are ignored,
+                         0 = fit to window, 0! = same as 0 but also removes smaller values,
+                         asterisk after value marks default zoom factor (e.g. 1*)"
+                  style="cursor:help">(?)</span>
+          </li>
+          <li>
+            <label>
+              If zooming out further is not possible,
+              <select>
+                <option>stay in zoom mode
+                <option id="close">close popup
+              </select>
+            </label>
+          </li>
+          <li>
+            <a href="https://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
+            <div><textarea id="css" spellcheck="false"></textarea></div>
+          </li>
+          <li style="overflow-y:auto">
+            <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
+               target="_blank">Custom host rules:</a>
+            <input id="search" placeholder="Search" style="
+              display: none;
+              float: right;
+              width: 70px;
+              padding: 1px 2px;
+              font-size: 10px;
+            ">
+            <div id="hosts"><input spellcheck="false"></div>
+          </li>
+          <li>
+            <a href="#" id="install">Install rule from repository...</a>
+          </li>
+        </ul>
+        <div style="text-align:center">
+          <button id="ok">OK</button>
+          <button id="cancel">Cancel</button>
+        </div>
+      </main>
     `;
     if (cfg.hosts) {
       const parent = $('hosts');
@@ -2412,9 +2411,7 @@ function setup() {
           for (const inp of inps) {
             inp.style.display =
               !inp.value ||
-              contains(inp.value.toLowerCase(), s) ?
-                '' :
-                'none';
+              contains(inp.value.toLowerCase(), s) ? '' : 'none';
           }
         };
         on(se, 'input', sf);
@@ -2447,9 +2444,10 @@ function setup() {
     $('zoom-' + cfg.zoom).selected = true;
     $('start-' + cfg.start).selected = true;
     update();
-    const free = viewRect().height - div.offsetHeight - 60;
-    $('css').style.height = parseInt($('css').offsetHeight + 0.2 * free) + 'px';
-    div = null;
+    d.body.appendChild(div);
+    requestAnimationFrame(() => {
+      $('css').style.height = clamp($('css').scrollHeight, 40, div.clientHeight / 4) + 'px';
+    });
   }
 
   init(loadCfg());
