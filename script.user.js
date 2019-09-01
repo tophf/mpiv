@@ -13,7 +13,7 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
 
-// @version     1.0.2
+// @version     1.0.3
 // @author      tophf
 
 // @original-version 2017.9.29
