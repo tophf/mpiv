@@ -1780,24 +1780,24 @@ function placePopup() {
     const ry = (r.top + r.bottom) / 2;
     if (vw - r.right - 40 > w + _.mbw || w + _.mbw < r.left - 40) {
       if (h + _.mbh < vh - 60)
-        y = Math.min(Math.max(ry - h / 2, 30), vh - h - 30);
+        y = clamp(ry - h / 2, 30, vh - h - 30);
       x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
     } else if (vh - r.bottom - 40 > h + _.mbh || h + _.mbh < r.top - 40) {
       if (w + _.mbw < vw - 60)
-        x = Math.min(Math.max(rx - w / 2, 30), vw - w - 30);
+        x = clamp(rx - w / 2, 30, vw - w - 30);
       y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
     }
   }
   if (x === undefined) {
     const mid = vw > w ?
       vw / 2 - w / 2 :
-      -1 * Math.min(1, Math.max(0, 5 / 3 * (cx / vw - 0.2))) * (w - vw);
+      -1 * clamp(5 / 3 * (cx / vw - 0.2), 0, 1) * (w - vw);
     x = Math.round(mid - (_.pw + _.mbw) / 2);
   }
   if (y === undefined) {
     const mid = vh > h ?
       vh / 2 - h / 2 :
-      -1 * Math.min(1, Math.max(0, 5 / 3 * (cy / vh - 0.2))) * (h - vh);
+      -1 * clamp(5 / 3 * (cy / vh - 0.2), 0, 1) * (h - vh);
     y = Math.round(mid - (_.ph + _.mbh) / 2);
   }
   p.style.cssText = `
