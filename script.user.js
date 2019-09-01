@@ -2396,7 +2396,10 @@ function setup() {
     if (cfg.hosts) {
       const parent = $('hosts');
       const lines = cfg.hosts.split(/[\r\n]+/);
-      for (const s of lines) {
+      for (let s of lines) {
+        s = s.trim();
+        if (!s)
+          continue;
         const inp = parent.firstElementChild.cloneNode();
         inp.value = s;
         parent.appendChild(inp);
