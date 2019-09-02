@@ -42,6 +42,15 @@ const hostname = location.hostname;
 const trusted = ['greasyfork.org', 'w9p.co'];
 const imgtab = d.images.length === 1 && d.images[0].parentNode === d.body && !d.links.length;
 
+// string-to-regexp escaped chars
+const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
+// rx for '^' symbol in simple url match
+const RX_SEP = /[^\w%._-]/g;
+const testEndSep = s => {
+  RX_SEP.lastIndex = s.length - 1;
+  return RX_SEP.test(s);
+};
+
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !imgtab;
 let _ = {};
@@ -124,6 +133,90 @@ addStyle(/*language=CSS*/ `
   }
 `);
 
+const simpleMatcher = {
+
+  array: (s, arr) => {
+    for (const {fn, needle} of arr)
+      if (fn(s, needle))
+        return true;
+  },
+
+  equals: (s, needle) =>
+    s.length === needle.length ? s === needle :
+      s.length === needle.length + 1 && s.startsWith(needle) && testEndSep(s),
+
+  starts: (s, needle) =>
+    s.startsWith(needle),
+
+  ends: (s, needle) =>
+    s.endsWith(needle) ||
+    s.length > needle.length &&
+    s.indexOf(needle, s.length - needle.length - 1) >= 0 &&
+    testEndSep(s),
+
+  has: (s, needle) =>
+    s.includes(needle),
+
+  rx: (s, needle) =>
+    needle.test(s),
+
+  startsDomainPrescreen: (url, data) =>
+    url.includes(data[0]) &&
+    simpleMatcher.startsDomain(url, data),
+
+  startsDomain: (url, [needle, domain, pinDomainEnd, endSep]) => {
+    const [p, gap, host] = url.split('/', 3);
+    if (gap || p && !p.endsWith(':'))
+      return;
+    let start = pinDomainEnd ? host.length - domain.length : 0;
+    for (;; start++) {
+      start = host.indexOf(domain, start);
+      if (start < 0)
+        return;
+      if (!start || host[start - 1] === '.')
+        break;
+    }
+    start += p.length + 2;
+    return url.lastIndexOf(needle, start) === start &&
+      (!endSep || start + needle.length === url.length);
+  },
+};
+
+function compileSimpleUrlMatch(match) {
+  const results = [];
+  for (const s of (Array.isArray(match) ? match : [match])) {
+    const pinDomain = s.startsWith('||');
+    const pinStart = !pinDomain && s.startsWith('|');
+    const endSep = s.endsWith('^');
+    const i = pinDomain * 2 + pinStart;
+    let fn;
+    let needle = i || endSep ? s.slice(i, -endSep || undefined) : s;
+    if (needle.includes('^')) {
+      needle = new RegExp(
+        (pinStart ? '^' : '') +
+        (pinDomain ? '(?:\\.|//)' : '') +
+        needle.replace(RX_ESCAPE, '\\$&').replace(/\\\^/g, RX_SEP.source) +
+        (endSep ? `(?:${RX_SEP.source}|$)}` : ''), 'i');
+      fn = simpleMatcher.rx;
+    } else if (pinStart) {
+      fn = endSep ? simpleMatcher.equals : simpleMatcher.starts;
+    } else if (pinDomain) {
+      const i = needle.indexOf('/');
+      const domain = i > 0 ? needle.slice(0, i) : needle;
+      needle = [needle, domain, i > 0, endSep];
+      fn = simpleMatcher.startsDomainPrescreen;
+    } else if (endSep) {
+      fn = simpleMatcher.ends;
+    } else {
+      fn = simpleMatcher.has;
+    }
+    results.push({needle, fn});
+  }
+  return Array.isArray(match) ?
+    {needle: results, fn: simpleMatcher.array} :
+    results[0];
+}
+
 function loadCfg() {
   return fixCfg(GM_getValue('cfg'), true);
 }
@@ -175,31 +268,32 @@ function saveCfg(newCfg) {
 }
 
 function loadHosts() {
-  const re = (str, flags) => new RegExp(str, flags);
-  const join = sites => sites.join('|').replace(/\./g, '\\.');
+  // 'u' works only with URLs so it's ignored if 'html' is true
+  // 'r' is checked only if 'u' matches first
   const hosts = [{
     d: 'startpage',
     r: /\boiu=(.+)/,
     s: '$1',
     follow: true,
   }, {
-    r: /[/?=](https?.+?)(&|$)/,
+    r: /[/?=](https?[^&]+)/,
     s: '$1',
     follow: true,
   }, {
-    d: '4chan.org',
+    d: '||4chan.org^',
     e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
     q: '.op .fileText a',
     css: '#post-preview{display:none}',
   }, {
-    r: /500px\.com\/photo\//,
+    u: '||500px.com/photo/',
     q: 'meta[property="og:image"]',
   }, {r: /attachment\.php.+attachmentid/},
   {
-    r: /abload\.de\/image/,
+    u: '||abload.de/image',
     q: '#image',
   }, {
-    d: 'amazon.',
+    d: '||amazon.',
+    u: 'amazon.com/images/I/',
     r: /(https?:\/\/[.a-z-]+amazon\.com\/images\/I\/.+?)\./,
     s: m => {
       const uh = d.getElementById('universal-hover');
@@ -207,13 +301,18 @@ function loadHosts() {
     },
     css: '#zoomWindow{display:none!important;}',
   }, {
-    r: /(chronos\.to|coreimg\.net)\/t\/([0-9]+)\/([0-9]+)\/([a-z0-9]+)/,
+    u: [
+      '||chronos.to/t/',
+      '||coreimg.net/t/',
+    ],
+    r: /([^/]+)\/t\/([0-9]+)\/([0-9]+)\/([a-z0-9]+)/,
     s: 'http://i$2.$1/i/$3/$4.jpg',
   }, {
+    u: 'pic.me/',
     r: /de?pic\.me\/[0-9a-z]{8,}/,
     q: '#pic',
   }, {
-    r: /deviantart\.com\/art\//,
+    u: '||deviantart.com/art/',
     s: (m, node) =>
       /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
         '' :
@@ -227,50 +326,50 @@ function loadHosts() {
       'img.dev-content-full',
     ],
   }, {
-    r: /disqus\.com/,
+    u: '||disqus.com/',
     s: '',
   }, {
-    r: /dropbox\.com\/sh?\/.+\.(jpe?g|gif|png)/i,
+    u: '||dropbox.com/s',
+    r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
     q: (text, doc) => {
       const i = qs('img.absolute-center', doc);
       return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
     },
   }, {
-    d: 'dropbox.com',
+    d: '||dropbox.com^',
     r: /(.+?&size_mode)=\d+(.*)/,
     s: '$1=5$2',
   }, {
-    r: /ebay\.[^/]+\/itm\//,
+    r: /[./]ebay\.[^/]+\/itm\//,
     q: text =>
       text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
         .replace(/~~60_\d+/, '~~60_57'),
   }, {
-    r: /i.ebayimg.com/,
+    u: '||i.ebayimg.com/',
     s: (m, node) =>
-      qs('.zoom_trigger_mask', node.parentNode) ?
-        '' :
+      qs('.zoom_trigger_mask', node.parentNode) ? '' :
         m.input.replace(/~~60_\d+/, '~~60_57'),
   }, {
-    r: /fastpic\.ru\/view\//,
+    u: '||fastpic.ru/view/',
     q: '#image',
   }, {
-    d: 'facebook.com',
+    d: '||facebook.com^',
     e: 'a[href*="ref=hovercard"]',
     s: (m, node) =>
       'https://www.facebook.com/photo.php?fbid=' +
       /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
     follow: true,
   }, {
-    d: 'facebook.com',
+    d: '||facebook.com^',
     r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
     s: (m, node) =>
-      contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ?
-        '' :
+      contains(node.parentNode.className, 'video') && contains(m[4], 'fbcdn') ? '' :
         decodeURIComponent(m[4]),
     html: true,
     follow: true,
   }, {
-    r: /facebook\.com\/(photo\.php|[^/]+\/photos\/)/,
+    u: '||facebook.com/',
+    r: /[./]facebook\.com\/(photo\.php|[^/]+\/photos\/)/,
     s: (m, node) =>
       node.id === 'fbPhotoImage' ? false :
         /gradient\.png$/.test(m.input) ? '' :
@@ -278,6 +377,7 @@ function loadHosts() {
     q: 'div + span > a:first-child:not([href*="tag_faces"]), div + span > a[href*="tag_faces"] ~ a',
     rect: '#fbProfileCover',
   }, {
+    u: '||fbcdn.',
     r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
     s: m => {
       if (/[.^]facebook\.com$/.test(hostname)) {
@@ -289,6 +389,7 @@ function loadHosts() {
     },
     manual: true,
   }, {
+    u: ['||fbcdn-', 'fbcdn.net/'],
     r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
     s: (m, node) => {
       if (node.id === 'fbPhotoImage') {
@@ -307,10 +408,11 @@ function loadHosts() {
     },
     rect: '.photoWrap',
   }, {
-    r: /firepic\.org\/\?v=/,
+    u: '||firepic.org/?v=',
     q: '.well img[src*="firepic.org"]',
   }, {
-    r: /flickr\.com\/photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
+    u: '||flickr.com/photos/',
+    r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
     s: m =>
       m.input.indexOf('/sizes/') < 0 ?
         `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
@@ -319,26 +421,40 @@ function loadHosts() {
       'https://www.flickr.com' + qsa('.sizes-list a', doc).pop().getAttribute('href'),
     follow: true,
   }, {
-    r: /flickr\.com\/photos\/.+\/sizes\//,
+    u: '||flickr.com/photos/',
+    r: /\/sizes\//,
     q: '#allsizes-photo > img',
   }, {
-    r: /gallery(nova|sense)\.se\/site\/v\//,
+    u: [
+      '||gallerynova.se/site/v/',
+      '||gallerysense.se/site/v/',
+    ],
     q: 'a[href*="/upload/"]',
   }, {
-    r: /gifbin\.com\/.+\.gif$/,
+    u: '||gifbin.com/',
+    r: /[./]gifbin\.com\/.+\.gif$/,
     xhr: true,
   }, {
+    u: '||gfycat.com/',
     r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
     s: 'https://$1$3',
-    q: ['meta[content$=".webm"]', '#webmsource', 'source[src$=".webm"]'],
+    q: [
+      'meta[content$=".webm"]',
+      '#webmsource',
+      'source[src$=".webm"]',
+    ],
   }, {
-    r: /googleusercontent\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
-    s: m =>
-      m[2] ?
-        decodeURIComponent(m[2]) :
-        m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
+    u: [
+      '||googleusercontent.com/proxy',
+      '||googleusercontent.com/gadgets/proxy',
+    ],
+    r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
+    s: m => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
   }, {
-    r: /(googleusercontent|ggpht)\.com\//,
+    u: [
+      '||googleusercontent.com/',
+      '||ggpht.com/',
+    ],
     s: (m, node) =>
       contains(m.input, 'webcache.') ||
       node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
@@ -346,150 +462,185 @@ function loadHosts() {
         '' :
         m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0').replace(/=[^/]+$/, ''),
   }, {
-    r: /heberger-image\.fr\/images/,
+    u: '||heberger-image.fr/images',
     q: '#myimg',
   }, {
-    r: /hostingkartinok\.com\/show-image\.php.*/,
+    u: '||hostingkartinok.com/show-image.php',
     q: '.image img',
   }, {
-    r: /imagearn\.com\/image/,
+    u: '||imagearn.com/image',
     q: '#img',
     xhr: true,
   }, {
-    r: /imagefap\.com\/(image|photo)/,
+    u: [
+      '||imagefap.com/image',
+      '||imagefap.com/photo',
+    ],
     q: (text, doc) => qs('*[itemprop="contentUrl"]', doc).textContent,
   }, {
-    r: /imagebam\.com\/image\//,
+    u: '||imagebam.com/image/',
     q: 'meta[property="og:image"]',
     tabfix: true,
     xhr: contains(hostname, 'planetsuzy'),
   }, {
-    r: re(join([
-      'cweb-pix.com',
-      'imageban.(ru|net)/show',
-      '(imagebunk|imagewaste).com/(image|pictures/[0-9]+)',
-      'imgnova.com',
-    ])),
+    u: [
+      '||cweb-pix.com/',
+      '||imageban.ru/show',
+      '||imageban.net/show',
+      '||imgnova.com/',
+      '||imagebunk.com/image',
+    ],
     q: '#img_obj',
     xhr: true,
   }, {
-    r: re(`(${join([
-      'freeimgup.com/xxx',
-      'imagepdb.com',
-      'imgsure.com',
-      'imgwiki.org',
-      'www.pixoverflow.com',
-    ])})/\\?v=([0-9]+$|.+(?=\\.[a-z]+))`),
+    u: [
+      '||freeimgup.com/xxx/?v=',
+      '||imagepdb.com/?v=',
+      '||imgsure.com/?v=',
+      '||imgwiki.org/?v=',
+      '||www.pixoverflow.com/?v=',
+    ],
+    r: /\/\?v=([0-9]+$|.+(?=\.[a-z]+))/,
     s: 'http://$1/images/$2.jpg',
     xhr: true,
   }, {
+    u: '||imageshack.us/img',
     r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
     s: 'https://$2/download/$1/$3$4',
   }, {
-    r: /imageshack\.us\/i\//,
+    u: '||imageshack.us/i/',
     q: '#share-dl',
   }, {
-    r: /imageshost\.ru\/photo\//i,
+    u: '||imageshost.ru/photo/',
     q: '#bphoto',
   }, {
-    r: /imageteam\.org\/img/,
+    u: '||imageteam.org/img',
     q: 'img[alt="image"]',
   }, {
-    r: /(imagetwist\.com|imageshimage\.com|imgflare\.com|imgearn\.net)\/[a-z0-9]{8,}/,
+    u: [
+      '||imagetwist.com/',
+      '||imageshimage.com/',
+      '||imgflare.com/',
+      '||imgearn.net/',
+    ],
+    r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
     q: 'img.pic',
     xhr: true,
   }, {
-    r: /imageupper\.com\/i\//,
+    u: '||imageupper.com/i/',
     q: '#img',
     xhr: true,
   }, {
-    r: /imagepix\.org\/image\/(.+)\.html$/,
+    u: '||imagepix.org/image/',
+    r: /\/image\/(.+)\.html$/,
     s: 'http://imagepix.org/full/$1.jpg',
     xhr: true,
   }, {
-    r: /imageporter\.com\/i\//,
+    u: '||imageporter.com/i/',
     s: '/_t//',
     xhr: true,
   }, {
-    r: /imagevenue\.com\/img\.php/,
+    u: '||imagevenue.com/img.php',
     q: '#thepic',
   }, {
-    r: /imagezilla\.net\/show\//,
+    u: '||imagezilla.net/show/',
     q: '#photo',
     xhr: true,
   }, {
-    r: /(images-na\.ssl-images-amazon.com|media-imdb\.com)\/images\/.+?\.jpg/,
+    u: [
+      '||images-na.ssl-images-amazon.com/images/',
+      '||media-imdb.com/images/',
+    ],
+    r: /[./](images-na\.ssl-images-amazon.com|media-imdb\.com)\/images\/.+?\.jpg/,
     s: '/V1\\.?_.+?\\.//g',
     distinct: true,
   }, {
-    r: /imgbox\.com\/([a-z0-9]+)$/i,
+    u: '||imgbox.com/',
+    r: /[./]imgbox\.com\/([a-z0-9]+)$/i,
     q: '#img',
     xhr: hostname !== 'imgbox.com',
   }, {
-    r: /imgchili\.(net|com)\/show/,
+    u: [
+      '||imgchili.net/show',
+      '||imgchili.com/show',
+    ],
     q: '#show_image',
     xhr: true,
   }, {
-    r: re(`(${join([
-      'hosturimage.com',
-      'imageboom.net',
-      'imageon.org',
-      'imageontime.org',
-      'img.yt',
-      'img4ever.net',
-      'imgcandy.net',
-      'imgcredit.xyz',
-      'imgdevil.com',
-      'imggoo.com',
-      'imgrun.net',
-      'imgtrial.com',
-      'imgult.com',
-      'imgwel.com',
-      'picspornfree.me',
-      'pixliv.com',
-      'pixxx.me',
-      'uplimg.com',
-      'xxxscreens.com',
-      'xxxupload.org',
-    ])})/img-|imgbb\\.net/v-`),
+    u: [
+      '||hosturimage.com/img-',
+      '||imageboom.net/img-',
+      '||imageon.org/img-',
+      '||imageontime.org/img-',
+      '||img.yt/img-',
+      '||img4ever.net/img-',
+      '||imgcandy.net/img-',
+      '||imgcredit.xyz/img-',
+      '||imgdevil.com/img-',
+      '||imggoo.com/img-',
+      '||imgrun.net/img-',
+      '||imgtrial.com/img-',
+      '||imgult.com/img-',
+      '||imgwel.com/img-',
+      '||picspornfree.me/img-',
+      '||pixliv.com/img-',
+      '||pixxx.me/img-',
+      '||uplimg.com/img-',
+      '||xxxscreens.com/img-',
+      '||xxxupload.org/img-',
+      '||imgbb.net/v-',
+    ],
     s: m =>
       m.input
         .replace(/\/(v-[0-9a-f]+)_.+/, '$1')
         .replace('http://img.yt', 'https://img.yt'),
-    q: ['img.centred_resized, #image', 'img[src*="/upload/big/"]'],
+    q: [
+      'img.centred_resized, #image',
+      'img[src*="/upload/big/"]',
+    ],
     xhr: true,
     post: 'imgContinue=Continue%20to%20image%20...%20',
   }, {
-    r: re(`(${join([
-      'foxyimg.link',
-      'imageeer.com',
-      'imgclick.net',
-      'imgdiamond.com',
-      'imgdragon.com',
-      'imgmaid.net',
-      'imgmega.com',
-      'imgpaying.com',
-      'imgsee.me',
-      'imgtiger.org',
-      'imgtrex.com',
-      'pic-maniac.com',
-      'picexposed.com',
-    ])})/([a-z0-9]+)`),
+    u: [
+      '||foxyimg.link/',
+      '||imageeer.com/',
+      '||imgclick.net/',
+      '||imgdiamond.com/',
+      '||imgdragon.com/',
+      '||imgmaid.net/',
+      '||imgmega.com/',
+      '||imgpaying.com/',
+      '||imgsee.me/',
+      '||imgtiger.org/',
+      '||imgtrex.com/',
+      '||pic-maniac.com/',
+      '||picexposed.com/',
+    ],
+    r: /(?:\/\/|^)[^/]+\/(\w+)/,
     q: 'img.pic',
     xhr: true,
-    post: m => `op=view&id=${m[2]}&pre=1&submit=Continue%20to%20image...`,
+    post: m => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`,
   }, {
-    r: /imgflip\.com\/(i|gif)\/([^/?#]+)/,
+    u: [
+      '||imgflip.com/i/',
+      '||imgflip.com/gif/',
+    ],
+    r: /\/(i|gif)\/([^/?#]+)/,
     s: m => `https://i.imgflip.com/${m[2]}${m[1] === 'i' ? '.jpg' : '.mp4'}`,
   }, {
-    r: /imgsen\.se\/upload\//,
+    u: '||imgsen.se/upload/',
     s: '/small/big/',
     xhr: false,
   }, {
-    r: /imgtheif\.com\/image\//,
+    u: '||imgtheif.com/image/',
     q: 'a > img[src*="/pictures/"]',
   }, {
-    r: /imgur\.com\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
+    u: [
+      '||imgur.com/a/',
+      '||imgur.com/gallery/',
+      '||imgur.com/t/',
+    ],
+    r: /\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
     s: m => `https://imgur.com/${m[1]}/${m[2]}${m[3] || ''}`,
     g: (text, url, cb) => {
       const mk = (o, imgs) => {
@@ -532,7 +683,8 @@ function loadHosts() {
     },
     css: '.post > .hover { display:none!important; }',
   }, {
-    r: /imgur\.com\/.+,/i,
+    u: '||imgur.com/',
+    r: /\.com\/.+,/,
     g: (text, url) =>
       /.+\/([a-z0-9,]+)/i
         .exec(url)[1]
@@ -541,6 +693,7 @@ function loadHosts() {
           url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
         })),
   }, {
+    u: '||imgur.com/',
     r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
     s: (m, node) => {
       if (/memegen|random|register|search|signin/.test(m.input))
@@ -577,7 +730,7 @@ function loadHosts() {
       return {a};
     };
     const RULE = {
-      d: 'instagram.com',
+      d: 'instagram.com^',
       e: [
         LINK_SEL,
         'a[role="button"][data-reactid*="scontent-"]',
@@ -604,7 +757,10 @@ function loadHosts() {
     return RULE;
   })(),
   {
-    r: /instagr(\.am|am\.com)\/p\//i,
+    u: [
+      '||instagr.am/p/',
+      '||instagram.com/p/',
+    ],
     s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
     q: text => {
       const m = JSON.parse(text).graphql.shortcode_media;
@@ -616,44 +772,72 @@ function loadHosts() {
       return m === undefined ? '(no caption)' : m.node.text;
     },
   }, {
-    r: /(istoreimg\.com\/i|itmages\.ru\/image\/view)\//,
+    u: [
+      '||istoreimg.com/i/',
+      '||itmages.ru/image/view/',
+    ],
     q: '#image',
   }, {
-    d: 'kat.cr',
+    d: '||kat.cr^',
+    u: 'confirm/url/',
     r: /confirm\/url\/([^/]+)/,
     s: m => atob(decodeURIComponent(m[1])),
     follow: true,
   }, {
+    u: '||lazygirls.info/',
     r: /(lazygirls\.info\/.+_.+?\/[a-z0-9_]+)($|\?)/i,
     s: 'http://www.$1?display=fullsize',
     q: 'img.photo',
     xhr: hostname !== 'www.lazygirls.info',
   }, {
-    r: /ld-host\.de\/show/,
+    u: '||ld-host.de/show',
     q: '#image',
   }, {
-    r: /(listal|lisimg)\.com\/(view)?image\/([0-9]+)/,
-    s: 'http://iv1.lisimg.com/image/$3/0full.jpg',
+    u: [
+      '||listal.com/',
+      '||lisimg.com/',
+    ],
+    r: /\/(view)?image\/([0-9]+)/,
+    s: 'http://iv1.lisimg.com/image/$2/0full.jpg',
   }, {
+    u: [
+      '||livememe.com/',
+      '||lvme.me/',
+    ],
     r: /(livememe\.com|lvme\.me)\/([^.]+)$/,
     s: 'http://i.lvme.me/$2.jpg',
   }, {
-    r: /lostpic\.net\/\?(photo|view)/,
-    q: ['#cool > img', '.casem img'],
+    u: [
+      '||lostpic.net/?photo',
+      '||lostpic.net/?view',
+    ],
+    q: [
+      '#cool > img',
+      '.casem img',
+    ],
   }, {
-    r: /makeameme\.org\/meme\/([^/?#]+)/,
+    u: '||makeameme.org/meme/',
+    r: /\/meme\/([^/?#]+)/,
     s: 'https://media.makeameme.org/created/$1.jpg',
   }, {
-    r: /modelmayhem\.com\/photos\//,
+    u: '||modelmayhem.com/photos/',
     s: '/_m//',
   }, {
-    r: /modelmayhem\.com\/avatars\//,
+    u: '||modelmayhem.com/avatars/',
     s: '/_t/_m/',
   }, {
-    r: /(min\.us|minus\.com)\/(i\/|l)([a-z0-9]+)$/i,
-    s: 'https://i.minus.com/i$3.jpg',
+    u: [
+      '||min.us/',
+      '||minus.com/',
+    ],
+    r: /\/(i\/|l)([a-z0-9]+)$/i,
+    s: 'https://i.minus.com/i$2.jpg',
   }, {
-    r: /(min\.us|minus\.com)\/m[a-z0-9]+$/i,
+    u: [
+      '||min.us/m',
+      '||minus.com/m',
+    ],
+    r: /\/m[a-z0-9]+$/i,
     g: text => {
       const m = /gallerydata = ({[\w\W]+?});/.exec(text);
       const o = JSON.parse(m[1]);
@@ -668,134 +852,175 @@ function loadHosts() {
       return items;
     },
   }, {
-    r: /(panoramio\.com\/.*?photo(\/|_id=)|google\.com\/mw-panoramio\/photos\/[a-z]+\/)(\d+)/,
+    u: [
+      '||panoramio.com/',
+      '||google.com/mw-panoramio/photos/',
+    ],
+    r: /[./](photo(\/|_id=)|\/photos\/[a-z]+\/)(\d+)/,
     s: 'http://static.panoramio.com/photos/original/$3.jpg',
   }, {
+    u: '||photobucket.com/',
     r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
     s: 'http://i$1$3',
     xhr: !contains(hostname, 'photobucket.com'),
   }, {
-    r: /(photosex\.biz|posteram\.ru)\/.+?id=/i,
+    u: [
+      '||photosex.biz',
+      '||posteram.ru/',
+    ],
+    r: /id=/i,
     q: 'img[src*="/pic_b/"]',
     xhr: true,
   }, {
-    r: /pic4all\.eu\/(images\/|view\.php\?filename=)(.+)/,
-    s: 'http://$1/images/$3',
+    u: '||pic4all.eu/view.php?filename=',
+    r: /filename=(.+)/,
+    s: 'http://pic4all.eu/images/$1',
   }, {
-    r: /piccy\.info\/view3\/(.*)\//,
-    s: 'http://piccy.info/view3/$1/orig/',
+    u: '||piccy.info/view3/',
+    r: /(.+?\/view3)\/(.*)\//,
+    s: '$1/$2/orig/',
     q: '#mainim',
   }, {
-    r: /picsee\.net\/([\d-]+)\/(.+?)\.html/,
+    u: '||picsee.net/',
+    r: /[./]picsee\.net\/([\d-]+)\/(.+?)\.html/,
     s: 'http://picsee.net/upload/$1/$2',
   }, {
-    r: /picturescream\.com\/\?v=/,
+    u: '||picturescream.com/?v=',
     q: '#imagen img',
   }, {
-    r: /(picturescream\.[a-z/]+|imagescream\.com\/img)\/(soft|x)/,
+    u: [
+      '||picturescream.',
+      '||imagescream.com/img/',
+    ],
+    r: /\/(soft|x)/,
     q: 'a > img[src*="/images/"]',
   }, {
-    r: /pimpandhost\.com\/image\/([0-9]+)/,
-    s: 'http://pimpandhost.com/image/$1?size=original',
+    u: '||pimpandhost.com/image/',
+    r: /(.+?\/image\/[0-9]+)/,
+    s: '$1?size=original',
     q: 'img.original',
   }, {
-    r: /pixhost\.org\/show\//,
+    u: '||pixhost.org/show/',
     q: '#image',
     xhr: true,
   }, {
-    r: /pixhub\.eu\/images/,
+    u: '||pixhub.eu/images',
     q: '.image-show img',
     xhr: true,
   }, {
-    r: /(pixroute|imgspice)\.com\/.+\.html$/,
+    u: [
+      '||pixroute.com/',
+      '||imgspice.com/',
+    ],
+    r: /\.html$/,
     q: 'img[id]',
     xhr: true,
   }, {
+    u: [
+      '||pixsor.com/share-',
+      '||euro-pic.eu/share-',
+    ],
     r: /(pixsor\.com|euro-pic\.eu)\/share-([a-z0-9_]+)/i,
     s: 'http://www.$1/image.php?id=$2',
     xhr: true,
   }, {
+    u: '||postima',
     r: /postima?ge?\.org\/image\/\w+/,
-    q: ['a[href*="dl="]', '#main-image'],
+    q: [
+      'a[href*="dl="]',
+      '#main-image',
+    ],
   }, {
-    r: /radikal\.ru\/(fp|.+\.html)/,
+    u: '||radikal.ru/',
+    r: /\.ru\/(fp|.+\.html)/,
     q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
   }, {
-    d: 'reddit.com',
-    r: /i\.reddituploads\.com/,
+    d: '||reddit.com^',
+    u: '||i.reddituploads.com/',
   }, {
-    r: /screenlist\.ru\/details/,
+    u: '||screenlist.ru/details',
     q: '#picture',
   }, {
-    r: /sharenxs\.com\/.+original$/,
+    u: '||sharenxs.com/',
+    r: /original$/,
     q: 'img.view_photo',
     xhr: true,
   }, {
-    r: /sharenxs\.com\/(gallery|view)\//,
+    u: [
+      '||sharenxs.com/gallery/',
+      '||sharenxs.com/view/',
+    ],
     q: 'a[href$="original"]',
     follow: true,
   }, {
-    r: /stooorage\.com\/show\//,
+    u: '||stooorage.com/show/',
     q: '#page_body div div img',
     xhr: true,
   }, {
-    r: re(`(${join([
-      'awsmpic.com',
-      'damimage.com',
-      'dragimage.org',
-      'gogoimage.org',
-      'image.re',
-      'imagedecode.com',
-      'imgflash.net',
-      'imgget.net',
-      'imghit.com',
-      'imgproof.net',
-      'imgs.it',
-      'imgserve.net',
-      'imgspot.org',
-      'imgstudio.org',
-      'madimage.org',
-      'ocaload.com',
-      'swoopic.com',
-    ])})/img-`),
+    u: [
+      '||awsmpic.com/img-',
+      '||damimage.com/img-',
+      '||dragimage.org/img-',
+      '||gogoimage.org/img-',
+      '||image.re/img-',
+      '||imagedecode.com/img-',
+      '||imgflash.net/img-',
+      '||imgget.net/img-',
+      '||imghit.com/img-',
+      '||imgproof.net/img-',
+      '||imgs.it/img-',
+      '||imgserve.net/img-',
+      '||imgspot.org/img-',
+      '||imgstudio.org/img-',
+      '||madimage.org/img-',
+      '||ocaload.com/img-',
+      '||swoopic.com/img-',
+    ],
     q: 'img.centred_resized, img.centred',
     xhr: true,
   }, {
-    r: /turboimagehost\.com\/p\//,
+    u: '||turboimagehost.com/p/',
     q: '#imageid',
     xhr: true,
   }, {
-    r: /twimg.+\/profile_images/i,
+    u: '||twimg.com/',
+    r: /\/profile_images/i,
     s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
   }, {
+    u: '||twimg.com/media/',
     r: /([a-z0-9-]+\.twimg\.com\/media\/[a-z0-9_-]+\.(jpe?g|png|gif))/i,
     s: 'https://$1:orig',
     rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
   }, {
-    d: 'tumblr.com',
+    d: '||tumblr.com^',
     e: 'div.photo_stage_img, div.photo_stage > canvas',
     s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
     follow: true,
   }, {
-    r: /tumblr\.com.+_500\.jpg/,
+    u: '||tumblr.com',
+    r: /_500\.jpg/,
     s: ['/_500/_1280/', ''],
   }, {
-    r: /twimg\.com\/1\/proxy.+?t=(.+?)[&_]/i,
+    u: '||twimg.com/1/proxy',
+    r: /t=([^&_]+)/i,
     s: m => atob(m[1]).match(/http.+/),
   }, {
-    r: /pic\.twitter\.com\/[a-z0-9]+/i,
+    u: '||pic.twitter.com/',
+    r: /\.com\/[a-z0-9]+/i,
     q: text => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
     follow: true,
   }, {
-    d: 'tweetdeck.twitter.com',
+    d: '||tweetdeck.twitter.com^',
     e: 'a.media-item, a.js-media-image-link',
     s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
     follow: true,
   }, {
-    r: /twitpic\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
+    u: '||twitpic.com/',
+    r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
     s: 'https://twitpic.com/show/large/$2',
   }, {
-    r: /twitter\.com\/.+\/status\/.+\/photo\//,
+    u: '||twitter.com/',
+    r: /\/status\/.+\/photo\//,
     q: [
       '.OldMedia img',
       '.media img',
@@ -807,18 +1032,27 @@ function loadHosts() {
     ],
     follow: url => !/\.mp4$/.test(url),
   }, {
-    d: 'twitter.com',
+    d: '||twitter.com^',
     e: '.grid-tweet > .media-overlay',
     s: (m, node) => node.previousElementSibling.src,
     follow: true,
   }, {
-    r: /upix\.me\/files/,
+    u: '||upix.me/files',
     s: '/#//',
   }, {
-    r: /(vine|seenive)\.com?\/v\//,
+    u: [
+      '||vine.co/v/',
+      '||vine.com/v/',
+      '||seenive.co/v/',
+      '||seenive.com/v/',
+    ],
     q: 'video source, meta[property="twitter:player:stream"]',
   }, {
-    r: /(web\.stagr(\.am|am\.com)|websta\.me)\/p\//i,
+    u: [
+      '||web.stagram.com/p/',
+      '||web.stagr.am/p/',
+      '||web.sta.me/p/',
+    ],
     q: (text, doc) => {
       const node = findNode(['div.jp-jplayer', 'meta[property="og:image"]'], doc);
       return findFile(node, _.url).replace(/\/[sp]\d+x\d+\//, '/');
@@ -829,32 +1063,56 @@ function loadHosts() {
       return s.substr(0, s.lastIndexOf(' | '));
     },
   }, {
-    r: /wiki.+\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
+    u: '||wiki',
+    r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
     s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$//g',
     xhr: !contains(hostname, 'wiki'),
   }, {
-    r: /((xxxhost|tinypix)\.me|(xxxces|imgsin)\.com)\/viewer/,
-    q: ['.text_align_center > img', 'img[alt]'],
+    u: [
+      '||xxxhost.me/viewer',
+      '||tinypix.me/viewer',
+      '||xxxces.com/viewer',
+      '||imgsin.com/viewer',
+    ],
+    q: [
+      '.text_align_center > img',
+      'img[alt]',
+    ],
     xhr: true,
   }, {
+    u: '||ytimg.com/vi/',
     r: /(i[0-9]*\.ytimg\.com\/vi\/[^/]+)/,
     s: 'https://$1/0.jpg',
     rect: '.video-list-item',
   }, {
-    r: /\/\/([^/]+)\/viewer\.php\?file=(.+)/,
+    u: '/viewer.php?file=',
+    r: /(\/\/|^)([^/]+)\/viewer\.php\?file=(.+)/,
     s: 'http://$1/images/$2',
     xhr: true,
   }, {
+    u: '/thumb_',
     r: /\/albums.+\/thumb_[^/]/,
     s: '/thumb_//',
   }, {
-    r: /\/\/[^/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
+    u: [
+      '.jp',
+      '.jpg',
+      '.jpe',
+      '.jpeg',
+      '.gif',
+      '.png',
+      '.svg',
+      '.webm',
+    ],
+    r: /(\/\/|^)[^/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
     distinct: true,
   }];
   if (cfg.hosts) {
     for (const s of cfg.hosts.split(/[\r\n]+/).reverse()) {
       try {
         const h = JSON.parse(s);
+        if (typeof h.d !== 'string')
+          h.d = undefined;
         if (h.r)
           h.r = new RegExp(h.r, 'i');
         if (h.s && typeof h.s === 'string' && contains(h.s, 'return '))
@@ -869,7 +1127,23 @@ function loadHosts() {
       }
     }
   }
-  return hosts.filter(h => !h.d || contains(hostname, h.d));
+  const hostnamePinned = '.' + hostname;
+  const inDomain = ({d}) => {
+    if (!d)
+      return true;
+    const pinDomain = d.startsWith('||');
+    const pinStart = !pinDomain && d.startsWith('|');
+    const pinEnd = d.endsWith('^');
+    d = d.slice(pinDomain * 2, -pinEnd || undefined);
+    return (
+      pinStart ? hostname.startsWith(d) && (!pinEnd || hostname.length === d.length) :
+        pinDomain && pinEnd ? hostnamePinned.endsWith('.' + d) :
+          pinDomain ? hostnamePinned.includes('.' + d) :
+            pinEnd ? hostname.endsWith(d) :
+              hostname.includes(d)
+    );
+  };
+  return hosts.filter(inDomain);
 }
 
 function onMouseOver(e) {
@@ -1417,13 +1691,18 @@ function findInfo(url, node, noHtml, skipHost) {
     if (h.e && !matches(node, h.e) || h === skipHost)
       continue;
     let m, html, urls;
-    if (h.r) {
+    if (h.r || h.u) {
       if (h.html && !noHtml && (tn === 'A' || tn === 'IMG' || h.e)) {
         if (!html)
           html = node.outerHTML;
         m = h.r.exec(html);
       } else if (url) {
-        m = h.r.exec(url);
+        if (h.u && !h._u)
+          h._u = compileSimpleUrlMatch(h.u);
+        m = h._u && h._u.fn(url, h._u.needle) &&
+            Object.assign([url], {index: 0, input: url});
+        if (h.r && (m || !h._u))
+          m = h.r.exec(url);
       } else {
         m = null;
       }
@@ -1840,15 +2119,16 @@ function handleError(o) {
   try {
     if (o.stack)
       m.push(' @ ' + o.stack.replace(/<?@file:.+?\.js/g, ''));
+    if (_.u)
+      m.push('Url simple match:', Array.isArray(_.u) ? _.u.slice() : _.u);
     if (_.r)
-      m.push('RegExp: ' + _.r);
+      m.push('RegExp match:', _.r);
     if (_.url)
-      m.push('URL: ' + _.url);
+      m.push('URL:', _.url);
     if (_.iurl)
-      m.push('File: ' + _.iurl);
-    console.log(m.join('\n'));
-  } catch (ex) {
-  }
+      m.push('File:', _.iurl);
+    console.log(m);
+  } catch (ex) {}
   if (contains(hostname, 'google') && contains(location.search, 'tbm=isch') && !_.xhr && cfg.xhr) {
     _.xhr = true;
     startSinglePopup(_.url);
