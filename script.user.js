@@ -2428,7 +2428,7 @@ function setup() {
       .map(x => x.replace(',', '.'))
       .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
-    const inps = qsa('input', $('hosts'));
+    const inps = qsa('textarea', $('hosts'));
     const lines = [];
     for (let i = 0; i < inps.length; i++) {
       const s = inps[i].value.trim();
