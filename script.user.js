@@ -163,7 +163,7 @@ function loadCfg() {
   return fixCfg(GM_getValue('cfg'), true);
 }
 
-function fixCfg(s, save) {
+function fixCfg(cfg, save) {
   const def = {
     version: 5,
     delay: 500,
@@ -175,29 +175,28 @@ function fixCfg(s, save) {
     preload: false,
     css: '',
     scales: [],
-    hosts: '',
+    hosts: [],
     scale: 1.5,
     xhr: true,
   };
-  let cfg;
-  try {
-    cfg = JSON.parse(s);
-  } catch (ex) {}
-  if (typeof cfg !== 'object' || !cfg) {
+  if (typeof cfg === 'string')
+    cfg = tryJson(cfg);
+  if (typeof cfg !== 'object' || !cfg)
     cfg = {};
-  } else if (cfg.version === def.version) {
+  if (typeof cfg.hosts === 'string')
+    cfg.hosts = cfg.hosts.split('\n')
+      .map(s => tryJson(s) || s)
+      .filter(Boolean);
+  if (cfg.version === def.version)
     return cfg;
-  }
-  for (const dp in def) {
+  for (const dp in def)
     if (def.hasOwnProperty(dp) && typeof cfg[dp] !== typeof def[dp])
       cfg[dp] = def[dp];
-  }
   if (cfg.version === 3 && cfg.scales[0] === 0)
     cfg.scales[0] = '0!';
-  for (const cp in cfg) {
+  for (const cp in cfg)
     if (!def.hasOwnProperty(cp))
       delete cfg[cp];
-  }
   cfg.version = def.version;
   if (save)
     saveCfg(cfg);
@@ -210,9 +209,29 @@ function saveCfg(newCfg) {
 }
 
 function loadHosts() {
+  const customHosts = [];
+  for (let h of cfg.hosts || []) {
+    try {
+      if (typeof h === 'string')
+        h = JSON.parse(h);
+      if (typeof h.d !== 'string')
+        h.d = undefined;
+      if (h.r)
+        h.r = new RegExp(h.r, 'i');
+      if (h.s && typeof h.s === 'string' && contains(h.s, 'return '))
+        h.s = new Function('m', 'node', h.s);
+      if (h.q && typeof h.q === 'string' && contains(h.q, 'return '))
+        h.q = new Function('text', 'doc', 'node', h.q);
+      if (contains(h.c, 'return '))
+        h.c = new Function('text', 'doc', 'node', h.c);
+      customHosts.push(h);
+    } catch (ex) {
+      handleError('Invalid custom host rule:', h);
+    }
+  }
   // 'u' works only with URLs so it's ignored if 'html' is true
   // 'r' is checked only if 'u' matches first
-  const hosts = [{
+  const hosts = [...customHosts, {
     d: 'startpage',
     r: /\boiu=(.+)/,
     s: '$1',
@@ -614,13 +633,7 @@ function loadHosts() {
       GM_xmlhttpRequest({
         method: 'GET',
         url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
-        onload: res => {
-          let imgs;
-          try {
-            imgs = JSON.parse(res.responseText).data.images;
-          } catch (ex) {}
-          cb(mk(o, imgs));
-        },
+        onload: res => cb(mk(o, ((tryJson(res.responseText) || 0).data || 0).images || [])),
       });
     },
     css: '.post > .hover { display:none!important; }',
@@ -1049,26 +1062,6 @@ function loadHosts() {
     r: /(\/\/|^)[^/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
     distinct: true,
   }];
-  if (cfg.hosts) {
-    for (const s of cfg.hosts.split(/[\r\n]+/).reverse()) {
-      try {
-        const h = JSON.parse(s);
-        if (typeof h.d !== 'string')
-          h.d = undefined;
-        if (h.r)
-          h.r = new RegExp(h.r, 'i');
-        if (h.s && typeof h.s === 'string' && contains(h.s, 'return '))
-          h.s = new Function('m', 'node', h.s);
-        if (h.q && typeof h.q === 'string' && contains(h.q, 'return '))
-          h.q = new Function('text', 'doc', 'node', h.q);
-        if (contains(h.c, 'return '))
-          h.c = new Function('text', 'doc', 'node', h.c);
-        hosts.splice(0, 0, h);
-      } catch (ex) {
-        handleError('Host rule invalid: ' + s);
-      }
-    }
-  }
   const hostnamePinned = '.' + hostname;
   const inDomain = ({d}) => {
     if (!d)
@@ -2325,6 +2318,12 @@ function clamp(v, min, max) {
   return v < min ? min : v > max ? max : v;
 }
 
+function tryJson(s) {
+  try {
+    return JSON.parse(s);
+  } catch (e) {}
+}
+
 function setup() {
   const ID = 'mpiv-setup:host';
   let div, root;
@@ -2346,22 +2345,25 @@ function setup() {
 
   function check(e) {
     const t = e.target;
-    let ok;
+    let ok, json;
     try {
       const pes = t.previousElementSibling;
       if (t.value) {
         if (!pes) {
           const inp = t.cloneNode();
           inp.value = '';
-          t.parentNode.insertBefore(inp, t);
+          t.insertAdjacentElement('beforebegin', inp);
         }
-        new RegExp(JSON.parse(t.value).r);
+        json = JSON.parse(t.value);
+        if (json.r)
+          new RegExp(json.r);
       } else if (pes) {
         pes.focus();
         rm(t);
       }
       ok = 1;
     } catch (ex) {}
+    t.__json = json;
     t.style.backgroundColor = ok ? '' : '#ffaaaa';
   }
 
@@ -2428,16 +2430,11 @@ function setup() {
       .map(x => x.replace(',', '.'))
       .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
-    const inps = qsa('textarea', $('hosts'));
-    const lines = [];
-    for (let i = 0; i < inps.length; i++) {
-      const s = inps[i].value.trim();
-      if (s)
-        lines.push(s);
-    }
-    lines.sort();
-    cfg.hosts = lines.join('\n');
-    return fixCfg(JSON.stringify(cfg));
+    cfg.hosts = [...qsa('textarea', $('hosts'))]
+      .map(el => el.__json || el.value.trim())
+      .filter(Boolean)
+      .sort();
+    return fixCfg(cfg);
   }
 
   function init(cfg) {
@@ -2612,15 +2609,12 @@ function setup() {
     `;
     if (cfg.hosts) {
       const parent = $('hosts');
-      const lines = cfg.hosts.split(/[\r\n]+/);
-      for (let s of lines) {
-        s = s.trim();
-        if (!s)
-          continue;
-        const inp = parent.firstElementChild.cloneNode();
-        inp.value = s;
-        parent.appendChild(inp);
-        check({target: inp});
+      const template = parent.firstElementChild;
+      for (const h of cfg.hosts) {
+        const el = template.cloneNode();
+        el.value = typeof h === 'string' ? h : JSON.stringify(h);
+        parent.appendChild(el);
+        check({target: el});
       }
       on(parent, 'focusin', ({target: el}) => {
         if (el.localName === 'textarea') {
@@ -2633,7 +2627,7 @@ function setup() {
         if (el.localName === 'textarea' && el.style.height)
           el.style.height = '';
       });
-      if (lines.length > 5 || setup.search) {
+      if (cfg.hosts.length > 1 || setup.search) {
         const se = $('search');
         const doSearch = () => {
           const s = se.value.toLowerCase();
