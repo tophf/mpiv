@@ -251,10 +251,22 @@ function loadHosts() {
     }
   }
 
+  // rules that disable previewing
+  const disablers = [
+    onDomain('||stackoverflow.com^') && {
+      e: '.post-tag, .post-tag img',
+      s: '',
+    }, {
+      u: '||disqus.com/',
+      s: '',
+    },
+  ];
+
   // 'u' works only with URLs so it's ignored if 'html' is true
   // 'r' is checked only if 'u' matches first
   return [
     ...customHosts,
+    ...disablers,
     onDomain('startpage') && {
       r: /\boiu=(.+)/,
       s: '$1',
@@ -269,9 +281,17 @@ function loadHosts() {
       q: '.op .fileText a',
       css: '#post-preview{display:none}',
     }, {
-      u: '||500px.com/photo/',
+      u: [
+        '||500px.com/photo/',
+        '||cl.ly/',
+        '||ibb.co/',
+      ],
+      r: /\.\w+\/.+/,
       q: 'meta[property="og:image"]',
-    }, {r: /attachment\.php.+attachmentid/},
+    }, {
+      u: 'attachment.php',
+      r: /attachment\.php.+attachmentid/,
+    },
     {
       u: '||abload.de/image',
       q: '#image',
@@ -295,6 +315,17 @@ function loadHosts() {
       u: 'pic.me/',
       r: /de?pic\.me\/[0-9a-z]{8,}/,
       q: '#pic',
+    },
+    onDomain('deviantart.com') && {
+      e: '[data-super-full-img] *, img[src*="/th/"]',
+      s: (m, node) => {
+        let el = node.closest('[data-super-full-img]');
+        if (el)
+          return el.dataset.superFullImg;
+        el = node.dataset.embedId && node.nextElementSibling;
+        if (el && el.dataset.embedId)
+          return el.src;
+      },
     }, {
       u: '||deviantart.com/art/',
       s: (m, node) =>
@@ -309,9 +340,6 @@ function loadHosts() {
         '#gmi-ResViewSizer_fullimg',
         'img.dev-content-full',
       ],
-    }, {
-      u: '||disqus.com/',
-      s: '',
     }, {
       u: '||dropbox.com/s',
       r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
@@ -345,7 +373,7 @@ function loadHosts() {
       follow: true,
     },
     onDomain('||facebook.com^') && {
-      r: /(fbcdn|fbexternal).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
+      r: /(fbcdn|external).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
       s: (m, node) =>
         node.parentNode.className.includes('video') && m[4].includes('fbcdn') ? '' :
           decodeURIComponent(m[4]),
@@ -430,6 +458,29 @@ function loadHosts() {
         '#webmsource',
         'source[src$=".webm"]',
       ],
+    },
+    onDomain('github.com') && {
+      u: [
+        'avatars',
+        'raw.github.com',
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.bmp',
+        '.gif',
+        '.cur',
+        '.ico',
+      ],
+      r: new RegExp([
+        /(avatars.+?&s=)\d+/,
+        /(raw\.github)(\.com\/.+?\/img\/.+)$/,
+        /\/(github)(\.com\/.+?\/)blob\/([^/]+\/.+?\.(?:png|jpe?g|bmp|gif|cur|ico))$/,
+      ].map(rx => rx.source).join('|')),
+      s: m => `https://${
+        m[1] ? `${m[1]}460` :
+          m[2] ? `${m[2]}usercontent${m[3]}` :
+            `raw.${m[4]}usercontent${m[5]}${m[6]}`
+      }`,
     }, {
       u: [
         '||googleusercontent.com/proxy',
@@ -449,6 +500,15 @@ function loadHosts() {
           '' :
           m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0').replace(/=[^/]+$/, ''),
     }, {
+      u: '||gravatar.com/',
+      r: /([a-z0-9]{32})/,
+      s: 'https://gravatar.com/avatar/$1?s=200',
+    }, {
+      u: '||gyazo.com/',
+      r: /\.com\/\w{32,}/,
+      q: '.image',
+      xhr: true,
+    }, {
       u: '||heberger-image.fr/images',
       q: '#myimg',
     }, {
@@ -458,6 +518,13 @@ function loadHosts() {
       u: '||imagearn.com/image',
       q: '#img',
       xhr: true,
+    }, {
+      u: [
+        '//imagecurl.com/images/',
+        '//imagecurl.com/viewer.php',
+      ],
+      r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
+      s: 'https://imagecurl.com/images/$1$2$3',
     }, {
       u: [
         '||imagefap.com/image',
@@ -724,7 +791,7 @@ function loadHosts() {
           return (
             !a ? false :
               !data ? a.href :
-                data.video_url || data.display_url.replace(/\/[sp]\d+x\d+\//, '/'));
+                data.video_url || data.display_url);
         },
         c: (html, doc, node) => {
           try {
@@ -745,7 +812,7 @@ function loadHosts() {
       s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
       q: text => {
         const m = JSON.parse(text).graphql.shortcode_media;
-        return m.video_url || m.display_url.replace(/\/[sp]\d+x\d+\//, '/');
+        return m.video_url || m.display_url;
       },
       rect: 'div.PhotoGridMediaItem',
       c: text => {
@@ -912,13 +979,25 @@ function loadHosts() {
         '#main-image',
       ],
     }, {
+      u: [
+        '||prntscr.com/',
+        '||prnt.sc/',
+      ],
+      r: /\.\w+\/.+/,
+      q: 'meta[property="og:image"]',
+      xhr: true,
+    }, {
       u: '||radikal.ru/',
       r: /\.ru\/(fp|.+\.html)/,
       q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
     },
-    onDomain('||reddit.com^') && {
+    ...onDomain('||reddit.com^') ? [{
       u: '||i.reddituploads.com/',
     }, {
+      u: '||preview.redd.it/',
+      r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
+      s: 'https://i.$1',
+    }] : [], {
       u: '||screenlist.ru/details',
       q: '#picture',
     }, {
@@ -1086,7 +1165,7 @@ function loadHosts() {
         '.svg',
         '.webm',
       ],
-      r: /(\/\/|^)[^/]+[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
+      r: /[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
       distinct: true,
     },
   ].filter(Boolean);
