@@ -2446,6 +2446,7 @@ function setup() {
       on(window, 'message', onMessage);
     div = ce('div');
     div.id = ID;
+    div.contentEditable = true;
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
       <style>
