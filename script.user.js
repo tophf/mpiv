@@ -2570,6 +2570,9 @@ function setup() {
           margin: 1px 0;
           font-family: Consolas, monospace;
         }
+        #search {
+          float: right;
+        }
         button {
           width: 150px;
           margin: 0 10px;
@@ -2654,13 +2657,7 @@ function setup() {
           <li style="overflow-y:auto">
             <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
                target="_blank">Custom host rules:</a>
-            <input id="search" placeholder="Search" style="
-              display: none;
-              float: right;
-              width: 70px;
-              padding: 1px 2px;
-              font-size: 10px;
-            ">
+            <input id="search" type="search" placeholder="Search" hidden>
             <div id="hosts"><textarea rows="1" spellcheck="false"></textarea></div>
           </li>
           <li>
@@ -2698,23 +2695,26 @@ function setup() {
       });
       if (lines.length > 5 || setup.search) {
         const se = $('search');
-        const sf = () => {
-          const inps = qsa('input', $('hosts'));
+        const doSearch = () => {
           const s = se.value.toLowerCase();
           setup.search = s;
-          for (const inp of inps) {
-            inp.style.display =
-              !inp.value ||
-              contains(inp.value.toLowerCase(), s) ? '' : 'none';
-          }
+          for (const el of qsa('textarea', $('hosts')))
+            el.hidden = s && !contains(el.value.toLowerCase(), s);
         };
-        on(se, 'input', sf);
+        let timer;
+        on(se, 'input', e => {
+          clearTimeout(timer);
+          setTimeout(doSearch, 200);
+        });
         se.value = setup.search || '';
         if (se.value)
-          sf();
-        se.style.display = '';
+          doSearch();
+        se.hidden = false;
       }
     }
+    // prevent the main page from interpreting key presses in inputs as hotkeys
+    // which may happen since it sees only the outer <div> in the event |target|
+    on(root, 'keydown', e => !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
     on($('start-auto').parentNode, 'change', update);
     on($('cancel'), 'click', close);
     on($('export'), 'click', exp);
