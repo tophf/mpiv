@@ -2326,7 +2326,7 @@ function clamp(v, min, max) {
 }
 
 function setup() {
-  const ID = GM_info.script.name.replace(/\s+/g, '.') + ':setup';
+  const ID = 'mpiv-setup:host';
   let div, root;
 
   function $(s) {
