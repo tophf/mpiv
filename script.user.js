@@ -2484,6 +2484,9 @@ function setup() {
         }
         textarea {
           resize: vertical;
+          width: 98%;
+          margin: 1px 0;
+          font-family: Consolas, monospace;
         }
         #scales {
           width: 130px;
@@ -2502,10 +2505,8 @@ function setup() {
           margin: 4px 0;
           clear: both;
         }
-        #hosts textarea, #css {
-          width: 98%;
-          margin: 1px 0;
-          font-family: Consolas, monospace;
+        #hosts textarea {
+          word-break: break-all;
         }
         #search {
           float: right;
