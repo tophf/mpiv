@@ -56,12 +56,12 @@ let enabled = cfg.imgtab || !imgtab;
 let _ = {};
 let hosts;
 
-on(d, 'mouseover', onMouseOver);
+on(d, 'mouseover', onMouseOver, {passive: true});
 
 if (contains(hostname, 'google')) {
   const node = d.getElementById('main');
   if (node)
-    on(node, 'mouseover', onMouseOver);
+    on(node, 'mouseover', onMouseOver, {passive: true});
 } else if (contains(trusted, hostname)) {
   on(window, 'message', onMessage);
   on(d, 'click', e => {
@@ -74,64 +74,6 @@ if (contains(hostname, 'google')) {
     e.preventDefault();
   });
 }
-
-addStyle(/*language=CSS*/ `
-  #mpiv-bar {
-    position: fixed;
-    z-index: 2147483647;
-    left: 0;
-    right: 0;
-    top: 0;
-    transform: scaleY(0);
-    -webkit-transform: scaleY(0);
-    transform-origin: top;
-    -webkit-transform-origin: top;
-    transition: transform 500ms ease 1000ms;
-    -webkit-transition: -webkit-transform 500ms ease 1000ms;
-    text-align: center;
-    font-family: sans-serif;
-    font-size: 15px;
-    font-weight: bold;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    padding: 4px 10px;
-  }
-  #mpiv-bar.mpiv-show {
-    transform: scaleY(1);
-    -webkit-transform: scaleY(1);
-  }
-  #mpiv-popup.mpiv-show {
-    display: inline;
-  }
-  #mpiv-popup {
-    display: none;
-    border: 1px solid gray;
-    box-sizing: content-box;
-    background-color: white;
-    position: fixed;
-    z-index: 2147483647;
-    margin: 0;
-    max-width: none;
-    max-height: none;
-    will-change: display, width, height, left, top;
-    cursor: none;
-  }
-  .mpiv-loading:not(.mpiv-preloading) * {
-    cursor: wait !important;
-  }
-  .mpiv-edge #mpiv-popup {
-    cursor: default;
-  }
-  .mpiv-error * {
-    cursor: not-allowed !important;
-  }
-  .mpiv-ready *, .mpiv-large * {
-    cursor: zoom-in !important;
-  }
-  .mpiv-shift * {
-    cursor: default !important;
-  }
-`);
 
 const simpleMatcher = {
 
@@ -1161,7 +1103,7 @@ function onMouseOver(e) {
     node = inner;
   }
   for (const root of shadowRoots) {
-    on(root, 'mouseover', onMouseOver);
+    on(root, 'mouseover', onMouseOver, {passive: true});
     on(root, 'mouseout', onMouseOutShadow);
   }
   if (!activate(node, e.ctrlKey))
@@ -1391,6 +1333,7 @@ function onMessage(e) {
 }
 
 function startPopup() {
+  updateStyles();
   setStatus(false);
   _.g ? startGalleryPopup() : startSinglePopup(_.url);
 }
@@ -1582,13 +1525,8 @@ function activate(node, force) {
     deactivate();
   _ = info;
   _.view = viewRect();
-  if (cfg.css || _.css) {
-    _.style =
-      addStyle((contains(cfg.css, '{') ? cfg.css : '#mpiv-popup {' + cfg.css + '}') +
-               (_.css ? _.css : ''));
-  }
   _.zooming = contains(cfg.css, 'mpiv-zooming');
-  [_.node.parentNode, _.node, _.node.firstElementChild].some(n => {
+  for (const n of [_.node.parentNode, _.node, _.node.firstElementChild]) {
     if (n && n.title && n.title !== n.textContent && !contains(d.title, n.title) &&
         !/^http\S+$/.test(n.title)) {
       _.tooltip = {
@@ -1596,12 +1534,12 @@ function activate(node, force) {
         text: n.title,
       };
       n.title = '';
-      return true;
+      break;
     }
-  });
-  on(d, 'mousemove', onMouseMove);
-  on(d, 'mouseout', onMouseOut);
-  on(d, 'mousedown', onMouseDown);
+  }
+  on(d, 'mousemove', onMouseMove, {passive: true});
+  on(d, 'mouseout', onMouseOut, {passive: true});
+  on(d, 'mousedown', onMouseDown, {passive: true});
   on(d, 'contextmenu', onContext);
   on(d, 'keydown', onKeyDown);
   on(d, 'keyup', onKeyUp);
@@ -1611,19 +1549,15 @@ function activate(node, force) {
 
 function deactivate(wait) {
   clearTimeout(_.timeout);
-  if (_.req) {
-    try {
-      _.req.abort();
-    } catch (ex) {
-    }
-  }
+  try {
+    _.req.abort();
+  } catch (ex) {}
   if (_.tooltip)
     _.tooltip.node.title = _.tooltip.text;
   updateTitle(true);
   setStatus(false);
   setPopup(false);
   setBar(false);
-  rm(_.style);
   _ = {};
   off(d, 'mousemove', onMouseMove);
   off(d, 'mouseout', onMouseOut);
@@ -1676,12 +1610,11 @@ function parseNode(node) {
       return info;
   }
   if (img) {
-    return {
+    return lazyGetRect({
       url: img.src,
       node: img,
-      rect: rect(img),
       distinct: true,
-    };
+    }, img);
   }
 }
 
@@ -1746,8 +1679,8 @@ function findInfo(url, node, noHtml, skipHost) {
       css: h.css,
       manual: h.manual,
       distinct: h.distinct,
-      rect: rect(node, h.rect),
     };
+    lazyGetRect(info, node, h.rect);
     if (contains(hostname, 'twitter.com') &&
         !/(facebook|google|twimg|twitter)\.com\//.test(info.url) || hostname === 'github.com' &&
         !/github/.test(info.url) || contains(hostname, 'facebook.com') &&
@@ -2033,7 +1966,7 @@ function showFileInfo() {
 
 function updateTitle(reset) {
   if (reset) {
-    if (typeof _.title === 'string')
+    if (typeof _.title === 'string' && d.title !== _.title)
       d.title = _.title;
   } else {
     if (typeof _.title !== 'string')
@@ -2234,6 +2167,7 @@ function setBar(label, cn) {
     b = _.bar = ce('div');
     b.id = 'mpiv-bar';
   }
+  updateStyles();
   b.innerHTML = label;
   if (!b.parentNode) {
     d.body.appendChild(b);
@@ -2270,13 +2204,6 @@ function replace(s, m) {
   for (let i = m.length; i--;) {
     s = s.replace('$' + i, m[i]);
   }
-  return s;
-}
-
-function addStyle(css) {
-  const s = ce('style');
-  s.textContent = css;
-  d.head.appendChild(s);
   return s;
 }
 
@@ -2323,6 +2250,18 @@ function rect(node, q) {
       node = n;
   }
   return node.getBoundingClientRect();
+}
+
+function lazyGetRect(obj, ...args) {
+  return Object.defineProperty(obj, 'rect', {
+    configurable: true,
+    enumerable: true,
+    get() {
+      const value = rect(...args);
+      Object.defineProperty(obj, 'rect', {value});
+      return value;
+    },
+  });
 }
 
 function matches(n, q) {
@@ -2745,4 +2684,79 @@ function setup() {
   }
 
   init(loadCfg());
+}
+
+function addStyle(name, css) {
+  const id = 'mpiv-style:' + name;
+  const el = d.getElementById(id) ||
+             css && Object.assign(ce('style'), {id});
+  if (!el)
+    return;
+  if (el.textContent !== css)
+    el.textContent = css;
+  if (el.parentElement !== d.head)
+    d.head.appendChild(el);
+  return el;
+}
+
+function updateStyles() {
+  addStyle('global', /*language=CSS*/ `
+    #mpiv-bar {
+      position: fixed;
+      z-index: 2147483647;
+      left: 0;
+      right: 0;
+      top: 0;
+      transform: scaleY(0);
+      -webkit-transform: scaleY(0);
+      transform-origin: top;
+      -webkit-transform-origin: top;
+      transition: transform 500ms ease 1000ms;
+      -webkit-transition: -webkit-transform 500ms ease 1000ms;
+      text-align: center;
+      font-family: sans-serif;
+      font-size: 15px;
+      font-weight: bold;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 4px 10px;
+    }
+    #mpiv-bar.mpiv-show {
+      transform: scaleY(1);
+      -webkit-transform: scaleY(1);
+    }
+    #mpiv-popup.mpiv-show {
+      display: inline;
+    }
+    #mpiv-popup {
+      display: none;
+      border: 1px solid gray;
+      box-sizing: content-box;
+      background-color: white;
+      position: fixed;
+      z-index: 2147483647;
+      margin: 0;
+      max-width: none;
+      max-height: none;
+      will-change: display, width, height, left, top;
+      cursor: none;
+    }
+    .mpiv-loading:not(.mpiv-preloading) * {
+      cursor: wait !important;
+    }
+    .mpiv-edge #mpiv-popup {
+      cursor: default;
+    }
+    .mpiv-error * {
+      cursor: not-allowed !important;
+    }
+    .mpiv-ready *, .mpiv-large * {
+      cursor: zoom-in !important;
+    }
+    .mpiv-shift * {
+      cursor: default !important;
+    }
+  `);
+  addStyle('config', contains(cfg.css, '{') ? cfg.css : '#mpiv-popup {' + cfg.css + '}');
+  addStyle('rule', _.css || '');
 }
