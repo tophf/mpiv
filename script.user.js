@@ -1637,7 +1637,7 @@ function parseNode(node) {
   }
 }
 
-function findInfo(url, node, noHtml, skipHost) {
+function findInfo(url, node, noHtml, skipHost, followed) {
   const tn = tag(node);
   for (const h of hosts) {
     if (h.e && !node.matches(h.e) || h === skipHost)
@@ -1661,7 +1661,7 @@ function findInfo(url, node, noHtml, skipHost) {
     } else {
       m = url ? /.*/.exec(url) : [];
     }
-    if (!m || tn === 'IMG' && !('s' in h))
+    if (!m || !followed && tn === 'IMG' && !('s' in h))
       continue;
     if ('s' in h) {
       urls = (Array.isArray(h.s) ? h.s : [h.s])
@@ -1682,7 +1682,7 @@ function findInfo(url, node, noHtml, skipHost) {
       urls = [m.input];
     }
     if ((h.follow === true || typeof h.follow === 'function' && h.follow(urls[0])) && !h.q && h.s)
-      return findInfo(urls[0], node, false, h);
+      return findInfo(urls[0], node, false, h, true);
     const info = {
       node,
       url: urls.shift(),
