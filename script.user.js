@@ -1156,6 +1156,15 @@ function loadHosts() {
       s: '/thumb_//',
     }, {
       u: [
+        '.th.jp',
+        '.th.gif',
+        '.th.png',
+      ],
+      r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
+      s: '$1$2',
+      follow: true,
+    }, {
+      u: [
         '.jp',
         '.jpg',
         '.jpe',
