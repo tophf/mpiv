@@ -2389,10 +2389,9 @@ function rect(node, q) {
 function lazyGetRect(obj, ...args) {
   return Object.defineProperty(obj, 'rect', {
     configurable: true,
-    enumerable: true,
     get() {
       const value = rect(...args);
-      Object.defineProperty(obj, 'rect', {value});
+      Object.defineProperty(obj, 'rect', {value, configurable: true});
       return value;
     },
   });
