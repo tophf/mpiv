@@ -2258,9 +2258,10 @@ function setup() {
       .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
     cfg.hosts = [...qsa('textarea', $('hosts'))]
-      .map(el => el.__json || el.value.trim())
-      .filter(Boolean)
-      .sort();
+      .map(el => [el.value.trim(), el.__json])
+      .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
+      .map(([s, json]) => json || s)
+      .filter(Boolean);
     return fixCfg(cfg);
   }
 
