@@ -39,6 +39,7 @@ global GM_setClipboard
 
 const doc = document;
 const hostname = location.hostname;
+const hostnamePinned = '.' + hostname;
 const trusted = ['greasyfork.org', 'w9p.co'];
 const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
@@ -127,6 +128,32 @@ const simpleMatcher = {
   },
 };
 
+/*
+  ||some.domain = matches some.domain, anything.some.domain, etc.
+  |foo = hostname must start with foo
+  ^ can be used only at the end like foo^, means that the domain must end with foo
+ */
+function onDomain(d) {
+  if (!d)
+    return true;
+  const pinDomain = d.startsWith('||');
+  const pinStart = !pinDomain && d.startsWith('|');
+  const pinEnd = d.endsWith('^');
+  const start = pinDomain * 2 + pinStart;
+  const dLen = d.length - start - pinEnd;
+  if (dLen > hostname.length)
+    return;
+  d = d.slice(start, -pinEnd || undefined);
+  return (
+    pinStart ? hostname.startsWith(d) && (!pinEnd || hostname.length === dLen) :
+      pinDomain && pinEnd ? hostnamePinned[hostnamePinned.length - dLen - 1] === '.' &&
+                            hostname.endsWith(d) :
+        pinDomain ? hostnamePinned.includes('.' + d) :
+          pinEnd ? hostname.endsWith(d) :
+            hostname.includes(d)
+  );
+}
+
 function compileSimpleUrlMatch(match) {
   const results = [];
   for (const s of (Array.isArray(match) ? match : [match])) {
@@ -211,23 +238,15 @@ function saveCfg(newCfg) {
   GM_setValue('cfg', JSON.stringify(cfg));
 }
 
+/*
+ 'u' works only with URLs so it's ignored if 'html' is true
+   ||some.domain = matches some.domain, anything.some.domain, etc.
+   |foo = url or text must start with foo
+   ^ = separator like / or ? or : but not a letter/number, not %._-
+       when used at the end like "foo^" it additionally matches when the source ends with "foo"
+ 'r' is checked only if 'u' matches first
+*/
 function loadHosts() {
-  const hostnamePinned = '.' + hostname;
-  const onDomain = d => {
-    if (!d)
-      return true;
-    const pinDomain = d.startsWith('||');
-    const pinStart = !pinDomain && d.startsWith('|');
-    const pinEnd = d.endsWith('^');
-    d = d.slice(pinDomain * 2, -pinEnd || undefined);
-    return (
-      pinStart ? hostname.startsWith(d) && (!pinEnd || hostname.length === d.length) :
-        pinDomain && pinEnd ? hostnamePinned.endsWith('.' + d) :
-          pinDomain ? hostnamePinned.includes('.' + d) :
-            pinEnd ? hostname.endsWith(d) :
-              hostname.includes(d)
-    );
-  };
   const customHosts = [];
   for (let h of cfg.hosts || []) {
     try {
@@ -262,8 +281,6 @@ function loadHosts() {
     },
   ];
 
-  // 'u' works only with URLs so it's ignored if 'html' is true
-  // 'r' is checked only if 'u' matches first
   return [
     ...customHosts,
     ...disablers,
@@ -386,7 +403,7 @@ function loadHosts() {
       u: '||fbcdn.',
       r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
       s: m => {
-        if (/[.^]facebook\.com$/.test(hostname)) {
+        if (onDomain('||facebook.com^')) {
           try {
             return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
           } catch (ex) {}
@@ -502,7 +519,7 @@ function loadHosts() {
       u: '||imagebam.com/image/',
       q: 'meta[property="og:image"]',
       tabfix: true,
-      xhr: hostname.includes('planetsuzy'),
+      xhr: onDomain('||planetsuzy'),
     }, {
       u: '||imageban.ru/thumbs',
       r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
@@ -718,7 +735,7 @@ function loadHosts() {
       u: '||photobucket.com/',
       r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
       s: 'http://i$1$3',
-      xhr: !hostname.includes('photobucket.com'),
+      xhr: !onDomain('||photobucket.com^'),
     }, {
       u: '||piccy.info/view3/',
       r: /(.+?\/view3)\/(.*)\//,
@@ -825,7 +842,7 @@ function loadHosts() {
       r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
       s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$/' +
          '/g',
-      xhr: !hostname.includes('wiki'),
+      xhr: !onDomain('||wiki'),
     }, {
       u: '||ytimg.com/vi/',
       r: /(.+?\/vi\/[^/]+)/,
@@ -1475,12 +1492,9 @@ function findInfo(url, node, noHtml, skipHost, followed) {
     };
     lazyGetRect(info, node, h.rect);
     if (
-      hostname.includes('twitter.com') &&
-        !/(facebook|google|twimg|twitter)\.com\//.test(info.url) ||
-      hostname === 'github.com' &&
-        !/github/.test(info.url) ||
-      hostname.includes('facebook.com') &&
-        /\bimgur\.com/.test(info.url)
+      onDomain('||twitter.com^') && !/(facebook|google|twimg|twitter)\.com\//.test(info.url) ||
+      onDomain('||github.com^') && !/github/.test(info.url) ||
+      onDomain('||facebook.com^') && /\bimgur\.com/.test(info.url)
     ) {
       info.xhr = 'data';
     }
@@ -1882,7 +1896,7 @@ function handleError(o) {
       m.File = app.iurl;
     console.log(m);
   } catch (ex) {}
-  if (hostname.includes('google.') &&
+  if (onDomain('||google.') &&
       location.search.includes('tbm=isch') &&
       !app.xhr && cfg.xhr) {
     app.xhr = true;
