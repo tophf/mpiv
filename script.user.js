@@ -848,6 +848,10 @@ function loadHosts() {
       r: /(.+?\/vi\/[^/]+)/,
       s: '$1/0.jpg',
       rect: '.video-list-item',
+    },
+    onDomain('||youtube.com^') && {
+      e: 'ytd-thumbnail *',
+      s: '',
     }, {
       u: '/viewer.php?file=',
       r: /(.+?)\/viewer\.php\?file=(.+)/,
