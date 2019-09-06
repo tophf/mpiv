@@ -1482,6 +1482,7 @@ function findInfo(url, node, noHtml, skipHost, followed) {
       node,
       url: urls.shift(),
       urls: urls.length ? urls : false,
+      u: h.u,
       r: h.r,
       q: h.q,
       c: h.c,
@@ -1879,26 +1880,31 @@ function toggleZoom() {
 }
 
 function handleError(o) {
-  const m = [
-    o.message || (o.readyState ?
+  const error = o.message || (
+    o.readyState ?
       'Request failed.' :
       (o.type === 'error' ?
         'File can\'t be displayed.' +
         (qs('div[bgactive*="flashblock"]', doc) ? ' Check Flashblock settings.' : '') :
-        o)),
+        o));
+  const m = [
+    [`${GM_info.script.name}: %c${error}%c`, 'font-weight:bold;color:yellow'],
+    ['', 'font-weight:normal;color:unset'],
   ];
   try {
     if (o.stack)
-      m[0] += ' @ ' + o.stack.replace(/<?@file:.+?\.js/g, '');
+      m.push(['@ %s', o.stack.replace(/<?@file:.+?\.js/g, '')]);
     if (app.u)
-      m['Url simple match'] = Array.isArray(app.u) ? app.u.slice() : app.u;
+      m.push(['Url simple match: %o', app.u]);
     if (app.r)
-      m['RegExp match'] = app.r;
+      m.push(['RegExp match: %o', app.r]);
     if (app.url)
-      m.URL = app.url;
+      m.push(['URL: %s', app.url]);
     if (app.iurl && app.iurl !== app.url)
-      m.File = app.iurl;
-    console.log(m);
+      m.push(['File: %s', app.iurl]);
+    m.push(['Node: %o', app.node]);
+    const control = m.map(([k]) => k).filter(Boolean).join('\n');
+    console.log(control, ...m.map(([, v]) => v));
   } catch (ex) {}
   if (onDomain('||google.') &&
       location.search.includes('tbm=isch') &&
@@ -1914,7 +1920,7 @@ function handleError(o) {
     }
   } else if (app.node) {
     setStatus('error');
-    setBar(m[0], 'error');
+    setBar(error, 'error');
   }
 }
 
