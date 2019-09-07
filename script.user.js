@@ -430,6 +430,24 @@ function loadHosts() {
         return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
       },
       rect: '.photoWrap',
+    },
+    onDomain('||flickr.com^') &&
+    (() => {
+      try {
+        return unsafeWindow.YUI_config.flickr.api.site_key;
+      } catch (e) {}
+    })() && {
+      u: '||flickr.com/photos/',
+      r: /photos\/[^/]+\/(\d+)/,
+      s: m => `https://www.flickr.com/services/rest/?${
+        new URLSearchParams({
+          photo_id: m[1],
+          api_key: unsafeWindow.YUI_config.flickr.api.site_key,
+          method: 'flickr.photos.getSizes',
+          format: 'json',
+          nojsoncallback: 1,
+        }).toString()}`,
+      q: text => JSON.parse(text).sizes.size.pop().source,
     }, {
       u: '||flickr.com/photos/',
       r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
