@@ -752,7 +752,7 @@ function loadHosts() {
     }, {
       u: '||photobucket.com/',
       r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
-      s: 'http://i$1$3',
+      s: 'https://i$1$3',
       xhr: !onDomain('||photobucket.com^'),
     }, {
       u: '||piccy.info/view3/',
