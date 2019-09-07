@@ -1176,7 +1176,26 @@ function startSinglePopup(url) {
     app.iurl = url;
     return app.xhr ? downloadImage(url, app.url) : setPopup(url);
   }
-  parsePage(url, (iurl, cap, url) => {
+  downloadPage(url, (html, url) => {
+    let iurl;
+    let cap;
+    const doc = createDoc(html);
+    if (typeof app.q === 'function') {
+      iurl = app.q(html, doc, app.node);
+      if (Array.isArray(iurl)) {
+        app.urls = iurl.slice(0);
+        iurl = app.urls.shift();
+      }
+    } else {
+      const inode = findNode(app.q, doc);
+      iurl = inode ? findFile(inode, url) : false;
+    }
+    if (typeof app.c === 'function') {
+      cap = app.c(html, doc, app.node);
+    } else if (typeof app.c === 'string') {
+      const cnode = findNode(app.c, doc);
+      cap = cnode ? findCaption(cnode) : '';
+    }
     if (!iurl)
       throw 'File not found.';
     if (typeof cap !== 'undefined')
@@ -1624,31 +1643,6 @@ function findRedirect(url, cb) {
       if (req === app.req)
         cb(res.finalUrl);
     },
-  });
-}
-
-function parsePage(url, cb) {
-  downloadPage(url, (html, url) => {
-    let iurl;
-    let cap;
-    const doc = createDoc(html);
-    if (typeof app.q === 'function') {
-      iurl = app.q(html, doc, app.node);
-      if (Array.isArray(iurl)) {
-        app.urls = iurl.slice(0);
-        iurl = app.urls.shift();
-      }
-    } else {
-      const inode = findNode(app.q, doc);
-      iurl = inode ? findFile(inode, url) : false;
-    }
-    if (typeof app.c === 'function') {
-      cap = app.c(html, doc, app.node);
-    } else if (typeof app.c === 'string') {
-      const cnode = findNode(app.c, doc);
-      cap = cnode ? findCaption(cnode) : '';
-    }
-    cb(iurl, cap, url);
   });
 }
 
