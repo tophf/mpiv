@@ -324,7 +324,7 @@ function loadHosts() {
       },
       css: '#zoomWindow{display:none!important;}',
     },
-    onDomain('deviantart.com') && {
+    onDomain('||deviantart.com^') && {
       e: '[data-super-full-img] *, img[src*="/th/"]',
       s: (m, node) => {
         let el = node.closest('[data-super-full-img]');
@@ -474,7 +474,7 @@ function loadHosts() {
         'source[src$=".webm"]',
       ],
     },
-    onDomain('github.com') && {
+    onDomain('||github.com^') && {
       u: [
         'avatars',
         'raw.github.com',
