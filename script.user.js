@@ -33,6 +33,7 @@ const trusted = ['greasyfork.org', 'w9p.co'];
 const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
                    !doc.links.length;
+const SETUP_ID = 'mpiv-setup:host';
 
 // string-to-regexp escaped chars
 const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
@@ -1119,13 +1120,13 @@ function onMessage(e) {
       !trusted.includes(e.origin.substr(e.origin.indexOf('//') + 2)) ||
       !e.data.startsWith('mpiv-rule '))
     return;
-  if (!qs('#mpiv-setup', doc))
+  if (!doc.getElementById(SETUP_ID))
     setup();
-  const inp = qs('#mpiv-hosts input:first-of-type', doc);
-  inp.value = e.data.substr(10).trim();
-  inp.dispatchEvent(new Event('input', {bubbles: true}));
-  inp.parentNode.scrollTop = 0;
-  inp.select();
+  const el = doc.getElementById(SETUP_ID).shadowRoot.getElementById('hosts').firstElementChild;
+  el.value = e.data.substr(10).trim();
+  el.dispatchEvent(new Event('input', {bubbles: true}));
+  el.parentNode.scrollTop = 0;
+  el.select();
 }
 
 function startPopup() {
@@ -2129,7 +2130,6 @@ function tryJson(s) {
 }
 
 function setup() {
-  const ID = 'mpiv-setup:host';
   let div, root;
 
   function $(s) {
@@ -2137,7 +2137,7 @@ function setup() {
   }
 
   function close() {
-    const el = doc.getElementById(ID);
+    const el = doc.getElementById(SETUP_ID);
     el && el.remove();
     if (!trusted.includes(hostname))
       off(window, 'message', onMessage);
@@ -2248,7 +2248,7 @@ function setup() {
     if (!trusted.includes(hostname))
       on(window, 'message', onMessage);
     div = doc.createElement('div');
-    div.id = ID;
+    div.id = SETUP_ID;
     div.contentEditable = true;
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
