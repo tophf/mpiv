@@ -317,6 +317,12 @@ function loadHosts() {
       },
       css: '#zoomWindow{display:none!important;}',
     },
+    onDomain('||bing.com^') && {
+      e: 'a[m*="murl"]',
+      r: /murl&quot;:&quot;(.+?)&quot;/,
+      s: '$1',
+      html: true,
+    },
     onDomain('||deviantart.com^') && {
       e: '[data-super-full-img] *, img[src*="/th/"]',
       s: (m, node) => {
