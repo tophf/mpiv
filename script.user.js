@@ -1323,7 +1323,7 @@ function preloadNextGalleryItem(dir) {
     if (Array.isArray(url))
       url = url[0];
     on(app.popup, 'load', () => {
-      ce('img').src = url;
+      doc.createElement('img').src = url;
     });
   }
 }
@@ -1928,7 +1928,7 @@ function setPopup(src) {
         URL.revokeObjectURL(p.src);
       p.src = '';
     }
-    rm(p);
+    p && p.remove();
     delete app.popup;
   }
   if (!src)
@@ -1947,7 +1947,7 @@ function setPopup(src) {
       if (bar)
         setBar(per + '% of ' + Math.round(p.duration) + 's', 'xhr');
     };
-    p = app.popup = ce('video');
+    p = app.popup = doc.createElement('video');
     p.autoplay = true;
     p.loop = true;
     p.volume = 0.5;
@@ -1961,7 +1961,7 @@ function setPopup(src) {
       }
     });
   } else {
-    p = app.popup = ce('img');
+    p = app.popup = doc.createElement('img');
   }
   p.id = 'mpiv-popup';
   p.src = src;
@@ -1978,12 +1978,12 @@ function setPopup(src) {
 function setBar(label, cn) {
   let b = app.bar;
   if (!label) {
-    rm(b);
+    b && b.remove();
     delete app.bar;
     return;
   }
   if (!b) {
-    b = app.bar = ce('div');
+    b = app.bar = doc.createElement('div');
     b.id = 'mpiv-bar';
   }
   updateStyles();
@@ -2092,11 +2092,6 @@ function createDoc(text) {
   return domParser.parseFromString(text, 'text/html');
 }
 
-function rm(n) {
-  if (n)
-    n.remove();
-}
-
 function on(n, e, f, options) {
   n.addEventListener(e, f, options);
 }
@@ -2108,10 +2103,6 @@ function off(n, e, f, options) {
 function drop(e) {
   e.preventDefault();
   e.stopPropagation();
-}
-
-function ce(s) {
-  return doc.createElement(s);
 }
 
 function qs(s, n) {
@@ -2145,7 +2136,8 @@ function setup() {
   }
 
   function close() {
-    rm(doc.getElementById(ID));
+    const el = doc.getElementById(ID);
+    el && el.remove();
     if (!trusted.includes(hostname))
       off(window, 'message', onMessage);
   }
@@ -2171,7 +2163,7 @@ function setup() {
           new RegExp(json.r);
       } else if (pes) {
         pes.focus();
-        rm(t);
+        t && t.remove();
       }
       ok = 1;
     } catch (ex) {}
@@ -2254,7 +2246,7 @@ function setup() {
     close();
     if (!trusted.includes(hostname))
       on(window, 'message', onMessage);
-    div = ce('div');
+    div = doc.createElement('div');
     div.id = ID;
     div.contentEditable = true;
     root = div.attachShadow({mode: 'open'});
@@ -2498,7 +2490,7 @@ function setup() {
 function addStyle(name, css) {
   const id = 'mpiv-style:' + name;
   const el = doc.getElementById(id) ||
-             css && Object.assign(ce('style'), {id});
+             css && Object.assign(doc.createElement('style'), {id});
   if (!el)
     return;
   if (el.textContent !== css)
