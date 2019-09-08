@@ -238,6 +238,7 @@ function saveCfg(newCfg) {
 */
 function loadHosts() {
   const customHosts = [];
+  const rxHasCode = /(^|[^-\w])return[\W\s]/;
   for (let h of cfg.hosts || []) {
     try {
       if (typeof h === 'string')
@@ -248,11 +249,11 @@ function loadHosts() {
         continue;
       if (h.r)
         h.r = new RegExp(h.r, 'i');
-      if (h.s && typeof h.s === 'string' && h.s.includes('return '))
+      if (rxHasCode.test(h.s))
         h.s = new Function('m', 'node', h.s); // eslint-disable-line no-new-func
-      if (h.q && typeof h.q === 'string' && h.q.includes('return '))
+      if (rxHasCode.test(h.q))
         h.q = new Function('text', 'doc', 'node', h.q); // eslint-disable-line no-new-func
-      if (includes(h.c, 'return '))
+      if (rxHasCode.test(h.c))
         h.c = new Function('text', 'doc', 'node', h.c); // eslint-disable-line no-new-func
       customHosts.push(h);
     } catch (ex) {
