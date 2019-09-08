@@ -9,6 +9,7 @@
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
+// @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
@@ -30,6 +31,7 @@ global GM_info
 global GM_getValue
 global GM_setValue
 global GM_xmlhttpRequest
+global GM_download
 global GM_openInTab
 global GM_registerMenuCommand
 global GM_setClipboard
@@ -1054,8 +1056,10 @@ function onKeyUp(e) {
       let name = (app.iurl || app.popup.src).split('/').pop().replace(/[:#?].*/, '');
       if (!name.includes('.'))
         name += '.jpg';
-      saveFile(app.popup.src, name, () => {
-        setBar(`Could not download ${name}.`, 'error');
+      GM_download({
+        name,
+        url: app.popup.src,
+        onerror: () => setBar(`Could not download ${name}.`, 'error'),
       });
       break;
     }
@@ -1098,33 +1102,6 @@ function onKeyUp(e) {
     default:
       deactivate(true);
   }
-
-}
-
-function saveFile(url, name, onError) {
-  const save = url => {
-    const a = ce('a');
-    a.href = url;
-    a.download = name;
-    a.dispatchEvent(new MouseEvent('click'));
-  };
-  if (url.startsWith('blob:') || url.startsWith('data:'))
-    return save(url);
-  GM_xmlhttpRequest({
-    url,
-    method: 'GET',
-    responseType: 'blob',
-    onload(res) {
-      try {
-        const ou = URL.createObjectURL(res.response);
-        save(ou);
-        setTimeout(() => URL.revokeObjectURL(ou), 1000);
-      } catch (ex) {
-        onError(ex);
-      }
-    },
-    onError,
-  });
 
 }
 
