@@ -61,6 +61,7 @@ let hosts;
 let domParser;
 
 on(doc, 'mouseover', onMouseOver, {passive: true});
+GM_registerMenuCommand('Configure', setup);
 
 if (/(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname)) {
   const node = doc.getElementById('main');
@@ -1427,10 +1428,8 @@ function deactivate(wait) {
 
 function parseNode(node) {
   let a, img, url, info;
-  if (!hosts) {
+  if (!hosts)
     hosts = loadHosts();
-    GM_registerMenuCommand('Configure', setup);
-  }
   if (tag(node) === 'A') {
     a = node;
   } else {
