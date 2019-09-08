@@ -2236,7 +2236,7 @@ function setup() {
       .map(x => x.replace(',', '.'))
       .filter(x => !isNaN(parseFloat(x)));
     cfg.xhr = $('xhr').checked;
-    cfg.hosts = [...qsa('textarea', $('hosts'))]
+    cfg.hosts = [...$('hosts').children]
       .map(el => [el.value.trim(), el.__json])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
       .map(([s, json]) => json || s)
@@ -2425,14 +2425,14 @@ function setup() {
         check({target: el});
       }
       on(parent, 'focusin', ({target: el}) => {
-        if (el.localName === 'textarea') {
+        if (el !== parent) {
           const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
           if (h > el.offsetHeight)
             el.style.height = h + 'px';
         }
       });
       on(parent, 'focusout', ({target: el}) => {
-        if (el.localName === 'textarea' && el.style.height)
+        if (el !== parent && el.style.height)
           el.style.height = '';
       });
       if (cfg.hosts.length > 1 || setup.search) {
@@ -2440,7 +2440,7 @@ function setup() {
         const doSearch = () => {
           const s = se.value.toLowerCase();
           setup.search = s;
-          for (const el of qsa('textarea', $('hosts')))
+          for (const el of $('hosts').children)
             el.hidden = s && !el.value.toLowerCase().includes(s);
         };
         let timer;
