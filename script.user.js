@@ -257,8 +257,9 @@ function loadHosts() {
       if (rxHasCode.test(h.c))
         h.c = new Function('text', 'doc', 'node', h.c); // eslint-disable-line no-new-func
       customHosts.push(h);
-    } catch (ex) {
-      handleError('Invalid custom host rule:', h);
+    } catch (e) {
+      if (!e.message.includes('unsafe-eval'))
+        handleError('Invalid custom host rule:', h);
     }
   }
 
