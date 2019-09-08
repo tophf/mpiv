@@ -600,8 +600,6 @@ function loadHosts() {
         '||imgur.com/gallery/',
         '||imgur.com/t/',
       ],
-      r: /\/(a|gallery|t\/[a-z0-9_-]+)\/([a-z0-9]+)(#[a-z0-9]+)?/i,
-      s: m => `https://imgur.com/${m[1]}/${m[2]}${m[3] || ''}`,
       g: (text, url, cb) => {
         const mk = (o, imgs) => {
           const items = [];
@@ -622,10 +620,10 @@ function loadHosts() {
             items.title = o.title;
           return items;
         };
-        const m = /(mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()({[\s\S]+?})\);/.exec(text);
-        const o1 = eval('(' + m[2].replace(/analytics\s*:\s*analytics/, 'analytics:null')
-          .replace(/decodeURIComponent\(.+?\)/, 'null') + ')');
-        const o = o1.image || o1.album;
+        // simplified extraction of JSON as it occupies only one line
+        if (!/(?:mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()[\s\S]*?[,\s{"'](?:image|album)\s*:\s*({[^\r\n]+?}),?[\r\n]/.test(text))
+          return;
+        const o = JSON.parse(RegExp.$1);
         const imgs = o.is_album ? o.album_images.images : [o];
         if (!o.num_images || o.num_images <= imgs.length)
           return mk(o, imgs);
