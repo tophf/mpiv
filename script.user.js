@@ -25,19 +25,6 @@
 // ==/UserScript==
 
 'use strict';
-/*
-global unsafeWindow
-global GM_info
-global GM_getValue
-global GM_setValue
-global GM_xmlhttpRequest
-global GM_download
-global GM_openInTab
-global GM_registerMenuCommand
-global GM_setClipboard
-*/
-/* eslint-disable no-eval, no-new-func */
-/* eslint camelcase: [2, {properties: never, allow: ["^GM_\w+"]}] */
 
 const doc = document;
 const hostname = location.hostname;
@@ -262,11 +249,11 @@ function loadHosts() {
       if (h.r)
         h.r = new RegExp(h.r, 'i');
       if (h.s && typeof h.s === 'string' && h.s.includes('return '))
-        h.s = new Function('m', 'node', h.s);
+        h.s = new Function('m', 'node', h.s); // eslint-disable-line no-new-func
       if (h.q && typeof h.q === 'string' && h.q.includes('return '))
-        h.q = new Function('text', 'doc', 'node', h.q);
+        h.q = new Function('text', 'doc', 'node', h.q); // eslint-disable-line no-new-func
       if (includes(h.c, 'return '))
-        h.c = new Function('text', 'doc', 'node', h.c);
+        h.c = new Function('text', 'doc', 'node', h.c); // eslint-disable-line no-new-func
       customHosts.push(h);
     } catch (ex) {
       handleError('Invalid custom host rule:', h);
@@ -1267,6 +1254,7 @@ function loadGalleryParser(g) {
   if (typeof g === 'function')
     return g;
   if (typeof g === 'string')
+    // eslint-disable-next-line no-new-func
     return new Function('text', 'url', 'cb', g);
   return (text, url) => {
     const qE = g.entry;
@@ -1275,6 +1263,7 @@ function loadGalleryParser(g) {
     const qT = g.title;
     const fix =
       (typeof g.fix === 'string' ?
+        // eslint-disable-next-line no-new-func
         new Function('s', 'isURL', g.fix) :
         g.fix
       ) ||

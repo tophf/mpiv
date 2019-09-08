@@ -7,6 +7,17 @@ env:
   browser: true
   es6: true
 
+globals:
+  unsafeWindow: false
+  GM_info: false
+  GM_getValue: false
+  GM_setValue: false
+  GM_xmlhttpRequest: false
+  GM_download: false
+  GM_openInTab: false
+  GM_registerMenuCommand: false
+  GM_setClipboard: false
+
 rules:
   accessor-pairs: [2]
   array-bracket-spacing: [2, never]
@@ -16,7 +27,7 @@ rules:
   arrow-spacing: [2, {before: true, after: true}]
   block-scoped-var: [2]
   brace-style: [2]
-  camelcase: [2, {properties: never}]
+  camelcase: [2, {properties: never, allow: ["^GM_\\w+"]}]
   class-methods-use-this: [2]
   comma-dangle: [2, always-multiline]
   comma-spacing: [2, {before: false, after: true}]
