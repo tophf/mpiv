@@ -35,15 +35,6 @@ const isImageTab = doc.images.length === 1 &&
                    !doc.links.length;
 const SETUP_ID = 'mpiv-setup:host';
 
-// string-to-regexp escaped chars
-const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
-// rx for '^' symbol in simple url match
-const RX_SEP = /[^\w%._-]/g;
-const testEndSep = s => {
-  RX_SEP.lastIndex = s.length - 1;
-  return RX_SEP.test(s);
-};
-
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !isImageTab;
 let app = {};
@@ -71,6 +62,10 @@ if (/(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname)) {
 }
 
 const simpleMatcher = {
+  // string-to-regexp escaped chars
+  RX_ESCAPE: /[.+*?(){}[\]^$|]/g,
+  // rx for '^' symbol in simple url match
+  RX_SEP: /[^\w%._-]/g,
 
   array: (s, arr) => {
     for (const {fn, needle} of arr)
@@ -80,7 +75,7 @@ const simpleMatcher = {
 
   equals: (s, needle) =>
     s.length === needle.length ? s === needle :
-      s.length === needle.length + 1 && s.startsWith(needle) && testEndSep(s),
+      s.length === needle.length + 1 && s.startsWith(needle) && simpleMatcher.endsSep(s),
 
   starts: (s, needle) =>
     s.startsWith(needle),
@@ -89,13 +84,18 @@ const simpleMatcher = {
     s.endsWith(needle) ||
     s.length > needle.length &&
     s.indexOf(needle, s.length - needle.length - 1) >= 0 &&
-    testEndSep(s),
+    simpleMatcher.endsSep(s),
 
   has: (s, needle) =>
     s.includes(needle),
 
   rx: (s, needle) =>
     needle.test(s),
+
+  endsSep: s => {
+    simpleMatcher.RX_SEP.lastIndex = s.length - 1;
+    return simpleMatcher.RX_SEP.test(s);
+  },
 
   startsDomainPrescreen: (url, data) =>
     url.includes(data[0]) &&
@@ -147,7 +147,7 @@ function onDomain(d) {
 
 function compileSimpleUrlMatch(match) {
   const results = [];
-  for (const s of (Array.isArray(match) ? match : [match])) {
+  for (const s of ensureArray(match)) {
     const pinDomain = s.startsWith('||');
     const pinStart = !pinDomain && s.startsWith('|');
     const endSep = s.endsWith('^');
@@ -155,11 +155,12 @@ function compileSimpleUrlMatch(match) {
     let fn;
     let needle = i || endSep ? s.slice(i, -endSep || undefined) : s;
     if (needle.includes('^')) {
+      const separator = simpleMatcher.RX_SEP.source;
       needle = new RegExp(
         (pinStart ? '^' : '') +
         (pinDomain ? '(?:\\.|//)' : '') +
-        needle.replace(RX_ESCAPE, '\\$&').replace(/\\\^/g, RX_SEP.source) +
-        (endSep ? `(?:${RX_SEP.source}|$)}` : ''), 'i');
+        needle.replace(simpleMatcher.RX_ESCAPE, '\\$&').replace(/\\\^/g, separator) +
+        (endSep ? `(?:${separator}|$)}` : ''), 'i');
       fn = simpleMatcher.rx;
     } else if (pinStart) {
       fn = endSep ? simpleMatcher.equals : simpleMatcher.starts;
@@ -1166,10 +1167,8 @@ function onContext(e) {
   if (
     !app.status &&
     !app.popup && (
-      cfg.start === 'context' || (
-        cfg.start === 'auto' &&
-        app.manual
-      )
+      cfg.start === 'context' ||
+      (cfg.start === 'auto' && app.manual)
     )
   ) {
     startPopup();
@@ -1214,39 +1213,40 @@ function startSinglePopup(url) {
     });
   }
   if (!app.q || Array.isArray(app.urls)) {
-    if (typeof app.c === 'function') {
-      app.caption = app.c(doc.documentElement.outerHTML, doc, app.node);
-    } else if (typeof app.c === 'string') {
-      const cnode = findNode(app.c, doc);
-      app.caption = cnode ? findCaption(cnode) : '';
+    switch (typeof app.c) {
+      case 'function':
+        app.caption = app.c(doc.documentElement.outerHTML, doc, app.node);
+        break;
+      case 'string':
+        app.caption = findCaption(qsMany(app.c, doc));
+        break;
     }
     app.iurl = url;
     return app.xhr ? downloadImage(url, app.url) : setPopup(url);
   }
   downloadPage(url, (html, url) => {
     let iurl;
-    let cap;
     const doc = createDoc(html);
     if (typeof app.q === 'function') {
       iurl = app.q(html, doc, app.node);
       if (Array.isArray(iurl)) {
-        app.urls = iurl.slice(0);
+        app.urls = iurl.slice();
         iurl = app.urls.shift();
       }
     } else {
-      const inode = findNode(app.q, doc);
+      const inode = qsMany(app.q, doc);
       iurl = inode ? findFile(inode, url) : false;
-    }
-    if (typeof app.c === 'function') {
-      cap = app.c(html, doc, app.node);
-    } else if (typeof app.c === 'string') {
-      const cnode = findNode(app.c, doc);
-      cap = cnode ? findCaption(cnode) : '';
     }
     if (!iurl)
       throw 'File not found.';
-    if (typeof cap !== 'undefined')
-      app.caption = cap;
+    switch (typeof app.c) {
+      case 'function':
+        app.caption = app.c(html, doc, app.node);
+        break;
+      case 'string':
+        app.caption = findCaption(qsMany(app.c, doc));
+        break;
+    }
     if (app.follow === true || typeof app.follow === 'function' && app.follow(iurl)) {
       const info = findInfo(iurl, app.node, true);
       if (!info || !info.url)
@@ -1286,8 +1286,8 @@ function startGalleryPopup() {
       const items = app.g(text, url, cb);
       if (typeof items !== 'undefined')
         cb(items);
-    } catch (ex) {
-      handleError('Parsing error: ' + ex);
+    } catch (e) {
+      handleError('Parsing error: ' + e);
     }
   });
 }
@@ -1300,9 +1300,7 @@ function findGalleryPosition(gUrl) {
       dir += parseInt(sel);
     } else {
       for (let i = app.gItems.length; i--;) {
-        let url = app.gItems[i].url;
-        if (Array.isArray(url))
-          url = url[0];
+        const url = ensureArray(app.gItems[i].url)[0];
         const file = url.substr(url.lastIndexOf('/') + 1);
         if (file.includes(sel)) {
           dir += i;
@@ -1322,21 +1320,16 @@ function loadGalleryParser(g) {
     return new Function('text', 'url', 'cb', g);
   return (text, url) => {
     const qE = g.entry;
-    let qC = g.caption;
+    const qC = ensureArray(g.caption);
     const qI = g.image;
     const qT = g.title;
     const fix =
-      (typeof g.fix === 'string' ?
-        // eslint-disable-next-line no-new-func
-        new Function('s', 'isURL', g.fix) :
-        g.fix
-      ) ||
+      // eslint-disable-next-line no-new-func
+      (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
       (s => s.trim());
     const doc = createDoc(text);
     const items = [];
     const nodes = qsa(qE || qI, doc);
-    if (!Array.isArray(qC))
-      qC = [qC];
     for (const node of nodes) {
       const item = {};
       try {
@@ -1351,7 +1344,7 @@ function loadGalleryParser(g) {
           }
           return n ? (prev ? prev + ' - ' : '') + fix(n.textContent) : prev;
         }, '');
-      } catch (ex) {}
+      } catch (e) {}
       if (item.url)
         items.push(item);
     }
@@ -1370,7 +1363,7 @@ function nextGalleryItem(dir) {
   }
   const item = app.gItems[app.gIndex];
   if (Array.isArray(item.url)) {
-    app.urls = item.url.slice(0);
+    app.urls = item.url.slice();
     app.url = app.urls.shift();
   } else {
     delete app.urls;
@@ -1385,12 +1378,10 @@ function nextGalleryItem(dir) {
 function preloadNextGalleryItem(dir) {
   const idx = app.gIndex + dir;
   if (app.popup && idx >= 0 && idx < app.gItems.length) {
-    let url = app.gItems[idx].url;
-    if (Array.isArray(url))
-      url = url[0];
+    const url = ensureArray(app.gItems[idx].url)[0];
     on(app.popup, 'load', () => {
       doc.createElement('img').src = url;
-    });
+    }, {once: true});
   }
 }
 
@@ -1433,7 +1424,7 @@ function deactivate(wait) {
   clearTimeout(app.timeout);
   try {
     app.req.abort();
-  } catch (ex) {}
+  } catch (e) {}
   if (app.tooltip)
     app.tooltip.node.title = app.tooltip.text;
   updateTitle(true);
@@ -1465,7 +1456,7 @@ function parseNode(node) {
   } else {
     if (tag(node) === 'IMG') {
       img = node;
-      if (img.src.substr(0, 5) !== 'data:')
+      if (!img.src.startsWith('data:'))
         url = rel2abs(img.src, location.href);
     }
     info = findInfo(url, node);
@@ -1480,7 +1471,7 @@ function parseNode(node) {
     url =
       a.getAttribute('data-expanded-url') || a.getAttribute('data-full-url') ||
       a.getAttribute('data-url') || a.href;
-    if (url.length > 750 || url.substr(0, 5) === 'data:') {
+    if (url.length > 750 || url.startsWith('data:')) {
       url = false;
     } else if (url.includes('//t.co/')) {
       url = 'http://' + a.textContent;
@@ -1524,12 +1515,11 @@ function findInfo(url, node, noHtml, skipHost, followed) {
     }
     if (!m || !followed && tn === 'IMG' && !('s' in h))
       continue;
-    if ('s' in h) {
-      urls = (Array.isArray(h.s) ? h.s : [h.s])
-        .map(s =>
-          typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
-            typeof s === 'function' ? s(m, node) :
-              s);
+    if (h.s) {
+      urls = ensureArray(h.s).map(s =>
+        typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
+          typeof s === 'function' ? s(m, node) :
+            s);
       if (h.q && urls.length > 1) {
         console.log('Rule discarded. Substitution arrays can\'t be combined with property q.');
         continue;
@@ -1582,12 +1572,12 @@ function downloadPage(url, cb) {
       try {
         if (req !== app.req)
           return;
-        delete app.req;
-        if (res.status > 399)
+        app.req = null;
+        if (res.status >= 400)
           throw 'Server error: ' + res.status;
         cb(res.responseText, res.finalUrl || url);
-      } catch (ex) {
-        handleError(ex);
+      } catch (e) {
+        handleError(e);
       }
     },
     onerror: res => {
@@ -1633,9 +1623,9 @@ function downloadImage(url, referer) {
       try {
         if (req !== app.req)
           return;
-        delete app.req;
+        app.req = null;
         setBar(false);
-        if (res.status > 399)
+        if (res.status >= 400)
           throw 'HTTP error ' + res.status;
         let type;
         if (/Content-Type:\s*(.+)/i.exec(res.responseHeaders) &&
@@ -1656,7 +1646,7 @@ function downloadImage(url, referer) {
             tiff: 'image/tiff',
             webm: 'video/webm',
           };
-          type = ext in types ? types[ext] : 'application/octet-stream';
+          type = types[ext] || 'application/octet-stream';
         }
         let b = res.response;
         if (b.type !== type)
@@ -1669,8 +1659,8 @@ function downloadImage(url, referer) {
         };
         fr.onerror = handleError;
         fr.readAsDataURL(b);
-      } catch (ex) {
-        handleError(ex);
+      } catch (e) {
+        handleError(e);
       }
     },
     onerror: res => {
@@ -1693,20 +1683,6 @@ function findRedirect(url, cb) {
   });
 }
 
-function findNode(q, doc) {
-  let node;
-  if (!q)
-    return;
-  if (!Array.isArray(q))
-    q = [q];
-  for (let i = 0, len = q.length; i < len; i++) {
-    node = qs(q[i], doc);
-    if (node)
-      break;
-  }
-  return node;
-}
-
 function findFile(n, url) {
   const base = qs('base[href]', n.ownerDocument);
   const path =
@@ -1720,9 +1696,10 @@ function findFile(n, url) {
 }
 
 function findCaption(n) {
-  return n.getAttribute('content') ||
-         n.getAttribute('title') ||
-         n.textContent;
+  return !n ? '' :
+    n.getAttribute('content') ||
+    n.getAttribute('title') ||
+    n.textContent;
 }
 
 function checkProgress(start) {
@@ -1829,7 +1806,7 @@ function updateMouse(e) {
 }
 
 function showFileInfo() {
-  const {gItems: gi} = app;
+  const gi = app.gItems;
   if (gi) {
     const item = gi[app.gIndex];
     let c = gi.length > 1 ? '[' + (app.gIndex + 1) + '/' + gi.length + '] ' : '';
@@ -1948,7 +1925,7 @@ function handleError(o) {
     m.push(['Node: %o', app.node]);
     const control = m.map(([k]) => k).filter(Boolean).join('\n');
     console.log(control, ...m.map(([, v]) => v));
-  } catch (ex) {}
+  } catch (e) {}
   if (onDomain('||google.') &&
       location.search.includes('tbm=isch') &&
       !app.xhr && cfg.xhr) {
@@ -1992,7 +1969,7 @@ function setPopup(src) {
     if (typeof p.pause === 'function')
       p.pause();
     if (!app.lazyUnload) {
-      if (p.src.substr(0, 5) === 'blob:')
+      if (p.src.startsWith('blob:'))
         URL.revokeObjectURL(p.src);
       p.src = '';
     }
@@ -2065,12 +2042,12 @@ function setBar(label, cn) {
 }
 
 function rel2abs(rel, abs) {
-  if (rel.substr(0, 5) === 'data:')
+  if (rel.startsWith('data:'))
     return rel;
-  const re = /^([a-z]+:)\/\//;
-  if (re.test(rel))
+  const rx = /^([a-z]+:)\/\//;
+  if (rx.test(rel))
     return rel;
-  if (!re.exec(abs))
+  if (!rx.exec(abs))
     return;
   if (rel.indexOf('//') === 0)
     return RegExp.$1 + rel;
@@ -2104,8 +2081,8 @@ function replace(s, m) {
 
 function findScale(url, parent) {
   const imgs = qsa('img, video', parent);
-  for (let i = imgs.length, img; i-- && (img = imgs[i]);) {
-    if (img.src !== url)
+  for (let i = imgs.length, img; (img = imgs[--i]);) {
+    if ((img.src || img.currentSrc) !== url)
       continue;
     const s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
       (img.naturalWidth || img.videoWidth) / img.offsetWidth);
@@ -2181,12 +2158,30 @@ function qsa(s, n) {
   return n.querySelectorAll(s);
 }
 
+function qsMany(q, doc) {
+  for (const selector of q ? ensureArray(q) : []) {
+    const el = qs(selector, doc);
+    if (el)
+      return el;
+  }
+}
+
 function includes(a, b) {
   return typeof a === 'string' && a.includes(b);
 }
 
 function clamp(v, min, max) {
   return v < min ? min : v > max ? max : v;
+}
+
+function ensureArray(v) {
+  return Array.isArray(v) ? v : [v];
+}
+
+function tryCatch(fn, ...args) {
+  try {
+    return fn.apply(this, args);
+  } catch (e) {}
 }
 
 function tryJson(s) {
@@ -2233,7 +2228,7 @@ function setup() {
         t && t.remove();
       }
       ok = 1;
-    } catch (ex) {}
+    } catch (e) {}
     t.__json = json;
     t.style.backgroundColor = ok ? '' : '#ffaaaa';
   }
