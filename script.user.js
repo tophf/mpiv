@@ -964,38 +964,34 @@ function onMouseOver(e) {
   if (!enabled || e.shiftKey || app.zoom)
     return;
   let node = e.target;
-  if (node === app.popup || node === doc.body || node === doc.documentElement)
+  if (node === app.popup ||
+      node === doc.body ||
+      node === doc.documentElement)
     return;
-  const shadowRoots = [];
-  for (let root; (root = node.shadowRoot);) {
-    shadowRoots.push(root);
-    const inner = root.elementFromPoint(e.clientX, e.clientY);
-    if (!inner || inner === node)
-      break;
-    node = inner;
-  }
-  for (const root of shadowRoots) {
-    on(root, 'mouseover', onMouseOver, {passive: true});
-    on(root, 'mouseout', onMouseOutShadow);
-  }
+  if (node.shadowRoot)
+    node = pierceShadow(node, e.clientX, e.clientY);
   if (!activate(node, e.ctrlKey))
     return;
   updateMouse(e);
   if (e.ctrlKey) {
     startPopup();
   } else if (cfg.start === 'auto' && !app.manual) {
-    if (cfg.preload) {
-      app.preloadStart = Date.now();
-      startPopup();
-      setStatus('preloading', 'add');
-    } else {
-      app.timeout = setTimeout(startPopup, cfg.delay);
-    }
-    if (cfg.preload)
-      setTimeout(setStatus, cfg.delay, 'preloading', 'remove');
+    schedulePopup();
   } else {
     setStatus('ready');
   }
+}
+
+function pierceShadow(node, x, y) {
+  for (let root; (root = node.shadowRoot);) {
+    on(root, 'mouseover', onMouseOver, {passive: true});
+    on(root, 'mouseout', onMouseOutShadow);
+    const inner = root.elementFromPoint(x, y);
+    if (!inner || inner === node)
+      break;
+    node = inner;
+  }
+  return node;
 }
 
 function onMouseOut(e) {
@@ -1190,6 +1186,18 @@ function onMessage(e) {
   el.dispatchEvent(new Event('input', {bubbles: true}));
   el.parentNode.scrollTop = 0;
   el.select();
+}
+
+function schedulePopup() {
+  if (cfg.preload) {
+    app.preloadStart = Date.now();
+    startPopup();
+    setStatus('preloading', 'add');
+  } else {
+    app.timeout = setTimeout(startPopup, cfg.delay);
+  }
+  if (cfg.preload)
+    setTimeout(setStatus, cfg.delay, 'preloading', 'remove');
 }
 
 function startPopup() {
