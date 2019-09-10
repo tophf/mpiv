@@ -2329,6 +2329,17 @@ function setup() {
     return fixCfg(cfg);
   }
 
+  function formatRuleCollapse(rule) {
+    return JSON.stringify(rule, null, ' ')
+      .replace(/\n\s*/g, ' ')
+      .replace(/^({)\s|\s(})$/g, '$1$2');
+  }
+
+  function formatRuleExpand(rule) {
+    return JSON.stringify(rule, null, ' ')
+      .replace(/^{\s+/g, '{');
+  }
+
   function init(cfg) {
     close();
     if (!trusted.includes(hostname))
@@ -2505,12 +2516,14 @@ function setup() {
       const template = parent.firstElementChild;
       for (const rule of cfg.hosts) {
         const el = template.cloneNode();
-        el.value = typeof rule === 'string' ? rule : JSON.stringify(rule);
+        el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
         parent.appendChild(el);
         check({target: el});
       }
       on(parent, 'focusin', ({target: el}) => {
         if (el !== parent) {
+          if (el.__json)
+            el.value = formatRuleExpand(el.__json);
           const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
           if (h > el.offsetHeight)
             el.style.height = h + 'px';
@@ -2519,6 +2532,8 @@ function setup() {
       on(parent, 'focusout', ({target: el}) => {
         if (el !== parent && el.style.height)
           el.style.height = '';
+        if (el.__json)
+          el.value = formatRuleCollapse(el.__json);
       });
       const se = $('search');
       const doSearch = () => {
