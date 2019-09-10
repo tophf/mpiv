@@ -28,6 +28,7 @@
 
 const doc = document;
 const hostname = location.hostname;
+const dotDomain = '.' + hostname;
 const trusted = ['greasyfork.org', 'w9p.co'];
 const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
@@ -239,7 +240,7 @@ function loadHosts() {
 
   // rules that disable previewing
   const disablers = [
-    hostname.endsWith('stackoverflow.com') && {
+    dotDomain.endsWith('.stackoverflow.com') && {
       e: '.post-tag, .post-tag img',
       s: '',
     }, {
@@ -255,7 +256,7 @@ function loadHosts() {
       s: '$1',
       follow: true,
     },
-    hostname.endsWith('4chan.org') && {
+    dotDomain.endsWith('.4chan.org') && {
       e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
       q: '.op .fileText a',
       css: '#post-preview{display:none}',
@@ -269,13 +270,13 @@ function loadHosts() {
       },
       css: '#zoomWindow{display:none!important;}',
     },
-    hostname.endsWith('bing.com') && {
+    dotDomain.endsWith('.bing.com') && {
       e: 'a[m*="murl"]',
       r: /murl&quot;:&quot;(.+?)&quot;/,
       s: '$1',
       html: true,
     },
-    hostname.endsWith('deviantart.com') && {
+    dotDomain.endsWith('.deviantart.com') && {
       e: '[data-super-full-img] *, img[src*="/th/"]',
       s: (m, node) => {
         let el = node.closest('[data-super-full-img]');
@@ -286,18 +287,18 @@ function loadHosts() {
           return el.src;
       },
     },
-    hostname.endsWith('dropbox.com') && {
+    dotDomain.endsWith('.dropbox.com') && {
       r: /(.+?&size_mode)=\d+(.*)/,
       s: '$1=5$2',
     },
-    hostname.endsWith('facebook.com') && {
+    dotDomain.endsWith('.facebook.com') && {
       e: 'a[href*="ref=hovercard"]',
       s: (m, node) =>
         'https://www.facebook.com/photo.php?fbid=' +
         /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
       follow: true,
     },
-    hostname.endsWith('facebook.com') && {
+    dotDomain.endsWith('.facebook.com') && {
       r: /(fbcdn|external).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
       s: (m, node) =>
         node.parentNode.className.includes('video') && m[4].includes('fbcdn') ? '' :
@@ -305,7 +306,7 @@ function loadHosts() {
       html: true,
       follow: true,
     },
-    hostname.endsWith('flickr.com') &&
+    dotDomain.endsWith('.flickr.com') &&
     tryCatch(() => unsafeWindow.YUI_config.flickr.api.site_key) && {
       u: '||flickr.com/photos/',
       r: /photos\/[^/]+\/(\d+)/,
@@ -319,7 +320,7 @@ function loadHosts() {
         }).toString()}`,
       q: text => JSON.parse(text).sizes.size.pop().source,
     },
-    hostname.endsWith('github.com') && {
+    dotDomain.endsWith('.github.com') && {
       u: [
         'avatars',
         'raw.github.com',
@@ -342,7 +343,7 @@ function loadHosts() {
             `raw.${m[4]}usercontent${m[5]}${m[6]}`
       }`,
     },
-    hostname.endsWith('instagram.com') && (() => {
+    dotDomain.endsWith('.instagram.com') && (() => {
       const LINK_SEL = 'a[href*="/p/"]';
       const getData = node => {
         const n = node.closest(`${LINK_SEL}, article`);
@@ -385,7 +386,7 @@ function loadHosts() {
       };
       return RULE;
     })(),
-    ...hostname.endsWith('reddit.com') ? [
+    ...dotDomain.endsWith('.reddit.com') ? [
       {
         u: '||i.reddituploads.com/',
       },
@@ -395,22 +396,22 @@ function loadHosts() {
         s: 'https://i.$1',
       },
     ] : [],
-    hostname.endsWith('tumblr.com') && {
+    dotDomain.endsWith('.tumblr.com') && {
       e: 'div.photo_stage_img, div.photo_stage > canvas',
       s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
       follow: true,
     },
-    hostname.endsWith('tweetdeck.twitter.com') && {
+    dotDomain.endsWith('.tweetdeck.twitter.com') && {
       e: 'a.media-item, a.js-media-image-link',
       s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
       follow: true,
     },
-    hostname.endsWith('twitter.com') && {
+    dotDomain.endsWith('.twitter.com') && {
       e: '.grid-tweet > .media-overlay',
       s: (m, node) => node.previousElementSibling.src,
       follow: true,
     },
-    hostname.endsWith('youtube.com') && {
+    dotDomain.endsWith('.youtube.com') && {
       e: 'ytd-thumbnail *',
       s: '',
     },
@@ -500,7 +501,7 @@ function loadHosts() {
       u: '||fbcdn.',
       r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
       s: m =>
-        hostname.endsWith('facebook.com') &&
+        dotDomain.endsWith('.facebook.com') &&
         tryCatch(() => unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url) ||
         false,
       manual: true,
@@ -787,7 +788,7 @@ function loadHosts() {
       u: '||photobucket.com/',
       r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
       s: 'https://i$1$3',
-      xhr: !hostname.endsWith('photobucket.com'),
+      xhr: !dotDomain.endsWith('.photobucket.com'),
     },
     {
       u: '||piccy.info/view3/',
@@ -1557,9 +1558,9 @@ function makeInfo(urls, node, rule, m) {
   };
   lazyGetRect(info, node, rule.rect);
   if (
-    hostname.endsWith('twitter.com') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
-    hostname.endsWith('github.com') && !/github/.test(url) ||
-    hostname.endsWith('facebook.com') && /\bimgur\.com/.test(url)
+    dotDomain.endsWith('.twitter.com') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
+    dotDomain.endsWith('.github.com') && !/github/.test(url) ||
+    dotDomain.endsWith('.facebook.com') && /\bimgur\.com/.test(url)
   ) {
     info.xhr = 'data';
   }
