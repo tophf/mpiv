@@ -274,15 +274,10 @@ function loadHosts() {
     },
   ];
 
-  return [
-    ...customHosts,
-    ...disablers,
+  // optimization: a rule is created only when on domain
+  const perDomain = [
     onDomain('startpage') && {
       r: /\boiu=(.+)/,
-      s: '$1',
-      follow: true,
-    }, {
-      r: /[/?=](https?[^&]+)/,
       s: '$1',
       follow: true,
     },
@@ -290,23 +285,6 @@ function loadHosts() {
       e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
       q: '.op .fileText a',
       css: '#post-preview{display:none}',
-    }, {
-      u: [
-        '||500px.com/photo/',
-        '||cl.ly/',
-        '||cweb-pix.com/',
-        '||ibb.co/',
-        '||imgcredit.xyz/image/',
-      ],
-      r: /\.\w+\/.+/,
-      q: 'meta[property="og:image"]',
-    }, {
-      u: 'attachment.php',
-      r: /attachment\.php.+attachmentid/,
-    },
-    {
-      u: '||abload.de/image',
-      q: '#image',
     },
     onDomain('||amazon.') && {
       u: 'amazon.com/images/I/',
@@ -333,44 +311,10 @@ function loadHosts() {
         if (el && el.dataset.embedId)
           return el.src;
       },
-    }, {
-      u: '||deviantart.com/art/',
-      s: (m, node) =>
-        /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
-          '' :
-          m.input,
-      q: [
-        '#download-button[href*=".jpg"]',
-        '#download-button[href*=".jpeg"]',
-        '#download-button[href*=".gif"]',
-        '#download-button[href*=".png"]',
-        '#gmi-ResViewSizer_fullimg',
-        'img.dev-content-full',
-      ],
-    }, {
-      u: '||dropbox.com/s',
-      r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
-      q: (text, doc) => {
-        const i = qs('img.absolute-center', doc);
-        return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
-      },
     },
     onDomain('||dropbox.com^') && {
       r: /(.+?&size_mode)=\d+(.*)/,
       s: '$1=5$2',
-    }, {
-      r: /[./]ebay\.[^/]+\/itm\//,
-      q: text =>
-        text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
-          .replace(/~~60_\d+/, '~~60_57'),
-    }, {
-      u: '||i.ebayimg.com/',
-      s: (m, node) =>
-        qs('.zoom_trigger_mask', node.parentNode) ? '' :
-          m.input.replace(/~~60_\d+/, '~~60_57'),
-    }, {
-      u: '||fastpic.ru/view/',
-      q: '.image',
     },
     onDomain('||facebook.com^') && {
       e: 'a[href*="ref=hovercard"]',
@@ -386,56 +330,9 @@ function loadHosts() {
           decodeURIComponent(m[4]),
       html: true,
       follow: true,
-    }, {
-      u: '||facebook.com/',
-      r: /photo\.php|[^/]+\/photos\//,
-      s: (m, node) =>
-        node.id === 'fbPhotoImage' ? false :
-          /gradient\.png$/.test(m.input) ? '' :
-            m.input.replace('www.facebook.com', 'mbasic.facebook.com'),
-      q: [
-        'div + span > a:first-child:not([href*="tag_faces"])',
-        'div + span > a[href*="tag_faces"] ~ a',
-      ],
-      rect: '#fbProfileCover',
-    }, {
-      u: '||fbcdn.',
-      r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
-      s: m => {
-        if (onDomain('||facebook.com^')) {
-          try {
-            return unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url;
-          } catch (ex) {}
-        }
-        return false;
-      },
-      manual: true,
-    }, {
-      u: ['||fbcdn-', 'fbcdn.net/'],
-      r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
-      s: (m, node) => {
-        if (node.id === 'fbPhotoImage') {
-          const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
-          if (a)
-            return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
-        }
-        if (m[4])
-          return false;
-        if (node.parentNode.outerHTML.includes('/hovercard/'))
-          return '';
-        const gp = node.parentNode.parentNode;
-        if (node.outerHTML.includes('profile') && gp.href.includes('/photo'))
-          return false;
-        return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
-      },
-      rect: '.photoWrap',
     },
     onDomain('||flickr.com^') &&
-    (() => {
-      try {
-        return unsafeWindow.YUI_config.flickr.api.site_key;
-      } catch (e) {}
-    })() && {
+    tryCatch(() => unsafeWindow.YUI_config.flickr.api.site_key) && {
       u: '||flickr.com/photos/',
       r: /photos\/[^/]+\/(\d+)/,
       s: m => `https://www.flickr.com/services/rest/?${
@@ -447,31 +344,6 @@ function loadHosts() {
           nojsoncallback: 1,
         }).toString()}`,
       q: text => JSON.parse(text).sizes.size.pop().source,
-    }, {
-      u: '||flickr.com/photos/',
-      r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
-      s: m =>
-        m.input.indexOf('/sizes/') < 0 ?
-          `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
-          false,
-      q: (text, doc) => {
-        const links = qsa('.sizes-list a', doc);
-        return 'https://www.flickr.com' + links[links.length - 1].getAttribute('href');
-      },
-      follow: true,
-    }, {
-      u: '||flickr.com/photos/',
-      r: /\/sizes\//,
-      q: '#allsizes-photo > img',
-    }, {
-      u: '||gfycat.com/',
-      r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
-      s: 'https://$1$3',
-      q: [
-        'meta[content$=".webm"]',
-        '#webmsource',
-        'source[src$=".webm"]',
-      ],
     },
     onDomain('||github.com^') && {
       u: [
@@ -495,14 +367,227 @@ function loadHosts() {
           m[2] ? `${m[2]}usercontent${m[3]}` :
             `raw.${m[4]}usercontent${m[5]}${m[6]}`
       }`,
-    }, {
+    },
+    onDomain('||instagram.com^') && (() => {
+      const LINK_SEL = 'a[href*="/p/"]';
+      const getData = node => {
+        const n = node.closest(`${LINK_SEL}, article`);
+        if (!n)
+          return;
+        const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
+        if (!a)
+          return;
+        try {
+          const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
+          return {
+            a,
+            data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
+              .graphql.user.edge_owner_to_timeline_media.edges
+              .find(e => e.node.shortcode === shortcode)
+              .node,
+          };
+        } catch (e) {
+          return {a};
+        }
+      };
+      const RULE = {
+        e: [
+          LINK_SEL,
+          'a[role="button"][data-reactid*="scontent-"]',
+          'article div',
+          'article div div img',
+        ],
+        s: (m, node) => {
+          const {a, data} = getData(node) || {};
+          RULE.follow = !data;
+          return (
+            !a ? false :
+              !data ? a.href :
+                data.video_url || data.display_url);
+        },
+        c: (html, doc, node) =>
+          tryCatch(() => getData(node).data.edge_media_to_caption.edges[0].node.text) || '',
+        follow: true,
+      };
+      return RULE;
+    })(),
+    ...onDomain('||reddit.com^') ? [
+      {
+        u: '||i.reddituploads.com/',
+      },
+      {
+        u: '||preview.redd.it/',
+        r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
+        s: 'https://i.$1',
+      },
+    ] : [],
+    onDomain('||tumblr.com^') && {
+      e: 'div.photo_stage_img, div.photo_stage > canvas',
+      s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
+      follow: true,
+    },
+    onDomain('||tweetdeck.twitter.com^') && {
+      e: 'a.media-item, a.js-media-image-link',
+      s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
+      follow: true,
+    },
+    onDomain('||twitter.com^') && {
+      e: '.grid-tweet > .media-overlay',
+      s: (m, node) => node.previousElementSibling.src,
+      follow: true,
+    },
+    onDomain('||youtube.com^') && {
+      e: 'ytd-thumbnail *',
+      s: '',
+    },
+  ];
+
+  return [
+    ...customHosts,
+    ...disablers,
+    ...perDomain,
+    {
+      r: /[/?=](https?[^&]+)/,
+      s: '$1',
+      follow: true,
+    },
+    {
+      u: [
+        '||500px.com/photo/',
+        '||cl.ly/',
+        '||cweb-pix.com/',
+        '||ibb.co/',
+        '||imgcredit.xyz/image/',
+      ],
+      r: /\.\w+\/.+/,
+      q: 'meta[property="og:image"]',
+    },
+    {
+      u: 'attachment.php',
+      r: /attachment\.php.+attachmentid/,
+    },
+    {
+      u: '||abload.de/image',
+      q: '#image',
+    },
+    {
+      u: '||deviantart.com/art/',
+      s: (m, node) =>
+        /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ?
+          '' :
+          m.input,
+      q: [
+        '#download-button[href*=".jpg"]',
+        '#download-button[href*=".jpeg"]',
+        '#download-button[href*=".gif"]',
+        '#download-button[href*=".png"]',
+        '#gmi-ResViewSizer_fullimg',
+        'img.dev-content-full',
+      ],
+    },
+    {
+      u: '||dropbox.com/s',
+      r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
+      q: (text, doc) => {
+        const i = qs('img.absolute-center', doc);
+        return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
+      },
+    },
+    {
+      r: /[./]ebay\.[^/]+\/itm\//,
+      q: text =>
+        text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0]
+          .replace(/~~60_\d+/, '~~60_57'),
+    },
+    {
+      u: '||i.ebayimg.com/',
+      s: (m, node) =>
+        qs('.zoom_trigger_mask', node.parentNode) ? '' :
+          m.input.replace(/~~60_\d+/, '~~60_57'),
+    },
+    {
+      u: '||fastpic.ru/view/',
+      q: '.image',
+    },
+    {
+      u: '||facebook.com/',
+      r: /photo\.php|[^/]+\/photos\//,
+      s: (m, node) =>
+        node.id === 'fbPhotoImage' ? false :
+          /gradient\.png$/.test(m.input) ? '' :
+            m.input.replace('www.facebook.com', 'mbasic.facebook.com'),
+      q: [
+        'div + span > a:first-child:not([href*="tag_faces"])',
+        'div + span > a[href*="tag_faces"] ~ a',
+      ],
+      rect: '#fbProfileCover',
+    },
+    {
+      u: '||fbcdn.',
+      r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
+      s: m =>
+        onDomain('||facebook.com^') &&
+        tryCatch(() => unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url) ||
+        false,
+      manual: true,
+    },
+    {
+      u: ['||fbcdn-', 'fbcdn.net/'],
+      r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
+      s: (m, node) => {
+        if (node.id === 'fbPhotoImage') {
+          const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
+          if (a)
+            return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
+        }
+        if (m[4])
+          return false;
+        if (node.parentNode.outerHTML.includes('/hovercard/'))
+          return '';
+        const gp = node.parentNode.parentNode;
+        if (node.outerHTML.includes('profile') && gp.href.includes('/photo'))
+          return false;
+        return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
+      },
+      rect: '.photoWrap',
+    },
+    {
+      u: '||flickr.com/photos/',
+      r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
+      s: m =>
+        m.input.indexOf('/sizes/') < 0 ?
+          `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
+          false,
+      q: (text, doc) => {
+        const links = qsa('.sizes-list a', doc);
+        return 'https://www.flickr.com' + links[links.length - 1].getAttribute('href');
+      },
+      follow: true,
+    },
+    {
+      u: '||flickr.com/photos/',
+      r: /\/sizes\//,
+      q: '#allsizes-photo > img',
+    },
+    {
+      u: '||gfycat.com/',
+      r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
+      s: 'https://$1$3',
+      q: [
+        'meta[content$=".webm"]',
+        '#webmsource',
+        'source[src$=".webm"]',
+      ],
+    },
+    {
       u: [
         '||googleusercontent.com/proxy',
         '||googleusercontent.com/gadgets/proxy',
       ],
       r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
       s: m => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, 'w0-h0'),
-    }, {
+    },
+    {
       u: [
         '||googleusercontent.com/',
         '||ggpht.com/',
@@ -513,52 +598,63 @@ function loadHosts() {
         node.matches('.g-hovercard *, a[href*="profile_redirector"] > img') ?
           '' :
           m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0').replace(/[?&/]\w+=[^&/]+$/, ''),
-    }, {
+    },
+    {
       u: '||gravatar.com/',
       r: /([a-z0-9]{32})/,
       s: 'https://gravatar.com/avatar/$1?s=200',
-    }, {
+    },
+    {
       u: '||gyazo.com/',
       r: /\.com\/\w{32,}/,
       q: '.image',
       xhr: true,
-    }, {
+    },
+    {
       u: '||hostingkartinok.com/show-image.php',
       q: '.image img',
-    }, {
+    },
+    {
       u: [
         '||imagecurl.com/images/',
         '||imagecurl.com/viewer.php',
       ],
       r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
       s: 'https://imagecurl.com/images/$1$2$3',
-    }, {
+    },
+    {
       u: '||imagebam.com/image/',
       q: 'meta[property="og:image"]',
       tabfix: true,
       xhr: onDomain('||planetsuzy'),
-    }, {
+    },
+    {
       u: '||imageban.ru/thumbs',
       r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
       s: '$1out$2/$3/$4',
-    }, {
+    },
+    {
       u: [
         '||imageban.ru/show',
         '||imageban.net/show',
         '||ibn.im/',
       ],
       q: '#img_main',
-    }, {
+    },
+    {
       u: '||imageshack.us/img',
       r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
       s: 'https://$2/download/$1/$3$4',
-    }, {
+    },
+    {
       u: '||imageshack.us/i/',
       q: '#share-dl',
-    }, {
+    },
+    {
       u: '||imageteam.org/img',
       q: 'img[alt="image"]',
-    }, {
+    },
+    {
       u: [
         '||imagetwist.com/',
         '||imageshimage.com/',
@@ -566,18 +662,22 @@ function loadHosts() {
       r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
       q: 'img.pic',
       xhr: true,
-    }, {
+    },
+    {
       u: '||imageupper.com/i/',
       q: '#img',
       xhr: true,
-    }, {
+    },
+    {
       u: '||imagevenue.com/img.php',
       q: '#thepic',
-    }, {
+    },
+    {
       u: '||imagezilla.net/show/',
       q: '#photo',
       xhr: true,
-    }, {
+    },
+    {
       u: [
         '||images-na.ssl-images-amazon.com/images/',
         '||media-imdb.com/images/',
@@ -585,25 +685,29 @@ function loadHosts() {
       r: /images\/.+?\.jpg/,
       s: '/V1\\.?_.+?\\.//g',
       distinct: true,
-    }, {
+    },
+    {
       u: '||imgbox.com/',
       r: /\.com\/([a-z0-9]+)$/i,
       q: '#img',
       xhr: hostname !== 'imgbox.com',
-    }, {
+    },
+    {
       u: '||imgclick.net/',
       r: /\.net\/(\w+)/,
       q: 'img.pic',
       xhr: true,
       post: m => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`,
-    }, {
+    },
+    {
       u: [
         '||imgflip.com/i/',
         '||imgflip.com/gif/',
       ],
       r: /\/(i|gif)\/([^/?#]+)/,
       s: m => `https://i.imgflip.com/${m[2]}${m[1] === 'i' ? '.jpg' : '.mp4'}`,
-    }, {
+    },
+    {
       u: [
         '||imgur.com/a/',
         '||imgur.com/gallery/',
@@ -643,7 +747,8 @@ function loadHosts() {
         });
       },
       css: '.post > .hover { display:none!important; }',
-    }, {
+    },
+    {
       u: '||imgur.com/',
       r: /\.com\/.+,/,
       g: (text, url) =>
@@ -653,14 +758,15 @@ function loadHosts() {
           .map(id => ({
             url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
           })),
-    }, {
+    },
+    {
       u: '||imgur.com/',
       r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
       s: (m, node) => {
         if (/memegen|random|register|search|signin/.test(m.input))
           return '';
-        if (/(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/
-            .test(node.parentNode.href || node.parentNode.parentNode.href))
+        const a = node.closest('a');
+        if (a && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
           return false;
         const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
                   m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
@@ -670,53 +776,6 @@ function loadHosts() {
           url;
       },
     },
-    onDomain('||instagram.com^') && (() => {
-      const LINK_SEL = 'a[href*="/p/"]';
-      const getInstagramData = node => {
-        const n = node.closest(`${LINK_SEL}, article`);
-        if (!n)
-          return;
-        const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
-        if (!a)
-          return;
-        try {
-          const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
-          return {
-            a,
-            data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
-              .graphql.user.edge_owner_to_timeline_media.edges
-              .find(e => e.node.shortcode === shortcode)
-              .node,
-          };
-        } catch (e) {}
-        return {a};
-      };
-      const RULE = {
-        e: [
-          LINK_SEL,
-          'a[role="button"][data-reactid*="scontent-"]',
-          'article div',
-          'article div div img',
-        ],
-        s: (m, node) => {
-          const {a, data} = getInstagramData(node) || {};
-          RULE.follow = !data;
-          return (
-            !a ? false :
-              !data ? a.href :
-                data.video_url || data.display_url);
-        },
-        c: (html, doc, node) => {
-          try {
-            return getInstagramData(node).data.edge_media_to_caption.edges[0].node.text;
-          } catch (e) {
-            return '';
-          }
-        },
-        follow: true,
-      };
-      return RULE;
-    })(),
     {
       u: [
         '||instagr.am/p/',
@@ -732,36 +791,43 @@ function loadHosts() {
         const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
         return m === undefined ? '(no caption)' : m.node.text;
       },
-    }, {
+    },
+    {
       u: [
         '||livememe.com/',
         '||lvme.me/',
       ],
       r: /\.\w+\/([^.]+)$/,
       s: 'http://i.lvme.me/$1.jpg',
-    }, {
+    },
+    {
       u: '||lostpic.net/image',
       q: '.image-viewer-image img',
-    }, {
+    },
+    {
       u: '||makeameme.org/meme/',
       r: /\/meme\/([^/?#]+)/,
       s: 'https://media.makeameme.org/created/$1.jpg',
-    }, {
+    },
+    {
       u: '||photobucket.com/',
       r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
       s: 'https://i$1$3',
       xhr: !onDomain('||photobucket.com^'),
-    }, {
+    },
+    {
       u: '||piccy.info/view3/',
       r: /(.+?\/view3)\/(.*)\//,
       s: '$1/$2/orig/',
       q: '#mainim',
-    }, {
+    },
+    {
       u: '||pimpandhost.com/image/',
       r: /(.+?\/image\/[0-9]+)/,
       s: '$1?size=original',
       q: 'img.original',
-    }, {
+    },
+    {
       u: [
         '||pixroute.com/',
         '||imgspice.com/',
@@ -769,14 +835,16 @@ function loadHosts() {
       r: /\.html$/,
       q: 'img[id]',
       xhr: true,
-    }, {
+    },
+    {
       u: '||postima',
       r: /postima?ge?\.org\/image\/\w+/,
       q: [
         'a[href*="dl="]',
         '#main-image',
       ],
-    }, {
+    },
+    {
       u: [
         '||prntscr.com/',
         '||prnt.sc/',
@@ -784,54 +852,45 @@ function loadHosts() {
       r: /\.\w+\/.+/,
       q: 'meta[property="og:image"]',
       xhr: true,
-    }, {
+    },
+    {
       u: '||radikal.ru/',
       r: /\.ru\/(fp|.+\.html)/,
       q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
     },
-    ...onDomain('||reddit.com^') ? [{
-      u: '||i.reddituploads.com/',
-    }, {
-      u: '||preview.redd.it/',
-      r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
-      s: 'https://i.$1',
-    }] : [], {
+    {
       u: '||twimg.com/',
       r: /\/profile_images/i,
       s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
-    }, {
+    },
+    {
       u: '||twimg.com/media/',
       r: /(?:^|\/\/)(.+?\.(jpe?g|png|gif))/i,
       s: 'https://$1:orig',
       rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
     },
-    onDomain('||tumblr.com^') && {
-      e: 'div.photo_stage_img, div.photo_stage > canvas',
-      s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
-      follow: true,
-    }, {
+    {
       u: '||tumblr.com',
       r: /_500\.jpg/,
       s: ['/_500/_1280/', ''],
-    }, {
+    },
+    {
       u: '||twimg.com/1/proxy',
       r: /t=([^&_]+)/i,
       s: m => atob(m[1]).match(/http.+/),
-    }, {
+    },
+    {
       u: '||pic.twitter.com/',
       r: /\.com\/[a-z0-9]+/i,
       q: text => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
       follow: true,
     },
-    onDomain('||tweetdeck.twitter.com^') && {
-      e: 'a.media-item, a.js-media-image-link',
-      s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
-      follow: true,
-    }, {
+    {
       u: '||twitpic.com/',
       r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
       s: 'https://twitpic.com/show/large/$2',
-    }, {
+    },
+    {
       u: '||twitter.com/',
       r: /\/status\/.+\/photo\//,
       q: [
@@ -845,38 +904,35 @@ function loadHosts() {
       ],
       follow: url => !/\.mp4$/.test(url),
     },
-    onDomain('||twitter.com^') && {
-      e: '.grid-tweet > .media-overlay',
-      s: (m, node) => node.previousElementSibling.src,
-      follow: true,
-    }, {
+    {
       u: '||upix.me/files',
       s: '/#//',
-    }, {
+    },
+    {
       u: '||wiki',
       r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
       s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$/' +
          '/g',
       xhr: !onDomain('||wiki'),
-    }, {
+    },
+    {
       u: '||ytimg.com/vi/',
       r: /(.+?\/vi\/[^/]+)/,
       s: '$1/0.jpg',
       rect: '.video-list-item',
     },
-    onDomain('||youtube.com^') && {
-      e: 'ytd-thumbnail *',
-      s: '',
-    }, {
+    {
       u: '/viewer.php?file=',
       r: /(.+?)\/viewer\.php\?file=(.+)/,
       s: '$1/images/$2',
       xhr: true,
-    }, {
+    },
+    {
       u: '/thumb_',
       r: /\/albums.+\/thumb_[^/]/,
       s: '/thumb_//',
-    }, {
+    },
+    {
       u: [
         '.th.jp',
         '.th.gif',
@@ -885,7 +941,8 @@ function loadHosts() {
       r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
       s: '$1$2',
       follow: true,
-    }, {
+    },
+    {
       u: [
         '.jp',
         '.jpg',
