@@ -1380,13 +1380,17 @@ function activate(node, force) {
   app = info;
   app.view = viewRect();
   app.zooming = includes(cfg.css, 'mpiv-zooming');
-  for (const n of [app.node.parentNode, app.node, app.node.firstElementChild]) {
-    if (n && n.title && n.title !== n.textContent && !doc.title.includes(n.title) &&
+  for (const n of [
+    app.node.parentNode,
+    app.node,
+    app.node.firstElementChild,
+  ]) {
+    if (n &&
+        n.title &&
+        n.title !== n.textContent &&
+        !doc.title.includes(n.title) &&
         !/^http\S+$/.test(n.title)) {
-      app.tooltip = {
-        node: n,
-        text: n.title,
-      };
+      app.tooltip = {node: n, text: n.title};
       n.title = '';
       break;
     }
