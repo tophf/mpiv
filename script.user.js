@@ -2193,6 +2193,7 @@ function tryJson(s) {
 }
 
 function setup() {
+  const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   let div, root;
 
   function $(s) {
@@ -2258,7 +2259,7 @@ function setup() {
     const parent = e.target.parentNode;
     parent.textContent = 'Loading...';
     parent.appendChild(Object.assign(doc.createElement('iframe'), {
-      src: 'https://w9p.co/userscripts/mpiv/more_host_rules.html',
+      src: MPIV_BASE_URL + 'more_host_rules.html',
       hidden: true,
       style: `
         width: 100%;
@@ -2407,7 +2408,7 @@ function setup() {
       </style>
       <main>
         <div>
-          <a href="https://w9p.co/userscripts/mpiv/">Mouseover Popup Image Viewer</a>
+          <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
           <span style="float:right">
             <a href="#" id="import">Import</a> |
             <a href="#" id="export">Export</a>
@@ -2424,7 +2425,7 @@ function setup() {
               </select>
             </label>
             <label>after <input id="delay"> ms</label>
-            <label><input type="checkbox" id="preload"> Start loading immediately</label>
+            <label><input type="checkbox" id="preload"> Start preloading immediately</label>
           </li>
           <li>
             <label>
@@ -2447,9 +2448,7 @@ function setup() {
                 <option id="zoom-auto">automatically
               </select>
             </label>
-            <label>
-              Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2">
-            </label>
+            <label>Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2"></label>
             <span title="values smaller than non-zoomed size are ignored,
                          0 = fit to window, 0! = same as 0 but also removes smaller values,
                          asterisk after value marks default zoom factor (e.g. 1*)"
@@ -2465,11 +2464,11 @@ function setup() {
             </label>
           </li>
           <li>
-            <a href="https://w9p.co/userscripts/mpiv/css.html" target="_blank">Custom CSS:</a>
+            <a href="${MPIV_BASE_URL}css.html" target="_blank">Custom CSS:</a>
             <div><textarea id="css" spellcheck="false"></textarea></div>
           </li>
           <li style="overflow-y:auto">
-            <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
+            <a href="${MPIV_BASE_URL}host_rules.html"
                target="_blank">Custom host rules:</a>
             <input id="search" type="search" placeholder="Search">
             <div id="hosts"><textarea rows="1" spellcheck="false"></textarea></div>
