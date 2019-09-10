@@ -1721,6 +1721,8 @@ function updateSize() {
 
 function updateSpacing() {
   const s = getComputedStyle(app.popup);
+  app.outline = (parseInt(s['outline-offset']) || 0) +
+                (parseInt(s['outline-width']) || 0);
   app.pw = (parseInt(s['padding-left']) || 0) +
            (parseInt(s['padding-right']) || 0);
   app.ph = (parseInt(s['padding-top']) || 0) +
@@ -1739,8 +1741,8 @@ function updateScales() {
   const scales = cfg.scales.length ? cfg.scales :
     ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16];
   const fit = Math.min(
-    (app.view.width - app.mbw) / app.nwidth,
-    (app.view.height - app.mbh) / app.nheight);
+    (app.view.width - app.mbw - app.outline * 2) / app.nwidth,
+    (app.view.height - app.mbh - app.outline * 2) / app.nheight);
   let cutoff = app.scale = Math.min(1, fit);
   app.scales = [];
   for (let i = scales.length; i--;) {
@@ -1807,8 +1809,8 @@ function placePopup() {
   const h = Math.round(app.scale * app.nheight);
   const cx = app.cx;
   const cy = app.cy;
-  const vw = app.view.width;
-  const vh = app.view.height;
+  const vw = app.view.width - app.outline * 2;
+  const vh = app.view.height - app.outline * 2;
   if (!app.zoom && (!app.gItems || app.gItems.length < 2) && !cfg.center) {
     const r = app.rect;
     const rx = (r.left + r.right) / 2;
@@ -1838,8 +1840,8 @@ function placePopup() {
   p.style.cssText = `
     width: ${w}px !important;
     height: ${h}px !important;
-    left: ${x}px !important;
-    top: ${y}px !important;
+    left: ${x + app.outline}px !important;
+    top: ${y + app.outline}px !important;
   `;
 }
 
