@@ -2101,13 +2101,8 @@ function viewRect() {
 
 function rect(node, q) {
   let n;
-  if (q) {
-    n = node;
-    while (tag(n = n.parentNode) !== 'BODY') {
-      if (n.matches(q))
-        return n.getBoundingClientRect();
-    }
-  }
+  if (q && (n = node.closest(q)))
+    return n.getBoundingClientRect();
   const nodes = qsa('*', node);
   for (let i = nodes.length; i-- && (n = nodes[i]);) {
     if (n.offsetHeight > node.offsetHeight)
