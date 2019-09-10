@@ -1214,7 +1214,7 @@ function startSinglePopup(url) {
   delete app.iurl;
   if (app.follow && !app.q && !app.s) {
     return findRedirect(app.url, url => {
-      const info = findInfo(url, app.node, true);
+      const info = findInfo(url, app.node, {noHtml: true});
       if (!info || !info.url)
         throw 'Couldn\'t follow redirection target: ' + url;
       restartSinglePopup(info);
@@ -1256,7 +1256,7 @@ function startSinglePopup(url) {
         break;
     }
     if (app.follow === true || typeof app.follow === 'function' && app.follow(iurl)) {
-      const info = findInfo(iurl, app.node, true);
+      const info = findInfo(iurl, app.node, {noHtml: true});
       if (!info || !info.url)
         throw 'Couldn\'t follow URL: ' + iurl;
       return restartSinglePopup(info);
@@ -1494,78 +1494,103 @@ function parseNode(node) {
   }
 }
 
-function findInfo(url, node, noHtml, skipHost, followed) {
+function findInfo(url, node, {noHtml, skipRule} = {}) {
   const tn = tag(node);
-  for (const h of hosts) {
-    if (h.e && !node.matches(h.e) || h === skipHost)
+  let m, html, urls;
+  for (const rule of hosts) {
+    if (rule === skipRule || rule.e && !node.matches(rule.e))
       continue;
-    let m, html, urls;
-    if (h.r || h.u) {
-      if (h.html && !noHtml && (tn === 'A' || tn === 'IMG' || h.e)) {
-        if (!html)
-          html = node.outerHTML;
-        m = h.r.exec(html);
-      } else if (url) {
-        if (h.u && !h._u)
-          h._u = compileSimpleUrlMatch(h.u);
-        m = h._u && h._u.fn(url, h._u.needle) &&
-            Object.assign([url], {index: 0, input: url});
-        if (h.r && (m || !h._u))
-          m = h.r.exec(url);
-      } else {
-        m = null;
-      }
-    } else {
-      m = url ? /.*/.exec(url) : [];
-    }
-    if (!m || !followed && tn === 'IMG' && !('s' in h))
+    if (!noHtml && rule.r && rule.html && (tn === 'A' || tn === 'IMG' || rule.e))
+      m = rule.r.exec(html || (html = node.outerHTML));
+    else if (url)
+      m = (rule.r || rule.u) ?
+        makeUrlMatch(url, node, rule) :
+        makeDummyMatch(url);
+    if (!m ||
+        // a rule with follow:true for the currently hovered IMG produced a URL,
+        // but we'll only allow it to match rules without 's' in the nested findInfo call
+        tn === 'IMG' && !('s' in rule) && !skipRule)
       continue;
-    if (h.s) {
-      urls = ensureArray(h.s).map(s =>
-        typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
-          typeof s === 'function' ? s(m, node) :
-            s);
-      if (h.q && urls.length > 1) {
-        console.log('Rule discarded. Substitution arrays can\'t be combined with property q.');
-        continue;
-      }
-      if (Array.isArray(urls[0]))
-        urls = urls[0];
-      if (urls[0] === false)
-        continue;
-      urls = urls.map(u => u ? decodeURIComponent(u) : u);
-    } else {
-      urls = [m.input];
+    urls = rule.s ? makeSubstitution(node, rule, m) : [m.input];
+    if (!urls.skipRule) {
+      const url = urls[0];
+      return !url ? null :
+        isFollowableUrl(url, rule) ?
+          findInfo(url, node, {skipRule: rule}) :
+          makeInfo(urls, node, rule, m);
     }
-    if ((h.follow === true || typeof h.follow === 'function' && h.follow(urls[0])) && !h.q && h.s)
-      return findInfo(urls[0], node, false, h, true);
-    const info = {
-      node,
-      url: urls.shift(),
-      urls: urls.length ? urls : false,
-      u: h.u,
-      r: h.r,
-      q: h.q,
-      c: h.c,
-      g: h.g ? loadGalleryParser(h.g) : h.g,
-      xhr: cfg.xhr && h.xhr,
-      tabfix: h.tabfix,
-      post: typeof h.post === 'function' ? h.post(m) : h.post,
-      follow: h.follow,
-      css: h.css,
-      manual: h.manual,
-      distinct: h.distinct,
-    };
-    lazyGetRect(info, node, h.rect);
-    if (
-      onDomain('||twitter.com^') && !/(facebook|google|twimg|twitter)\.com\//.test(info.url) ||
-      onDomain('||github.com^') && !/github/.test(info.url) ||
-      onDomain('||facebook.com^') && /\bimgur\.com/.test(info.url)
-    ) {
-      info.xhr = 'data';
-    }
-    return info;
   }
+}
+
+function makeUrlMatch(url, node, rule) {
+  let {r, u} = rule;
+  let m;
+  if (u) {
+    u = rule._u || (rule._u = compileSimpleUrlMatch(u));
+    m = u.fn(url, u.needle) && (r || makeDummyMatch(url));
+  }
+  return (m || !u) && r ? r.exec(url) : m;
+}
+
+function makeDummyMatch(url) {
+  const m = [url];
+  m.index = 0;
+  m.input = url;
+  return m;
+}
+
+function makeSubstitution(node, rule, m) {
+  let urls = [];
+  for (const s of ensureArray(rule.s))
+    urls.push(
+      typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
+        typeof s === 'function' ? s(m, node) :
+          s);
+  if (rule.q && urls.length > 1) {
+    console.warn('Rule %o discarded: "s" array is not allowed with "q"', rule);
+    return 'skipRule';
+  }
+  if (Array.isArray(urls[0]))
+    urls = urls[0];
+  // `false` returned by "s" property means "skip this rule"
+  // any other falsy value (like say "") means "cancel all rules"
+  return urls[0] === false ?
+    {skipRule: true} :
+    urls.map(u => u ? decodeURIComponent(u) : u);
+}
+
+function makeInfo(urls, node, rule, m) {
+  const url = urls[0];
+  const info = {
+    node,
+    url,
+    urls: urls.length > 1 ? urls.slice(1) : null,
+    c: rule.c,
+    g: rule.g ? loadGalleryParser(rule.g) : rule.g,
+    q: rule.q,
+    r: rule.r,
+    u: rule.u,
+    css: rule.css,
+    distinct: rule.distinct,
+    follow: rule.follow,
+    manual: rule.manual,
+    post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
+    tabfix: rule.tabfix,
+    xhr: cfg.xhr && rule.xhr,
+  };
+  lazyGetRect(info, node, rule.rect);
+  if (
+    onDomain('||twitter.com^') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
+    onDomain('||github.com^') && !/github/.test(url) ||
+    onDomain('||facebook.com^') && /\bimgur\.com/.test(url)
+  ) {
+    info.xhr = 'data';
+  }
+  return info;
+}
+
+function isFollowableUrl(url, {s, q, follow}) {
+  return s && !q && (typeof follow === 'function' ? follow(url) : follow);
 }
 
 function downloadPage(url, cb) {
