@@ -28,7 +28,6 @@
 
 const doc = document;
 const hostname = location.hostname;
-const hostnamePinned = '.' + hostname;
 const trusted = ['greasyfork.org', 'w9p.co'];
 const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
@@ -118,32 +117,6 @@ const simpleMatcher = {
       (!endSep || start + needle.length === url.length);
   },
 };
-
-/*
-  ||some.domain = matches some.domain, anything.some.domain, etc.
-  |foo = hostname must start with foo
-  ^ can be used only at the end like foo^, means that the domain must end with foo
- */
-function onDomain(d) {
-  if (!d)
-    return true;
-  const pinDomain = d.startsWith('||');
-  const pinStart = !pinDomain && d.startsWith('|');
-  const pinEnd = d.endsWith('^');
-  const start = pinDomain * 2 + pinStart;
-  const dLen = d.length - start - pinEnd;
-  if (dLen > hostname.length)
-    return;
-  d = d.slice(start, -pinEnd || undefined);
-  return (
-    pinStart ? hostname.startsWith(d) && (!pinEnd || hostname.length === dLen) :
-      pinDomain && pinEnd ? hostnamePinned[hostnamePinned.length - dLen - 1] === '.' &&
-                            hostname.endsWith(d) :
-        pinDomain ? hostnamePinned.includes('.' + d) :
-          pinEnd ? hostname.endsWith(d) :
-            hostname.includes(d)
-  );
-}
 
 function compileSimpleUrlMatch(match) {
   const results = [];
@@ -247,7 +220,7 @@ function loadHosts() {
         h = JSON.parse(h);
       if (typeof h.d !== 'string')
         h.d = undefined;
-      else if (h.d && !onDomain(h.d))
+      else if (h.d && !hostname.includes(h.d))
         continue;
       if (h.r)
         h.r = new RegExp(h.r, 'i');
@@ -266,7 +239,7 @@ function loadHosts() {
 
   // rules that disable previewing
   const disablers = [
-    onDomain('||stackoverflow.com^') && {
+    hostname.endsWith('stackoverflow.com') && {
       e: '.post-tag, .post-tag img',
       s: '',
     }, {
@@ -277,17 +250,17 @@ function loadHosts() {
 
   // optimization: a rule is created only when on domain
   const perDomain = [
-    onDomain('startpage') && {
+    hostname.includes('startpage') && {
       r: /\boiu=(.+)/,
       s: '$1',
       follow: true,
     },
-    onDomain('||4chan.org^') && {
+    hostname.endsWith('4chan.org') && {
       e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
       q: '.op .fileText a',
       css: '#post-preview{display:none}',
     },
-    onDomain('||amazon.') && {
+    hostname.includes('amazon.') && {
       u: 'amazon.com/images/I/',
       r: /(?:^|\/\/)(.+?\/I\/.+?\.)/,
       s: m => {
@@ -296,13 +269,13 @@ function loadHosts() {
       },
       css: '#zoomWindow{display:none!important;}',
     },
-    onDomain('||bing.com^') && {
+    hostname.endsWith('bing.com') && {
       e: 'a[m*="murl"]',
       r: /murl&quot;:&quot;(.+?)&quot;/,
       s: '$1',
       html: true,
     },
-    onDomain('||deviantart.com^') && {
+    hostname.endsWith('deviantart.com') && {
       e: '[data-super-full-img] *, img[src*="/th/"]',
       s: (m, node) => {
         let el = node.closest('[data-super-full-img]');
@@ -313,18 +286,18 @@ function loadHosts() {
           return el.src;
       },
     },
-    onDomain('||dropbox.com^') && {
+    hostname.endsWith('dropbox.com') && {
       r: /(.+?&size_mode)=\d+(.*)/,
       s: '$1=5$2',
     },
-    onDomain('||facebook.com^') && {
+    hostname.endsWith('facebook.com') && {
       e: 'a[href*="ref=hovercard"]',
       s: (m, node) =>
         'https://www.facebook.com/photo.php?fbid=' +
         /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
       follow: true,
     },
-    onDomain('||facebook.com^') && {
+    hostname.endsWith('facebook.com') && {
       r: /(fbcdn|external).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
       s: (m, node) =>
         node.parentNode.className.includes('video') && m[4].includes('fbcdn') ? '' :
@@ -332,7 +305,7 @@ function loadHosts() {
       html: true,
       follow: true,
     },
-    onDomain('||flickr.com^') &&
+    hostname.endsWith('flickr.com') &&
     tryCatch(() => unsafeWindow.YUI_config.flickr.api.site_key) && {
       u: '||flickr.com/photos/',
       r: /photos\/[^/]+\/(\d+)/,
@@ -346,7 +319,7 @@ function loadHosts() {
         }).toString()}`,
       q: text => JSON.parse(text).sizes.size.pop().source,
     },
-    onDomain('||github.com^') && {
+    hostname.endsWith('github.com') && {
       u: [
         'avatars',
         'raw.github.com',
@@ -369,7 +342,7 @@ function loadHosts() {
             `raw.${m[4]}usercontent${m[5]}${m[6]}`
       }`,
     },
-    onDomain('||instagram.com^') && (() => {
+    hostname.endsWith('instagram.com') && (() => {
       const LINK_SEL = 'a[href*="/p/"]';
       const getData = node => {
         const n = node.closest(`${LINK_SEL}, article`);
@@ -412,7 +385,7 @@ function loadHosts() {
       };
       return RULE;
     })(),
-    ...onDomain('||reddit.com^') ? [
+    ...hostname.endsWith('reddit.com') ? [
       {
         u: '||i.reddituploads.com/',
       },
@@ -422,22 +395,22 @@ function loadHosts() {
         s: 'https://i.$1',
       },
     ] : [],
-    onDomain('||tumblr.com^') && {
+    hostname.endsWith('tumblr.com') && {
       e: 'div.photo_stage_img, div.photo_stage > canvas',
       s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
       follow: true,
     },
-    onDomain('||tweetdeck.twitter.com^') && {
+    hostname.endsWith('tweetdeck.twitter.com') && {
       e: 'a.media-item, a.js-media-image-link',
       s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
       follow: true,
     },
-    onDomain('||twitter.com^') && {
+    hostname.endsWith('twitter.com') && {
       e: '.grid-tweet > .media-overlay',
       s: (m, node) => node.previousElementSibling.src,
       follow: true,
     },
-    onDomain('||youtube.com^') && {
+    hostname.endsWith('youtube.com') && {
       e: 'ytd-thumbnail *',
       s: '',
     },
@@ -527,7 +500,7 @@ function loadHosts() {
       u: '||fbcdn.',
       r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
       s: m =>
-        onDomain('||facebook.com^') &&
+        hostname.endsWith('facebook.com') &&
         tryCatch(() => unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url) ||
         false,
       manual: true,
@@ -627,7 +600,7 @@ function loadHosts() {
       u: '||imagebam.com/image/',
       q: 'meta[property="og:image"]',
       tabfix: true,
-      xhr: onDomain('||planetsuzy'),
+      xhr: hostname.includes('planetsuzy'),
     },
     {
       u: '||imageban.ru/thumbs',
@@ -814,7 +787,7 @@ function loadHosts() {
       u: '||photobucket.com/',
       r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
       s: 'https://i$1$3',
-      xhr: !onDomain('||photobucket.com^'),
+      xhr: !hostname.endsWith('photobucket.com'),
     },
     {
       u: '||piccy.info/view3/',
@@ -914,7 +887,7 @@ function loadHosts() {
       r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
       s: '/\\/thumb(?=\\/)|\\/scale-to-width(-[a-z]+)?\\/[0-9]+|\\/revision\\/latest|\\/[^\\/]+$/' +
          '/g',
-      xhr: !onDomain('||wiki'),
+      xhr: !hostname.includes('wiki'),
     },
     {
       u: '||ytimg.com/vi/',
@@ -1580,9 +1553,9 @@ function makeInfo(urls, node, rule, m) {
   };
   lazyGetRect(info, node, rule.rect);
   if (
-    onDomain('||twitter.com^') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
-    onDomain('||github.com^') && !/github/.test(url) ||
-    onDomain('||facebook.com^') && /\bimgur\.com/.test(url)
+    hostname.endsWith('twitter.com') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
+    hostname.endsWith('github.com') && !/github/.test(url) ||
+    hostname.endsWith('facebook.com') && /\bimgur\.com/.test(url)
   ) {
     info.xhr = 'data';
   }
@@ -1956,7 +1929,7 @@ function handleError(o) {
     const control = m.map(([k]) => k).filter(Boolean).join('\n');
     console.log(control, ...m.map(([, v]) => v));
   } catch (e) {}
-  if (onDomain('||google.') &&
+  if (hostname.includes('google.') &&
       location.search.includes('tbm=isch') &&
       !app.xhr && cfg.xhr) {
     app.xhr = true;
