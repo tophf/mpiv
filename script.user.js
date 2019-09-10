@@ -1470,10 +1470,7 @@ function parseNode(node) {
     info = findInfo(url, node);
     if (info)
       return info;
-    a =
-      tag(node.parentNode) === 'A' ?
-        node.parentNode :
-        (tag(node.parentNode.parentNode) === 'A' ? node.parentNode.parentNode : false);
+    a = node.closest('a') || false;
   }
   if (a) {
     url =
