@@ -226,11 +226,11 @@ function loadHosts() {
       if (h.r)
         h.r = new RegExp(h.r, 'i');
       if (rxHasCode.test(h.s))
-        h.s = new Function('m', 'node', h.s); // eslint-disable-line no-new-func
+        h.s = new Function('m', 'node', 'rule', h.s); // eslint-disable-line no-new-func
       if (rxHasCode.test(h.q))
-        h.q = new Function('text', 'doc', 'node', h.q); // eslint-disable-line no-new-func
+        h.q = new Function('text', 'doc', 'node', 'rule', h.q); // eslint-disable-line no-new-func
       if (rxHasCode.test(h.c))
-        h.c = new Function('text', 'doc', 'node', h.c); // eslint-disable-line no-new-func
+        h.c = new Function('text', 'doc', 'node', 'rule', h.c); // eslint-disable-line no-new-func
       customHosts.push(h);
     } catch (e) {
       if (!e.message.includes('unsafe-eval'))
@@ -343,13 +343,29 @@ function loadHosts() {
             `raw.${m[4]}usercontent${m[5]}${m[6]}`
       }`,
     },
-    dotDomain.endsWith('.instagram.com') && (() => {
-      const LINK_SEL = 'a[href*="/p/"]';
-      const getData = node => {
-        const n = node.closest(`${LINK_SEL}, article`);
+    dotDomain.endsWith('.instagram.com') && {
+      e: [
+        'a[href*="/p/"]',
+        'a[role="button"][data-reactid*="scontent-"]',
+        'article div',
+        'article div div img',
+      ],
+      s: (m, node, rule) => {
+        const {a, data} = rule._getData(node) || {};
+        rule.follow = !data;
+        return (
+          !a ? false :
+            !data ? a.href :
+              data.video_url || data.display_url);
+      },
+      c: (html, doc, node, rule) =>
+        tryCatch(() => rule._getData(node).data.edge_media_to_caption.edges[0].node.text) || '',
+      follow: true,
+      _getData(node) {
+        const n = node.closest('a[href*="/p/"], article');
         if (!n)
           return;
-        const a = tag(n) === 'A' ? n : qs(LINK_SEL, n);
+        const a = tag(n) === 'A' ? n : qs('a[href*="/p/"]', n);
         if (!a)
           return;
         try {
@@ -364,38 +380,16 @@ function loadHosts() {
         } catch (e) {
           return {a};
         }
-      };
-      const RULE = {
-        e: [
-          LINK_SEL,
-          'a[role="button"][data-reactid*="scontent-"]',
-          'article div',
-          'article div div img',
-        ],
-        s: (m, node) => {
-          const {a, data} = getData(node) || {};
-          RULE.follow = !data;
-          return (
-            !a ? false :
-              !data ? a.href :
-                data.video_url || data.display_url);
-        },
-        c: (html, doc, node) =>
-          tryCatch(() => getData(node).data.edge_media_to_caption.edges[0].node.text) || '',
-        follow: true,
-      };
-      return RULE;
-    })(),
-    ...dotDomain.endsWith('.reddit.com') ? [
-      {
-        u: '||i.reddituploads.com/',
       },
-      {
-        u: '||preview.redd.it/',
-        r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
-        s: 'https://i.$1',
-      },
-    ] : [],
+    },
+    dotDomain.endsWith('.reddit.com') && {
+      u: '||i.reddituploads.com/',
+    },
+    dotDomain.endsWith('.reddit.com') && {
+      u: '||preview.redd.it/',
+      r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
+      s: 'https://i.$1',
+    },
     dotDomain.endsWith('.tumblr.com') && {
       e: 'div.photo_stage_img, div.photo_stage > canvas',
       s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
@@ -1197,7 +1191,7 @@ function startSinglePopup(url) {
   if (!app.q || Array.isArray(app.urls)) {
     switch (typeof app.c) {
       case 'function':
-        app.caption = app.c(doc.documentElement.outerHTML, doc, app.node);
+        app.caption = app.c(doc.documentElement.outerHTML, doc, app.node, app.rule);
         break;
       case 'string':
         app.caption = findCaption(qsMany(app.c, doc));
@@ -1210,7 +1204,7 @@ function startSinglePopup(url) {
     let iurl;
     const doc = createDoc(html);
     if (typeof app.q === 'function') {
-      iurl = app.q(html, doc, app.node);
+      iurl = app.q(html, doc, app.node, app.rule);
       if (Array.isArray(iurl)) {
         app.urls = iurl.slice();
         iurl = app.urls.shift();
@@ -1223,7 +1217,7 @@ function startSinglePopup(url) {
       throw 'File not found.';
     switch (typeof app.c) {
       case 'function':
-        app.caption = app.c(html, doc, app.node);
+        app.caption = app.c(html, doc, app.node, app.rule);
         break;
       case 'string':
         app.caption = findCaption(qsMany(app.c, doc));
@@ -1522,7 +1516,7 @@ function makeSubstitution(node, rule, m) {
   for (const s of ensureArray(rule.s))
     urls.push(
       typeof s === 'string' ? decodeURIComponent(replace(s, m)) :
-        typeof s === 'function' ? s(m, node) :
+        typeof s === 'function' ? s(m, node, rule) :
           s);
   if (rule.q && urls.length > 1) {
     console.warn('Rule %o discarded: "s" array is not allowed with "q"', rule);
@@ -1541,6 +1535,7 @@ function makeInfo(urls, node, rule, m) {
   const url = urls[0];
   const info = {
     node,
+    rule,
     url,
     urls: urls.length > 1 ? urls.slice(1) : null,
     c: rule.c,
