@@ -2457,7 +2457,7 @@ function setup() {
           <li style="overflow-y:auto">
             <a href="https://w9p.co/userscripts/mpiv/host_rules.html"
                target="_blank">Custom host rules:</a>
-            <input id="search" type="search" placeholder="Search" hidden>
+            <input id="search" type="search" placeholder="Search">
             <div id="hosts"><textarea rows="1" spellcheck="false"></textarea></div>
           </li>
           <li>
@@ -2490,24 +2490,21 @@ function setup() {
         if (el !== parent && el.style.height)
           el.style.height = '';
       });
-      if (cfg.hosts.length > 1 || setup.search) {
-        const se = $('search');
-        const doSearch = () => {
-          const s = se.value.toLowerCase();
-          setup.search = s;
-          for (const el of $('hosts').children)
-            el.hidden = s && !el.value.toLowerCase().includes(s);
-        };
-        let timer;
-        on(se, 'input', e => {
-          clearTimeout(timer);
-          setTimeout(doSearch, 200);
-        });
-        se.value = setup.search || '';
-        if (se.value)
-          doSearch();
-        se.hidden = false;
-      }
+      const se = $('search');
+      const doSearch = () => {
+        const s = se.value.toLowerCase();
+        setup.search = s;
+        for (const el of $('hosts').children)
+          el.hidden = s && !el.value.toLowerCase().includes(s);
+      };
+      let timer;
+      on(se, 'input', e => {
+        clearTimeout(timer);
+        setTimeout(doSearch, 200);
+      });
+      se.value = setup.search || '';
+      if (se.value)
+        doSearch();
     }
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
