@@ -2255,22 +2255,22 @@ function setup() {
 
   function install(e) {
     drop(e);
-    e.target.parentNode.innerHTML = `
-      <span>Loading...</span>
-      <iframe
-          src="https://w9p.co/userscripts/mpiv/more_host_rules.html"
-          onload="
-            this.style.display = '';
-            this.previousElementSibling.style.display = 'none';
-          "
-          style="
-            width: 100%;
-            height: 26px;
-            border: 0;
-            margin: 0;
-            display: none;
-          "></iframe>
-    `;
+    const parent = e.target.parentNode;
+    parent.textContent = 'Loading...';
+    parent.appendChild(Object.assign(doc.createElement('iframe'), {
+      src: 'https://w9p.co/userscripts/mpiv/more_host_rules.html',
+      hidden: true,
+      style: `
+        width: 100%;
+        height: 26px;
+        border: 0;
+        margin: 0;
+      `,
+      onload() {
+        this.hidden = false;
+        this.previousSibling.remove();
+      },
+    }));
   }
 
   function getCfg() {
@@ -2435,11 +2435,7 @@ function setup() {
           <li>
             <label><input type="checkbox" id="center"> Always centered</label>
             <label><input type="checkbox" id="imgtab"> Run in image tabs</label>
-            <label><input type="checkbox" id="xhr" onclick="
-              return this.checked ||
-                     confirm('Do not disable this unless you spoof the HTTP headers yourself.')">
-              Anti-hotlinking workaround
-            </label>
+            <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
           </li>
           <li>
             <label>
@@ -2551,6 +2547,10 @@ function setup() {
     $('css').value = cfg.css;
     $('scales').value = cfg.scales.join(' ');
     $('xhr').checked = cfg.xhr;
+    $('xhr').onclick = function () {
+      if (!this.checked)
+        return confirm('Do not disable this unless you spoof the HTTP headers yourself.');
+    };
     $('zoom-' + cfg.zoom).selected = true;
     $('start-' + cfg.start).selected = true;
     update();
