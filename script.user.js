@@ -38,7 +38,7 @@ const SETUP_ID = 'mpiv-setup:host';
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !isImageTab;
 let app = {};
-let hosts;
+let hostRules;
 let domParser;
 
 on(doc, 'mouseover', onMouseOver, {passive: true});
@@ -1457,8 +1457,8 @@ function deactivate(wait) {
 
 function parseNode(node) {
   let a, img, url, info;
-  if (!hosts)
-    hosts = loadHosts();
+  if (!hostRules)
+    hostRules = loadHosts();
   if (tag(node) === 'A') {
     a = node;
   } else {
@@ -1497,7 +1497,7 @@ function parseNode(node) {
 function findInfo(url, node, {noHtml, skipRule} = {}) {
   const tn = tag(node);
   let m, html, urls;
-  for (const rule of hosts) {
+  for (const rule of hostRules) {
     if (rule === skipRule || rule.e && !node.matches(rule.e))
       continue;
     if (!noHtml && rule.r && rule.html && (tn === 'A' || tn === 'IMG' || rule.e))
@@ -2503,9 +2503,9 @@ function setup() {
     if (cfg.hosts) {
       const parent = $('hosts');
       const template = parent.firstElementChild;
-      for (const h of cfg.hosts) {
+      for (const rule of cfg.hosts) {
         const el = template.cloneNode();
-        el.value = typeof h === 'string' ? h : JSON.stringify(h);
+        el.value = typeof rule === 'string' ? rule : JSON.stringify(rule);
         parent.appendChild(el);
         check({target: el});
       }
@@ -2547,7 +2547,7 @@ function setup() {
     on($('install'), 'click', install);
     on($('ok'), 'click', () => {
       saveCfg(getCfg());
-      hosts = loadHosts();
+      hostRules = loadHosts();
       close();
     });
     $('delay').value = cfg.delay;
