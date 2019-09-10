@@ -682,51 +682,43 @@ function loadHosts() {
         '||imgur.com/gallery/',
         '||imgur.com/t/',
       ],
-      g: (text, url, cb) => {
-        const mk = (o, imgs) => {
-          const items = [];
-          if (!o || !imgs)
-            return items;
-          for (const cur of imgs) {
-            let iu = 'https://i.imgur.com/' + cur.hash + cur.ext;
-            if (cur.ext === '.gif' && !(cur.animated === false))
-              iu = [iu.replace('.gif', '.webm'), iu.replace('.gif', '.mp4'), iu];
-            items.push({
-              url: iu,
-              desc: cur.title && cur.description ?
-                cur.title + ' - ' + cur.description :
-                (cur.title || cur.description),
-            });
-          }
-          if (o.is_album && !includes(items[0].desc, o.title))
-            items.title = o.title;
-          return items;
-        };
+      g: async (text, url, m, rule, cb) => {
         // simplified extraction of JSON as it occupies only one line
         if (!/(?:mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()[\s\S]*?[,\s{"'](?:image|album)\s*:\s*({[^\r\n]+?}),?[\r\n]/.test(text))
           return;
-        const o = JSON.parse(RegExp.$1);
-        const imgs = o.is_album ? o.album_images.images : [o];
-        if (!o.num_images || o.num_images <= imgs.length)
-          return mk(o, imgs);
-        GM_xmlhttpRequest({
-          method: 'GET',
-          url: `https://imgur.com/ajaxalbums/getimages/${o.hash}/hit.json?all=true`,
-          onload: res => cb(mk(o, ((tryJson(res.responseText) || 0).data || 0).images || [])),
-        });
+        const info = JSON.parse(RegExp.$1);
+        let images = info.is_album ? info.album_images.images : [info];
+        if (info.num_images > images.length)
+          images = await new Promise(resolve => {
+            GM_xmlhttpRequest({
+              method: 'GET',
+              url: `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`,
+              onload: r => resolve(tryCatch(() => JSON.parse(r.responseText).data.images)),
+            });
+          });
+        const items = [];
+        for (const img of images || []) {
+          const u = `https://i.imgur.com/${img.hash}`;
+          items.push({
+            url: img.ext === '.gif' && img.animated !== false ?
+              [`${u}.webm`, `${u}.mp4`, u] :
+              u + img.ext,
+            desc: [img.title, img.description].filter(Boolean).join(' - '),
+          });
+        }
+        if (images && info.is_album && !includes(items[0].desc, info.title))
+          items.title = info.title;
+        cb(items);
       },
       css: '.post > .hover { display:none!important; }',
     },
     {
       u: '||imgur.com/',
-      r: /\.com\/.+,/,
-      g: (text, url) =>
-        /.+\/([a-z0-9,]+)/i
-          .exec(url)[1]
-          .split(',')
-          .map(id => ({
-            url: `https://i.${/([a-z]{2,}\.)?imgur\.com/.exec(url)[0]}/${id}.jpg`,
-          })),
+      r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+)/,
+      g: (text, url, m) =>
+        m[2].split(',').map(id => ({
+          url: `https://i.${m[1]}${id}.jpg`,
+        })),
     },
     {
       u: '||imgur.com/',
@@ -737,12 +729,12 @@ function loadHosts() {
         const a = node.closest('a');
         if (a && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
           return false;
-        const url = 'https://i.' + (m[1] || '').replace('www.', '') + 'imgur.com/' +
-                  m[3].replace(/(.{7})[bhm]$/, '$1') + '.' +
-                  (m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg');
-        return url.includes('.webm') ?
-          [url, url.replace('.webm', '.mp4'), url.replace('.webm', '.gif')] :
-          url;
+        const id = m[3].replace(/(.{7})[bhm]$/, '$1');
+        const ext = m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg';
+        const u = `https://i.${(m[1] || '').replace('www.', '')}imgur.com/${id}.`;
+        return ext === 'webm' ?
+          [`${u}webm`, `${u}mp4`, `${u}gif`] :
+          u + ext;
       },
     },
     {
@@ -1259,8 +1251,8 @@ function startGalleryPopup() {
         app.gIndex = findGalleryPosition(app.url);
         setTimeout(nextGalleryItem, 0);
       };
-      const items = app.g(text, url, cb);
-      if (typeof items !== 'undefined')
+      const items = app.g(text, url, app.match, app.rule, cb);
+      if (Array.isArray(items))
         cb(items);
     } catch (e) {
       handleError('Parsing error: ' + e);
@@ -1293,7 +1285,7 @@ function loadGalleryParser(g) {
     return g;
   if (typeof g === 'string')
     // eslint-disable-next-line no-new-func
-    return new Function('text', 'url', 'cb', g);
+    return new Function('text', 'url', 'm', 'rule', 'cb', g);
   return (text, url) => {
     const qE = g.entry;
     const qC = ensureArray(g.caption);
@@ -1538,6 +1530,7 @@ function makeInfo(urls, node, rule, m) {
     rule,
     url,
     urls: urls.length > 1 ? urls.slice(1) : null,
+    match: m,
     c: rule.c,
     g: rule.g ? loadGalleryParser(rule.g) : rule.g,
     q: rule.q,
