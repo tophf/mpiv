@@ -1721,20 +1721,20 @@ function updateSize() {
 
 function updateSpacing() {
   const s = getComputedStyle(app.popup);
-  app.outline = (parseInt(s['outline-offset']) || 0) +
-                (parseInt(s['outline-width']) || 0);
-  app.pw = (parseInt(s['padding-left']) || 0) +
-           (parseInt(s['padding-right']) || 0);
-  app.ph = (parseInt(s['padding-top']) || 0) +
-           (parseInt(s['padding-bottom']) || 0);
-  app.mbw = (parseInt(s['margin-left']) || 0) +
-            (parseInt(s['margin-right']) || 0) +
-            (parseInt(s['border-left-width']) || 0) +
-            (parseInt(s['border-right-width']) || 0);
-  app.mbh = (parseInt(s['margin-top']) || 0) +
-            (parseInt(s['margin-bottom']) || 0) +
-            (parseInt(s['border-top-width']) || 0) +
-            (parseInt(s['border-bottom-width']) || 0);
+  app.outline = (parseFloat(s['outline-offset']) || 0) +
+                (parseFloat(s['outline-width']) || 0);
+  app.pw = (parseFloat(s['padding-left']) || 0) +
+           (parseFloat(s['padding-right']) || 0);
+  app.ph = (parseFloat(s['padding-top']) || 0) +
+           (parseFloat(s['padding-bottom']) || 0);
+  app.mbw = (parseFloat(s['margin-left']) || 0) +
+            (parseFloat(s['margin-right']) || 0) +
+            (parseFloat(s['border-left-width']) || 0) +
+            (parseFloat(s['border-right-width']) || 0);
+  app.mbh = (parseFloat(s['margin-top']) || 0) +
+            (parseFloat(s['margin-bottom']) || 0) +
+            (parseFloat(s['border-top-width']) || 0) +
+            (parseFloat(s['border-bottom-width']) || 0);
 }
 
 function updateScales() {
