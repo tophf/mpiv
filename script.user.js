@@ -1474,9 +1474,9 @@ function findInfo(url, node, {noHtml, skipRule} = {}) {
   const tn = tag(node);
   let m, html, urls;
   for (const rule of hostRules) {
-    if (rule === skipRule || rule.e && !node.matches(rule.e))
+    if (rule.e && !node.matches(rule.e) || rule === skipRule)
       continue;
-    if (!noHtml && rule.r && rule.html && (tn === 'A' || tn === 'IMG' || rule.e))
+    if (rule.html && rule.r && !noHtml && (tn === 'A' || tn === 'IMG' || rule.e))
       m = rule.r.exec(html || (html = node.outerHTML));
     else if (url)
       m = (rule.r || rule.u) ?
