@@ -37,7 +37,7 @@ const SETUP_ID = 'mpiv-setup:host';
 
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !isImageTab;
-let app = {};
+let app = {rule: {}};
 let hostRules;
 let domParser;
 
@@ -935,7 +935,7 @@ function onMouseOver(e) {
   updateMouse(e);
   if (e.ctrlKey) {
     startPopup();
-  } else if (cfg.start === 'auto' && !app.manual) {
+  } else if (cfg.start === 'auto' && !app.rule.manual) {
     schedulePopup();
   } else {
     setStatus('ready');
@@ -1026,7 +1026,7 @@ function onKeyDown(e) {
     setStatus('shift', 'add');
     if (app.popup && 'controls' in app.popup)
       app.popup.controls = true;
-  } else if (e.key === 'Control' && (cfg.start !== 'auto' || app.manual) && !app.popup) {
+  } else if (e.key === 'Control' && (cfg.start !== 'auto' || app.rule.manual) && !app.popup) {
     startPopup();
   }
 }
@@ -1073,7 +1073,7 @@ function onKeyUp(e) {
     }
     case 'KeyT':
       app.lazyUnload = true;
-      if (app.tabfix && !app.xhr && tag(app.popup) === 'IMG' &&
+      if (app.rule.tabfix && !app.xhr && tag(app.popup) === 'IMG' &&
           navigator.userAgent.includes('Gecko/')) {
         GM_openInTab('data:text/html;,' + encodeURIComponent(`
           <style>
@@ -1121,10 +1121,9 @@ function onContext(e) {
     return;
   }
   if (
-    !app.status &&
     !app.popup && (
       cfg.start === 'context' ||
-      (cfg.start === 'auto' && app.manual)
+      (cfg.start === 'auto' && app.rule.manual)
     )
   ) {
     startPopup();
@@ -1172,7 +1171,7 @@ function startPopup() {
 function startSinglePopup(url) {
   setStatus('loading');
   delete app.iurl;
-  if (app.follow && !app.q && !app.s) {
+  if (app.rule.follow && !app.rule.q && !app.rule.s) {
     return findRedirect(app.url, url => {
       const info = findInfo(url, app.node, {noHtml: true});
       if (!info || !info.url)
@@ -1180,13 +1179,13 @@ function startSinglePopup(url) {
       restartSinglePopup(info);
     });
   }
-  if (!app.q || Array.isArray(app.urls)) {
-    switch (typeof app.c) {
+  if (!app.rule.q || Array.isArray(app.urls)) {
+    switch (typeof app.rule.c) {
       case 'function':
-        app.caption = app.c(doc.documentElement.outerHTML, doc, app.node, app.rule);
+        app.caption = app.rule.c(doc.documentElement.outerHTML, doc, app.node, app.rule);
         break;
       case 'string':
-        app.caption = findCaption(qsMany(app.c, doc));
+        app.caption = findCaption(qsMany(app.rule.c, doc));
         break;
     }
     app.iurl = url;
@@ -1195,27 +1194,27 @@ function startSinglePopup(url) {
   downloadPage(url, (html, url) => {
     let iurl;
     const doc = createDoc(html);
-    if (typeof app.q === 'function') {
-      iurl = app.q(html, doc, app.node, app.rule);
+    if (typeof app.rule.q === 'function') {
+      iurl = app.rule.q(html, doc, app.node, app.rule);
       if (Array.isArray(iurl)) {
         app.urls = iurl.slice();
         iurl = app.urls.shift();
       }
     } else {
-      const inode = qsMany(app.q, doc);
+      const inode = qsMany(app.rule.q, doc);
       iurl = inode ? findFile(inode, url) : false;
     }
     if (!iurl)
       throw 'File not found.';
-    switch (typeof app.c) {
+    switch (typeof app.rule.c) {
       case 'function':
-        app.caption = app.c(html, doc, app.node, app.rule);
+        app.caption = app.rule.c(html, doc, app.node, app.rule);
         break;
       case 'string':
-        app.caption = findCaption(qsMany(app.c, doc));
+        app.caption = findCaption(qsMany(app.rule.c, doc));
         break;
     }
-    if (app.follow === true || typeof app.follow === 'function' && app.follow(iurl)) {
+    if (isFollowableUrl(iurl, app.rule)) {
       const info = findInfo(iurl, app.node, {noHtml: true});
       if (!info || !info.url)
         throw 'Couldn\'t follow URL: ' + iurl;
@@ -1403,7 +1402,7 @@ function deactivate(wait) {
   setStatus(false);
   setPopup(false);
   setBar(false);
-  app = {};
+  app = {rule: {}};
   off(doc, 'mousemove', onMouseMove);
   off(doc, 'mouseout', onMouseOut);
   off(doc, 'mousedown', onMouseDown);
@@ -1453,7 +1452,9 @@ function parseNode(node) {
     return lazyGetRect({
       url: img.src,
       node: img,
-      distinct: true,
+      rule: {
+        distinct: true,
+      },
     }, img);
   }
 }
@@ -1479,7 +1480,7 @@ function findInfo(url, node, {noHtml, skipRule} = {}) {
     if (!urls.skipRule) {
       const url = urls[0];
       return !url ? null :
-        isFollowableUrl(url, rule) ?
+        rule.s && !rule.q && isFollowableUrl(url, rule) ?
           findInfo(url, node, {skipRule: rule}) :
           makeInfo(urls, node, rule, m);
     }
@@ -1531,17 +1532,8 @@ function makeInfo(urls, node, rule, m) {
     url,
     urls: urls.length > 1 ? urls.slice(1) : null,
     match: m,
-    c: rule.c,
-    g: rule.g ? loadGalleryParser(rule.g) : rule.g,
-    q: rule.q,
-    r: rule.r,
-    u: rule.u,
-    css: rule.css,
-    distinct: rule.distinct,
-    follow: rule.follow,
-    manual: rule.manual,
+    g: rule.g && loadGalleryParser(rule.g),
     post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
-    tabfix: rule.tabfix,
     xhr: cfg.xhr && rule.xhr,
   };
   lazyGetRect(info, node, rule.rect);
@@ -1555,8 +1547,8 @@ function makeInfo(urls, node, rule, m) {
   return info;
 }
 
-function isFollowableUrl(url, {s, q, follow}) {
-  return s && !q && (typeof follow === 'function' ? follow(url) : follow);
+function isFollowableUrl(url, {follow}) {
+  return typeof follow === 'function' ? follow(url) : follow;
 }
 
 function downloadPage(url, cb) {
@@ -1910,10 +1902,10 @@ function handleError(o) {
   try {
     if (o.stack)
       m.push(['@ %s', o.stack.replace(/<?@file:.+?\.js/g, '')]);
-    if (app.u)
-      m.push(['Url simple match: %o', app.u]);
-    if (app.r)
-      m.push(['RegExp match: %o', app.r]);
+    if (app.rule.u)
+      m.push(['Url simple match: %o', app.rule.u]);
+    if (app.rule.r)
+      m.push(['RegExp match: %o', app.rule.r]);
     if (app.url)
       m.push(['URL: %s', app.url]);
     if (app.iurl && app.iurl !== app.url)
@@ -2623,5 +2615,5 @@ function updateStyles() {
     }
   `);
   addStyle('config', includes(cfg.css, '{') ? cfg.css : '#mpiv-popup {' + cfg.css + '}');
-  addStyle('rule', app.css || '');
+  addStyle('rule', app.rule.css || '');
 }
