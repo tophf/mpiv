@@ -137,7 +137,7 @@ rules:
   no-negated-condition: [0]
   no-negated-in-lhs: [2]
   no-nested-ternary: [0]
-  no-new-func: [2]
+  no-new-func: [0]
   no-new-object: [2]
   no-new-require: [2]
   no-new-symbol: [2]

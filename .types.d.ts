@@ -54,7 +54,7 @@ declare namespace mpiv {
   type AppInfo = RuleMatchInfo & PopupInfo
 
   type RuleMatchInfo = {
-    g?: GalleryFunction
+    gallery?: GalleryFunction
     match: string[]
     node: Node
     post: boolean

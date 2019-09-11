@@ -229,11 +229,11 @@ function loadHosts() {
       if (h.r)
         h.r = new RegExp(h.r, 'i');
       if (rxHasCode.test(h.s))
-        h.s = new Function('m', 'node', 'rule', h.s); // eslint-disable-line no-new-func
+        h.s = new Function('m', 'node', 'rule', h.s);
       if (rxHasCode.test(h.q))
-        h.q = new Function('text', 'doc', 'node', 'rule', h.q); // eslint-disable-line no-new-func
+        h.q = new Function('text', 'doc', 'node', 'rule', h.q);
       if (rxHasCode.test(h.c))
-        h.c = new Function('text', 'doc', 'node', 'rule', h.c); // eslint-disable-line no-new-func
+        h.c = new Function('text', 'doc', 'node', 'rule', h.c);
       customHosts.push(h);
     } catch (e) {
       if (!e.message.includes('unsafe-eval'))
@@ -1165,7 +1165,7 @@ function schedulePopup() {
 function startPopup() {
   updateStyles();
   setStatus(false);
-  if (app.g)
+  if (app.gallery)
     startGalleryPopup();
   else
     startSinglePopup(app.url);
@@ -1253,7 +1253,7 @@ function startGalleryPopup() {
         app.gIndex = findGalleryPosition(app.url);
         setTimeout(nextGalleryItem, 0);
       };
-      const items = app.g(text, url, app.match, app.rule, cb);
+      const items = app.gallery(text, url, app.match, app.rule, cb);
       if (Array.isArray(items))
         cb(items);
     } catch (e) {
@@ -1283,46 +1283,55 @@ function findGalleryPosition(gUrl) {
 }
 
 function loadGalleryParser(g) {
-  if (typeof g === 'function')
-    return g;
-  if (typeof g === 'string')
-    // eslint-disable-next-line no-new-func
-    return new Function('text', 'url', 'm', 'rule', 'cb', g);
-  return (text, url) => {
-    const qE = g.entry;
-    const qC = ensureArray(g.caption);
-    const qI = g.image;
-    const qT = g.title;
-    const fix =
-      // eslint-disable-next-line no-new-func
-      (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
-      (s => s.trim());
-    const doc = createDoc(text);
-    const items = [];
-    const nodes = qsa(qE || qI, doc);
-    for (const node of nodes) {
-      const item = {};
-      try {
-        item.url = fix(findFile(qE ? qs(qI, node) : node, url), true);
-        item.desc = qC.reduce((prev, q) => {
-          let n = qs(q, node);
-          if (!n) {
-            for (const es of [node.previousElementSibling, node.nextElementSibling]) {
-              if (es && es.matches(qE) === false)
-                n = es.matches(q) ? es : qs(q, es);
-            }
-          }
-          return n ? (prev ? prev + ' - ' : '') + fix(n.textContent) : prev;
-        }, '');
-      } catch (e) {}
-      if (item.url)
-        items.push(item);
-    }
-    const title = qs(qT, doc);
-    if (title)
-      items.title = fix(title.getAttribute('content') || title.textContent);
-    return items;
-  };
+  return (
+    typeof g === 'function' ? g :
+      typeof g === 'string' ? new Function('text', 'url', 'm', 'rule', 'cb', g) :
+        defaultGalleryParser
+  );
+}
+
+function defaultGalleryParser(text, docUrl, m, rule) {
+  const {g} = rule;
+  const qEntry = g.entry;
+  const qCaption = ensureArray(g.caption);
+  const qImage = g.image;
+  const qTitle = g.title;
+  const fix =
+    (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
+    (s => s.trim());
+  const doc = createDoc(text);
+  const items = [...qsa(qEntry || qImage, doc)]
+    .map(processEntry)
+    .filter(Boolean);
+  items.title = processTitle();
+  return items;
+
+  function processEntry(entry) {
+    const item = {};
+    try {
+      const img = qEntry ? qs(qImage, entry) : entry;
+      item.url = fix(findFile(img, docUrl), true);
+      item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(' - ');
+    } catch (e) {}
+    return item.url && item;
+  }
+
+  function processCaption(selector) {
+    const el = qs(selector, this) ||
+               qsSibling(selector, this.previousElementSibling) ||
+               qsSibling(selector, this.nextElementSibling);
+    return el && fix(el.textContent);
+  }
+
+  function processTitle() {
+    const el = qs(qTitle, doc);
+    return el && fix(el.getAttribute('content') || el.textContent) || '';
+  }
+
+  function qsSibling(selector, el) {
+    if (el && !el.matches(qEntry))
+      return el.matches(selector) ? el : qs(selector, el);
+  }
 }
 
 function nextGalleryItem(dir) {
@@ -1537,7 +1546,7 @@ function makeInfo(urls, node, rule, m) {
     url,
     urls: urls.length > 1 ? urls.slice(1) : null,
     match: m,
-    g: rule.g && loadGalleryParser(rule.g),
+    gallery: rule.g && loadGalleryParser(rule.g),
     post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
     xhr: cfg.xhr && rule.xhr,
   };
