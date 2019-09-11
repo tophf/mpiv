@@ -1524,7 +1524,7 @@ function makeSubstitution(node, rule, m) {
           s);
   if (rule.q && urls.length > 1) {
     console.warn('Rule %o discarded: "s" array is not allowed with "q"', rule);
-    return 'skipRule';
+    return {skipRule: true};
   }
   if (Array.isArray(urls[0]))
     urls = urls[0];
