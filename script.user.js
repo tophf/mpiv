@@ -1921,8 +1921,6 @@ function handleError(o) {
     ['', 'font-weight:normal;color:unset'],
   ];
   try {
-    if (o.stack)
-      m.push(['@ %s', o.stack.replace(/<?@file:.+?\.js/g, '')]);
     if (app.rule.u)
       m.push(['Url simple match: %o', app.rule.u]);
     if (app.rule.r)
@@ -1933,7 +1931,7 @@ function handleError(o) {
       m.push(['File: %s', app.iurl]);
     m.push(['Node: %o', app.node]);
     const control = m.map(([k]) => k).filter(Boolean).join('\n');
-    console.log(control, ...m.map(([, v]) => v));
+    console.warn(control, ...m.map(([, v]) => v));
   } catch (e) {}
   if (hostname.includes('google.') &&
       location.search.includes('tbm=isch') &&
