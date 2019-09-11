@@ -577,7 +577,7 @@ function loadHosts() {
       s: 'https://gravatar.com/avatar/$1?s=200',
     },
     {
-      u: '||gyazo.com/',
+      u: '//gyazo.com/',
       r: /\.com\/\w{32,}/,
       q: '.image',
       xhr: true,
