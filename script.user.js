@@ -1173,63 +1173,61 @@ function startPopup() {
 
 function startSinglePopup(url) {
   setStatus('loading');
-  delete app.iurl;
+  app.iurl = null;
   if (app.rule.follow && !app.rule.q && !app.rule.s) {
-    return findRedirect(app.url, url => {
+    findRedirect(app.url, url => {
       const info = findInfo(url, app.node, {noHtml: true});
       if (!info || !info.url)
         throw 'Couldn\'t follow redirection target: ' + url;
       restartSinglePopup(info);
     });
+    return;
   }
-  if (!app.rule.q || Array.isArray(app.urls)) {
-    switch (typeof app.rule.c) {
-      case 'function':
-        app.caption = app.rule.c(doc.documentElement.outerHTML, doc, app.node, app.rule);
-        break;
-      case 'string':
-        app.caption = findCaption(qsMany(app.rule.c, doc));
-        break;
-    }
-    app.iurl = url;
-    return app.xhr ? downloadImage(url, app.url) : setPopup(url);
+  if (app.rule.q && !Array.isArray(app.urls)) {
+    downloadPage(url, processRemotePage);
+    return;
   }
-  downloadPage(url, (html, url) => {
-    let iurl;
-    const doc = createDoc(html);
-    if (typeof app.rule.q === 'function') {
-      iurl = app.rule.q(html, doc, app.node, app.rule);
-      if (Array.isArray(iurl)) {
-        app.urls = iurl.slice();
-        iurl = app.urls.shift();
-      }
-    } else {
-      const inode = qsMany(app.rule.q, doc);
-      iurl = inode ? findFile(inode, url) : false;
+  updateCaption();
+  app.iurl = url;
+  if (app.xhr)
+    downloadImage(url, app.url);
+  else
+    setPopup(url);
+}
+
+function processRemotePage(html, pageUrl) {
+  let url;
+  const doc = createDoc(html);
+
+  if (typeof app.rule.q === 'function') {
+    url = app.rule.q(html, doc, app.node, app.rule);
+    if (Array.isArray(url)) {
+      app.urls = url.slice(1);
+      url = url[0];
     }
-    if (!iurl)
-      throw 'File not found.';
-    switch (typeof app.rule.c) {
-      case 'function':
-        app.caption = app.rule.c(html, doc, app.node, app.rule);
-        break;
-      case 'string':
-        app.caption = findCaption(qsMany(app.rule.c, doc));
-        break;
-    }
-    if (isFollowableUrl(iurl, app.rule)) {
-      const info = findInfo(iurl, app.node, {noHtml: true});
-      if (!info || !info.url)
-        throw 'Couldn\'t follow URL: ' + iurl;
-      return restartSinglePopup(info);
-    }
-    app.iurl = iurl;
-    if (app.xhr) {
-      downloadImage(iurl, url);
-    } else {
-      setPopup(iurl);
-    }
-  });
+  } else {
+    const el = qsMany(app.rule.q, doc);
+    url = el && findFile(el, pageUrl);
+  }
+  if (!url)
+    throw 'File not found.';
+
+  updateCaption(doc, html);
+
+  if (isFollowableUrl(url, app.rule)) {
+    const info = findInfo(url, app.node, {noHtml: true});
+    if (!info || !info.url)
+      throw 'Couldn\'t follow URL: ' + url;
+    restartSinglePopup(info);
+    return;
+  }
+
+  app.iurl = url;
+  if (app.xhr) {
+    downloadImage(url, pageUrl);
+  } else {
+    setPopup(url);
+  }
 }
 
 function restartSinglePopup(info) {
@@ -1342,8 +1340,8 @@ function nextGalleryItem(dir) {
   }
   const item = app.gItems[app.gIndex];
   if (Array.isArray(item.url)) {
-    app.urls = item.url.slice();
-    app.url = app.urls.shift();
+    app.urls = item.url.slice(1);
+    app.url = item.url[0];
   } else {
     delete app.urls;
     app.url = item.url;
@@ -1697,13 +1695,6 @@ function findFile(n, url) {
   return path ? rel2abs(path.trim(), base ? base.getAttribute('href') : url) : false;
 }
 
-function findCaption(n) {
-  return !n ? '' :
-    n.getAttribute('content') ||
-    n.getAttribute('title') ||
-    n.textContent;
-}
-
 function checkProgress(start) {
   const {interval} = checkProgress;
   if (start === true) {
@@ -1746,6 +1737,22 @@ function checkProgress(start) {
     setStatus('large');
   if (cfg.imgtab && isImageTab || cfg.zoom === 'auto')
     toggleZoom();
+}
+
+function updateCaption(doc = document, html = doc.documentElement.outerHTML) {
+  switch (typeof app.rule.c) {
+    case 'function':
+      app.caption = app.rule.c(html, doc, app.node, app.rule);
+      break;
+    case 'string': {
+      const el = qsMany(app.rule.c, doc);
+      app.caption = !el ? '' :
+        el.getAttribute('content') ||
+        el.getAttribute('title') ||
+        el.textContent;
+      break;
+    }
+  }
 }
 
 function updateSize() {
