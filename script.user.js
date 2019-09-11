@@ -1366,7 +1366,7 @@ function activate(node, force) {
   const info = parseNode(node);
   if (!info || !info.url || info.node === app.node)
     return;
-  if (info.distinct && !force) {
+  if (info.rule.distinct && !force) {
     const scale = findScale(info.url, info.node.parentNode);
     if (scale && scale < cfg.scale)
       return;
