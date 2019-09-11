@@ -37,8 +37,11 @@ const SETUP_ID = 'mpiv-setup:host';
 
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !isImageTab;
+/** @type mpiv.AppInfo */
 let app = {rule: {}};
+/** @type mpiv.HostRule[] */
 let hostRules;
+/** @type DOMParser */
 let domParser;
 
 on(doc, 'mouseover', onMouseOver, {passive: true});
@@ -1459,6 +1462,7 @@ function parseNode(node) {
   }
 }
 
+/** @returns ?mpiv.RuleMatchInfo */
 function findInfo(url, node, {noHtml, skipRule} = {}) {
   const tn = tag(node);
   let m, html, urls;
@@ -1524,6 +1528,7 @@ function makeSubstitution(node, rule, m) {
     urls.map(u => u ? decodeURIComponent(u) : u);
 }
 
+/** @returns mpiv.RuleMatchInfo */
 function makeInfo(urls, node, rule, m) {
   const url = urls[0];
   const info = {
