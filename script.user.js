@@ -69,52 +69,63 @@ if (trusted.includes(hostname)) {
   });
 }
 
-const simpleMatcher = {
+const simpleMatcher = (() => {
   // string-to-regexp escaped chars
-  RX_ESCAPE: /[.+*?(){}[\]^$|]/g,
+  const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
   // rx for '^' symbol in simple url match
-  RX_SEP: /[^\w%._-]/g,
+  const RX_SEP = /[^\w%._-]/g;
+  const RXS_SEP = RX_SEP.source;
 
-  array: (s, arr) => {
-    for (const {fn, needle} of arr)
-      if (fn(s, needle))
-        return true;
-  },
+  function checkArray(s) {
+    return this.some(checkArrayItem, s);
+  }
 
-  equals: (s, needle) =>
-    s.length === needle.length ? s === needle :
-      s.length === needle.length + 1 && s.startsWith(needle) && simpleMatcher.endsSep(s),
+  function checkArrayItem(item) {
+    return item.fn.call(item.this, this);
+  }
 
-  starts: (s, needle) =>
-    s.startsWith(needle),
+  function equals(s) {
+    return s.startsWith(this) && (
+      s.length === this.length ||
+      s.length === this.length + 1 && endsWithSep(s));
+  }
 
-  ends: (s, needle) =>
-    s.endsWith(needle) ||
-    s.length > needle.length &&
-    s.indexOf(needle, s.length - needle.length - 1) >= 0 &&
-    simpleMatcher.endsSep(s),
+  function starts(s) {
+    return s.startsWith(this);
+  }
 
-  has: (s, needle) =>
-    s.includes(needle),
+  function ends(s) {
+    return s.endsWith(this) || (
+      s.length > this.length &&
+      s.indexOf(this, s.length - this.length - 1) >= 0 &&
+      endsWithSep(s));
+  }
 
-  rx: (s, needle) =>
-    needle.test(s),
+  function has(s) {
+    return s.includes(this);
+  }
 
-  endsSep: s => {
-    simpleMatcher.RX_SEP.lastIndex = s.length - 1;
-    return simpleMatcher.RX_SEP.test(s);
-  },
+  function regexp(s) {
+    return s.includes(this[0]) && this[1].test(s);
+  }
 
-  startsDomainPrescreen: (url, data) =>
-    url.includes(data[0]) &&
-    simpleMatcher.startsDomain(url, data),
+  function endsWithSep(s) {
+    RX_SEP.lastIndex = s.length - 1;
+    return RX_SEP.test(s);
+  }
 
-  startsDomain: (url, [needle, domain, pinDomainEnd, endSep]) => {
+  function startsDomainPrescreen(url) {
+    return url.includes(this[0]) &&
+           startsDomain.call(this, url);
+  }
+
+  function startsDomain(url) {
     const [p, gap, host] = url.split('/', 3);
     if (gap || p && !p.endsWith(':'))
       return;
+    const [needle, domain, pinDomainEnd, endSep] = this;
     let start = pinDomainEnd ? host.length - domain.length : 0;
-    for (;; start++) {
+    for (; ; start++) {
       start = host.indexOf(domain, start);
       if (start < 0)
         return;
@@ -123,45 +134,63 @@ const simpleMatcher = {
     }
     start += p.length + 2;
     return url.lastIndexOf(needle, start) === start &&
-      (!endSep || start + needle.length === url.length);
-  },
-};
-
-function compileSimpleUrlMatch(match) {
-  const results = [];
-  for (const s of ensureArray(match)) {
-    const pinDomain = s.startsWith('||');
-    const pinStart = !pinDomain && s.startsWith('|');
-    const endSep = s.endsWith('^');
-    const i = pinDomain * 2 + pinStart;
-    let fn;
-    let needle = i || endSep ? s.slice(i, -endSep || undefined) : s;
-    if (needle.includes('^')) {
-      const separator = simpleMatcher.RX_SEP.source;
-      needle = new RegExp(
-        (pinStart ? '^' : '') +
-        (pinDomain ? '(?:\\.|//)' : '') +
-        needle.replace(simpleMatcher.RX_ESCAPE, '\\$&').replace(/\\\^/g, separator) +
-        (endSep ? `(?:${separator}|$)}` : ''), 'i');
-      fn = simpleMatcher.rx;
-    } else if (pinStart) {
-      fn = endSep ? simpleMatcher.equals : simpleMatcher.starts;
-    } else if (pinDomain) {
-      const i = needle.indexOf('/');
-      const domain = i > 0 ? needle.slice(0, i) : needle;
-      needle = [needle, domain, i > 0, endSep];
-      fn = simpleMatcher.startsDomainPrescreen;
-    } else if (endSep) {
-      fn = simpleMatcher.ends;
-    } else {
-      fn = simpleMatcher.has;
-    }
-    results.push({needle, fn});
+           (!endSep || start + needle.length === url.length);
   }
-  return Array.isArray(match) ?
-    {needle: results, fn: simpleMatcher.array} :
-    results[0];
-}
+
+  function findLongestPart(s) {
+    const len = s.length;
+    let maxLen = 0;
+    let start;
+    for (let i = 0, j; i < len; i = j + 1) {
+      j = s.indexOf('^', i);
+      if (j < 0)
+        j = len;
+      if (j - i > maxLen) {
+        maxLen = j - i;
+        start = i;
+      }
+    }
+    return maxLen < len ? s.substr(start, maxLen) : s;
+  }
+
+  return {
+    compile(match) {
+      const results = [];
+      for (const s of ensureArray(match)) {
+        const pinDomain = s.startsWith('||');
+        const pinStart = !pinDomain && s.startsWith('|');
+        const endSep = s.endsWith('^');
+        let fn;
+        let needle = s.slice(pinDomain * 2 + pinStart, -endSep || undefined);
+        if (needle.includes('^')) {
+          const plain = findLongestPart(needle);
+          const rx = new RegExp(
+            (pinStart ? '^' : '') +
+            (pinDomain ? '^(([^/:]+:)?//)?([^./]*\\.)*?' : '') +
+            needle.replace(RX_ESCAPE, '\\$&').replace(/\\\^/g, RXS_SEP) +
+            (endSep ? `(?:${RXS_SEP}|$)` : ''), 'i');
+          needle = [plain, rx];
+          fn = regexp;
+        } else if (pinStart) {
+          fn = endSep ? equals : starts;
+        } else if (pinDomain) {
+          const slashPos = needle.indexOf('/');
+          const domain = slashPos > 0 ? needle.slice(0, slashPos) : needle;
+          needle = [needle, domain, slashPos > 0, endSep];
+          fn = startsDomainPrescreen;
+        } else if (endSep) {
+          fn = ends;
+        } else {
+          fn = has;
+        }
+        results.push({fn, this: needle});
+      }
+      return results.length > 1 ?
+        {fn: checkArray, this: results} :
+        results[0];
+    },
+  };
+})();
 
 function loadCfg() {
   return fixCfg(GM_getValue('cfg'), true);
@@ -1512,8 +1541,8 @@ function makeUrlMatch(url, node, rule) {
   let {r, u} = rule;
   let m;
   if (u) {
-    u = rule._u || (rule._u = compileSimpleUrlMatch(u));
-    m = u.fn(url, u.needle) && (r || makeDummyMatch(url));
+    u = rule._u || (rule._u = simpleMatcher.compile(u));
+    m = u.fn.call(u.this, url) && (r || makeDummyMatch(url));
   }
   return (m || !u) && r ? r.exec(url) : m;
 }
