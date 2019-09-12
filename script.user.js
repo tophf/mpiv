@@ -12,7 +12,6 @@
 // @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
-// @grant       GM_setClipboard
 
 // @version     1.0.6
 // @author      tophf
@@ -34,6 +33,7 @@ const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
                    !doc.links.length;
 const SETUP_ID = 'mpiv-setup:host';
+const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 
@@ -53,11 +53,14 @@ if (/(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname)) {
   const node = doc.getElementById('main');
   if (node)
     on(node, 'mouseover', onMouseOver, {passive: true});
-} else if (trusted.includes(hostname)) {
+}
+
+if (trusted.includes(hostname)) {
   on(window, 'message', onMessage);
   on(doc, 'click', e => {
     const t = e.target;
-    if (e.which !== 1 || !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
+    if (e.which !== 1 ||
+        !/BLOCKQUOTE|CODE|PRE/.test(tag(t) + tag(t.parentNode)) ||
         !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
       return;
     }
@@ -945,16 +948,7 @@ function onMouseOver(e) {
     return;
   if (node.shadowRoot)
     node = pierceShadow(node, e.clientX, e.clientY);
-  if (!activate(node, e.ctrlKey))
-    return;
-  updateMouse(e);
-  if (e.ctrlKey) {
-    startPopup();
-  } else if (cfg.start === 'auto' && !app.rule.manual) {
-    schedulePopup();
-  } else {
-    setStatus('ready');
-  }
+  activate(node, e);
 }
 
 function pierceShadow(node, x, y) {
@@ -984,27 +978,36 @@ function onMouseOutShadow(e) {
 
 function onMouseMove(e) {
   updateMouse(e);
-  if (e.shiftKey)
-    return (app.lazyUnload = true);
-  if (!app.zoomed && !app.cr)
-    return deactivate();
+  if (e.shiftKey) {
+    app.lazyUnload = true;
+    return;
+  }
+  if (!app.zoomed && !app.isOverRect) {
+    deactivate();
+    return;
+  }
   if (app.zoom) {
     placePopup();
     const {height: h, width: w} = app.view;
+    const {clientX: cx, clientY: cy} = app;
     const bx = w / 6;
     const by = h / 6;
-    setStatus('edge',
-      app.cx < bx || app.cx > w - bx || app.cy < by || app.cy > h - by ?
-        'add' :
-        'remove');
+    const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
+    setStatus(`${onEdge ? '+' : '-'}edge`);
   }
 }
 
-function onMouseDown(e) {
-  if (e.button !== 2 && !e.shiftKey) {
-    deactivate(true);
-  } else if (e.shiftKey && e.button === 0 && app.popup && app.popup.controls) {
-    app.controlled = app.zoomed = true;
+function onMouseDown({shiftKey, button}) {
+  switch (button) {
+    case 0:
+      if (shiftKey && app.popup && app.popup.controls)
+        app.controlled = app.zoomed = true;
+      break;
+    case 2:
+      break;
+    default:
+      if (!shiftKey)
+        deactivate({wait: true});
   }
 }
 
@@ -1012,12 +1015,14 @@ function onMouseScroll(e) {
   const dir = (e.deltaY || -e.wheelDelta) > 0 ? 1 : -1;
   if (app.zoom) {
     drop(e);
-    const idx = app.scales.indexOf(app.scale) - dir;
-    if (idx >= 0 && idx < app.scales.length)
-      app.scale = app.scales[idx];
-    if (idx === 0 && cfg.close) {
-      if (!app.gItems || app.gItems.length < 2)
-        return deactivate(true);
+    const i = app.scales.indexOf(app.scale) - dir;
+    if (i >= 0 && i < app.scales.length)
+      app.scale = app.scales[i];
+    if (i === 0 && cfg.close) {
+      if (!app.gItems || app.gItems.length < 2) {
+        deactivate({wait: true});
+        return;
+      }
       app.zoom = false;
       showFileInfo();
     }
@@ -1037,32 +1042,38 @@ function onMouseScroll(e) {
 }
 
 function onKeyDown(e) {
-  if (e.key === 'Shift') {
-    setStatus('shift', 'add');
-    if (app.popup && 'controls' in app.popup)
-      app.popup.controls = true;
-  } else if (e.key === 'Control' && (cfg.start !== 'auto' || app.rule.manual) && !app.popup) {
-    startPopup();
+  switch (e.key) {
+    case 'Shift':
+      setStatus('+shift');
+      if (app.popup && 'controls' in app.popup)
+        app.popup.controls = true;
+      break;
+    case 'Control':
+      if (!app.popup && (cfg.start !== 'auto' || app.rule.manual))
+        startPopup();
+      break;
   }
 }
 
 function onKeyUp(e) {
   switch (e.key.length > 1 ? e.key : e.code) {
     case 'Shift':
-      setStatus('shift', 'remove');
+      setStatus('-shift');
       if (app.popup.controls)
         app.popup.controls = false;
-      if (app.controlled)
-        return (app.controlled = false);
-      if (app.popup && (app.zoomed || !('cr' in app) || app.cr))
+      if (app.controlled) {
+        app.controlled = false;
+        return;
+      }
+      if (app.popup && (app.zoomed || app.isOverRect !== false))
         toggleZoom();
       else
-        deactivate(true);
+        deactivate({wait: true});
       break;
     case 'Control':
       break;
     case 'Escape':
-      deactivate(true);
+      deactivate({wait: true});
       break;
     case 'ArrowRight':
     case 'KeyJ':
@@ -1123,9 +1134,8 @@ function onKeyUp(e) {
       deactivate();
       break;
     default:
-      deactivate(true);
+      deactivate({wait: true});
   }
-
 }
 
 function onContext(e) {
@@ -1135,17 +1145,15 @@ function onContext(e) {
     drop(e);
     return;
   }
-  if (
-    !app.popup && (
-      cfg.start === 'context' ||
-      (cfg.start === 'auto' && app.rule.manual)
-    )
-  ) {
+  if (!app.popup && (
+    cfg.start === 'context' ||
+    (cfg.start === 'auto' && app.rule.manual)
+  )) {
     startPopup();
     drop(e);
-    return;
+  } else {
+    setTimeout(deactivate, 50, {wait: true});
   }
-  setTimeout(deactivate, 50, true);
 }
 
 function onMessage(e) {
@@ -1166,12 +1174,11 @@ function schedulePopup() {
   if (cfg.preload) {
     app.preloadStart = Date.now();
     startPopup();
-    setStatus('preloading', 'add');
+    setStatus('+preloading');
+    setTimeout(setStatus, cfg.delay, '-preloading');
   } else {
     app.timeout = setTimeout(startPopup, cfg.delay);
   }
-  if (cfg.preload)
-    setTimeout(setStatus, cfg.delay, 'preloading', 'remove');
 }
 
 function startPopup() {
@@ -1252,24 +1259,23 @@ function startGalleryPopup() {
   const startUrl = app.url;
   downloadPage(app.url, (text, url) => {
     try {
-      const cb = items => {
-        if (!app.url || app.url !== startUrl)
-          return;
-        app.gItems = items;
-        if (app.gItems.length === 0) {
-          app.gItems = false;
-          throw 'empty';
-        }
-        app.gIndex = findGalleryPosition(app.url);
-        setTimeout(nextGalleryItem, 0);
-      };
-      const items = app.gallery(text, url, app.match, app.rule, cb);
+      const items = app.gallery(text, url, app.match, app.rule, useItems);
       if (Array.isArray(items))
-        cb(items);
+        useItems(items);
     } catch (e) {
       handleError('Parsing error: ' + e);
     }
   });
+  function useItems(items) {
+    const {url} = app;
+    if (!url || url !== startUrl)
+      return;
+    app.gItems = items.length && items;
+    if (!app.gItems)
+      throw 'empty';
+    app.gIndex = findGalleryPosition(url);
+    setTimeout(nextGalleryItem);
+  }
 }
 
 function findGalleryPosition(gUrl) {
@@ -1374,10 +1380,11 @@ function preloadNextGalleryItem(dir) {
   }
 }
 
-function activate(node, force) {
+function activate(node, event) {
   const info = parseNode(node);
   if (!info || !info.url || info.node === app.node)
     return;
+  const force = event.ctrlKey;
   if (info.rule.distinct && !force) {
     const scale = findScale(info.url, info.node.parentNode);
     if (scale && scale < cfg.scale)
@@ -1388,39 +1395,31 @@ function activate(node, force) {
   app = info;
   app.view = viewRect();
   app.zooming = includes(cfg.css, 'mpiv-zooming');
-  for (const n of [
-    app.node.parentNode,
-    app.node,
-    app.node.firstElementChild,
-  ]) {
-    if (n &&
-        n.title &&
-        n.title !== n.textContent &&
-        !doc.title.includes(n.title) &&
-        !/^http\S+$/.test(n.title)) {
-      app.tooltip = {node: n, text: n.title};
-      n.title = '';
-      break;
-    }
-  }
+  suppressHoverTooltip();
+  updateMouse(event);
   on(doc, 'mousemove', onMouseMove, {passive: true});
   on(doc, 'mouseout', onMouseOut, {passive: true});
   on(doc, 'mousedown', onMouseDown, {passive: true});
   on(doc, 'contextmenu', onContext);
   on(doc, 'keydown', onKeyDown);
   on(doc, 'keyup', onKeyUp);
-  on(doc, 'onwheel' in doc ? 'wheel' : 'mousewheel', onMouseScroll, {passive: false});
-  return true;
+  on(doc, WHEEL_EVENT, onMouseScroll, {passive: false});
+  if (force) {
+    startPopup();
+  } else if (cfg.start === 'auto' && !app.rule.manual) {
+    schedulePopup();
+  } else {
+    setStatus('ready');
+  }
 }
 
-function deactivate(wait) {
+function deactivate({wait} = {}) {
   clearTimeout(app.timeout);
-  try {
-    app.req.abort();
-  } catch (e) {}
+  if (app.req)
+    tryCatch.call(app.req, app.req.abort);
   if (app.tooltip)
     app.tooltip.node.title = app.tooltip.text;
-  updateTitle(true);
+  updateTitle({reset: true});
   setStatus(false);
   setPopup(false);
   setBar(false);
@@ -1434,9 +1433,7 @@ function deactivate(wait) {
   off(doc, 'onwheel' in doc ? 'wheel' : 'mousewheel', onMouseScroll);
   if (wait) {
     enabled = false;
-    setTimeout(() => {
-      enabled = true;
-    }, 200);
+    setTimeout(() => (enabled = true), 200);
   }
 }
 
@@ -1458,9 +1455,10 @@ function parseNode(node) {
     a = node.closest('a') || false;
   }
   if (a) {
-    url =
-      a.getAttribute('data-expanded-url') || a.getAttribute('data-full-url') ||
-      a.getAttribute('data-url') || a.href;
+    url = a.getAttribute('data-expanded-url') ||
+          a.getAttribute('data-full-url') ||
+          a.getAttribute('data-url') ||
+          a.href;
     if (url.length > 750 || url.startsWith('data:')) {
       url = false;
     } else if (url.includes('//t.co/')) {
@@ -1626,9 +1624,9 @@ function downloadImage(url, referer) {
       if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
         bar = true;
       if (bar) {
-        setBar(
-          `${(e.loaded / e.total * 100).toFixed()}% of ${(e.total / 1000000).toFixed(1)} MB`,
-          'xhr');
+        const pct = (e.loaded / e.total * 100).toFixed();
+        const mb = (e.total / 1e6).toFixed(1);
+        setBar(`${pct}% of ${mb} MB`, 'xhr');
       }
     },
     onload: res => {
@@ -1663,12 +1661,12 @@ function downloadImage(url, referer) {
         let b = res.response;
         if (b.type !== type)
           b = b.slice(0, b.size, type);
-        if (URL && app.xhr !== 'data')
-          return setPopup(URL.createObjectURL(b));
+        if (URL && app.xhr !== 'data') {
+          setPopup(URL.createObjectURL(b));
+          return;
+        }
         const fr = new FileReader();
-        fr.onload = () => {
-          setPopup(fr.result);
-        };
+        fr.onload = () => setPopup(fr.result);
         fr.onerror = handleError;
         fr.readAsDataURL(b);
       } catch (e) {
@@ -1751,6 +1749,27 @@ function checkProgress(start) {
     toggleZoom();
 }
 
+function suppressHoverTooltip() {
+  for (const n of [
+    app.node.parentNode,
+    app.node,
+    app.node.firstElementChild,
+  ]) {
+    if (n &&
+        n.title &&
+        n.title !== n.textContent &&
+        !doc.title.includes(n.title) &&
+        !/^http\S+$/.test(n.title)) {
+      app.tooltip = {
+        node: n,
+        text: n.title,
+      };
+      n.title = '';
+      break;
+    }
+  }
+}
+
 function updateCaption(doc = document, html = doc.documentElement.outerHTML) {
   switch (typeof app.rule.c) {
     case 'function':
@@ -1816,14 +1835,14 @@ function updateScales() {
 }
 
 function updateMouse(e) {
-  app.cx = e.clientX;
-  app.cy = e.clientY;
+  const cx = app.clientX = e.clientX;
+  const cy = app.clientY = e.clientY;
   const r = app.rect;
   if (r)
-    app.cr = app.cx < r.right + 2 &&
-             app.cx > r.left - 2 &&
-             app.cy < r.bottom + 2 &&
-             app.cy > r.top - 2;
+    app.isOverRect = cx < r.right + 2 &&
+                     cx > r.left - 2 &&
+                     cy < r.bottom + 2 &&
+                     cy > r.top - 2;
 }
 
 function showFileInfo() {
@@ -1844,7 +1863,7 @@ function showFileInfo() {
   }
 }
 
-function updateTitle(reset) {
+function updateTitle({reset} = {}) {
   if (reset) {
     if (typeof app.title === 'string' && doc.title !== app.title)
       doc.title = app.title;
@@ -1862,8 +1881,8 @@ function placePopup() {
   let x, y;
   const w = Math.round(app.scale * app.nwidth);
   const h = Math.round(app.scale * app.nheight);
-  const cx = app.cx;
-  const cy = app.cy;
+  const cx = app.clientX;
+  const cy = app.clientY;
   const vw = app.view.width - app.outline * 2;
   const vh = app.view.height - app.outline * 2;
   if (!app.zoom && (!app.gItems || app.gItems.length < 2) && !cfg.center) {
@@ -1963,14 +1982,17 @@ function handleError(o, rule = app.rule) {
   }
 }
 
-function setStatus(status, flag) {
+function setStatus(status) {
+  const action = /^[+-]/.test(status) && status[0];
+  if (action)
+    status = status.slice(1);
   const el = doc.documentElement;
   let cls = el.className.split(/\s+/);
-  if (flag === 'remove') {
+  if (action === '-') {
     const i = cls.indexOf('mpiv-' + status);
     i >= 0 && cls.splice(i, 1);
   } else {
-    if (flag !== 'add')
+    if (action !== '+')
       cls = cls.filter(c => !/^mpiv-\w+$/.test(c));
     if (status && !cls.includes('mpiv-' + status))
       cls.push('mpiv-' + status);
@@ -2066,7 +2088,7 @@ function rel2abs(rel, abs) {
   const rx = /^([a-z]+:)\/\//;
   if (rx.test(rel))
     return rel;
-  if (!rx.exec(abs))
+  if (!rx.test(abs))
     return;
   if (rel.indexOf('//') === 0)
     return RegExp.$1 + rel;
@@ -2103,8 +2125,9 @@ function findScale(url, parent) {
   for (let i = imgs.length, img; (img = imgs[--i]);) {
     if ((img.src || img.currentSrc) !== url)
       continue;
-    const s = Math.max((img.naturalHeight || img.videoHeight) / img.offsetHeight,
-      (img.naturalWidth || img.videoWidth) / img.offsetWidth);
+    const scaleX = (img.naturalWidth || img.videoWidth) / img.offsetWidth;
+    const scaleY = (img.naturalHeight || img.videoHeight) / img.offsetHeight;
+    const s = Math.max(scaleX, scaleY);
     if (isFinite(s))
       return s;
   }
@@ -2118,23 +2141,29 @@ function viewRect() {
   };
 }
 
-function rect(node, q) {
+function rect(node, selector) {
   let n;
-  if (q && (n = node.closest(q)))
-    return n.getBoundingClientRect();
-  const nodes = qsa('*', node);
-  for (let i = nodes.length; i-- && (n = nodes[i]);) {
-    if (n.offsetHeight > node.offsetHeight)
-      node = n;
+  if (selector && (n = node.closest(selector))) {
+    node = n;
+  } else {
+    let maxHeight = node.offsetHeight;
+    const walker = doc.createTreeWalker(node, NodeFilter.SHOW_ELEMENT);
+    while ((n = walker.nextNode())) {
+      const height = n.offsetHeight;
+      if (height > maxHeight) {
+        maxHeight = height;
+        node = n;
+      }
+    }
   }
   return node.getBoundingClientRect();
 }
 
-function lazyGetRect(obj, ...args) {
+function lazyGetRect(obj, node, selector) {
   return Object.defineProperty(obj, 'rect', {
     configurable: true,
     get() {
-      const value = rect(...args);
+      const value = rect(node, selector);
       Object.defineProperty(obj, 'rect', {value, configurable: true});
       return value;
     },
@@ -2164,11 +2193,11 @@ function drop(e) {
   e.stopPropagation();
 }
 
-function qs(s, n) {
+function qs(s, n = doc) {
   return n.querySelector(s);
 }
 
-function qsa(s, n) {
+function qsa(s, n = doc) {
   return n.querySelectorAll(s);
 }
 
@@ -2199,32 +2228,34 @@ function tryCatch(fn, ...args) {
 }
 
 function tryJson(s) {
-  try {
-    return JSON.parse(s);
-  } catch (e) {}
+  return tryCatch.call(JSON, JSON.parse, s);
 }
 
 function setup() {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   let div, root;
+  /** @type NodeList */
+  const $ = new Proxy({}, {
+    get(_, id) {
+      return root.getElementById(id);
+    },
+  });
+  init(loadCfg());
 
-  function $(s) {
-    return root.getElementById(s);
-  }
-
-  function close() {
+  function closeSetup() {
     const el = doc.getElementById(SETUP_ID);
     el && el.remove();
     if (!trusted.includes(hostname))
       off(window, 'message', onMessage);
   }
 
-  function update() {
-    $('delay').parentNode.style.display =
-      $('preload').parentNode.style.display = $('start-auto').selected ? '' : 'none';
+  function updateActivationControls() {
+    $.delay.parentNode.hidden =
+      $.preload.parentNode.hidden =
+        !$.start_auto.selected;
   }
 
-  function check({target: el}) {
+  function checkRule({target: el}) {
     let json, error;
     if (el.value) {
       json = parseRule(el.value);
@@ -2239,31 +2270,8 @@ function setup() {
     el.title = error || '';
     el.setCustomValidity(error || '');
   }
-      ok = 1;
-    } catch (e) {}
-    t.__json = json;
-    t.style.backgroundColor = ok ? '' : '#ffaaaa';
-  }
 
-  function exp(e) {
-    drop(e);
-    const s = JSON.stringify(getCfg());
-    if (typeof GM_setClipboard === 'function') {
-      GM_setClipboard(s);
-      alert('Settings copied to clipboard!');
-    } else {
-      alert(s);
-    }
-  }
-
-  function imp(e) {
-    drop(e);
-    const s = prompt('Paste settings:');
-    if (s)
-      init(fixCfg(s));
-  }
-
-  function install(e) {
+  function installRule(e) {
     drop(e);
     const parent = e.target.parentNode;
     parent.textContent = 'Loading...';
@@ -2283,32 +2291,57 @@ function setup() {
     }));
   }
 
-  function getCfg() {
+  function exportSettings(e) {
+    drop(e);
+    const txt = document.createElement('textarea');
+    txt.style = 'opacity:0; position:absolute';
+    txt.value = JSON.stringify(collectSettings(), null, '  ');
+    root.appendChild(txt);
+    txt.select();
+    txt.focus();
+    document.execCommand('copy');
+    e.target.focus();
+    txt.remove();
+    $.exportNotification.hidden = false;
+    setTimeout(() => ($.exportNotification.hidden = true), 1000);
+  }
+
+  function importSettings(e) {
+    drop(e);
+    const s = prompt('Paste settings:');
+    if (s)
+      init(fixCfg(s));
+  }
+
+  function collectSettings() {
     const cfg = {};
-    const delay = parseInt($('delay').value);
+    const delay = parseInt($.delay.value);
     if (!isNaN(delay) && delay >= 0)
       cfg.delay = delay;
-    const scale = parseFloat($('scale').value.replace(',', '.'));
+    const scale = parseFloat($.scale.value.replace(',', '.'));
     if (!isNaN(scale))
       cfg.scale = Math.max(1, scale);
     cfg.start =
-      $('start-context').selected ? 'context' : ($('start-ctrl').selected ? 'ctrl' : 'auto');
+      $.start_context.selected ? 'context' :
+        $.start_ctrl.selected ? 'ctrl' :
+          'auto';
     cfg.zoom =
-      $('zoom-context').selected ?
-        'context' :
-        ($('zoom-wheel').selected ? 'wheel' : ($('zoom-shift').selected ? 'shift' : 'auto'));
-    cfg.center = $('center').checked;
-    cfg.imgtab = $('imgtab').checked;
-    cfg.close = $('close').selected;
-    cfg.preload = $('preload').checked;
-    cfg.css = $('css').value.trim();
-    cfg.scales = $('scales').value
+      $.zoom_context.selected ? 'context' :
+        $.zoom_wheel.selected ? 'wheel' :
+          $.zoom_shift.selected ? 'shift' :
+            'auto';
+    cfg.center = $.center.checked;
+    cfg.imgtab = $.imgtab.checked;
+    cfg.close = $.close.selected;
+    cfg.preload = $.preload.checked;
+    cfg.css = $.css.value.trim();
+    cfg.scales = $.scales.value
       .trim()
       .split(/[,;]*\s+/)
       .map(x => x.replace(',', '.'))
       .filter(x => !isNaN(parseFloat(x)));
-    cfg.xhr = $('xhr').checked;
-    cfg.hosts = [...$('hosts').children]
+    cfg.xhr = $.xhr.checked;
+    cfg.hosts = [...$.hosts.children]
       .map(el => [el.value.trim(), el.__json])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
       .map(([s, json]) => json || s)
@@ -2328,11 +2361,13 @@ function setup() {
   }
 
   function init(cfg) {
-    close();
+    closeSetup();
     if (!trusted.includes(hostname))
       on(window, 'message', onMessage);
     div = doc.createElement('div');
     div.id = SETUP_ID;
+    // prevent the main page from interpreting key presses in inputs as hotkeys
+    // which may happen since it sees only the outer <div> in the event |target|
     div.contentEditable = true;
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
@@ -2401,9 +2436,20 @@ function setup() {
         #search {
           float: right;
         }
+        #importExport {
+          float: right;
+        }
+        #exportNotification {
+          color: green;
+          position: absolute;
+        }
         button {
           width: 150px;
           margin: 0 10px;
+        }
+        textarea:invalid {
+          background-color: #f002;
+          border-color: #800;
         }
         @media (prefers-color-scheme: dark) {
           :host {
@@ -2418,19 +2464,20 @@ function setup() {
       <main>
         <div>
           <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
-          <span style="float:right">
+          <div id="importExport">
             <a href="#" id="import">Import</a> |
             <a href="#" id="export">Export</a>
-          </span>
+            <p id="exportNotification" hidden>Copied to clipboard.</p>
+          </div>
         </div>
         <ul>
           <li>
             <label>
               Popup:
               <select>
-                <option id="start-auto">automatically
-                <option id="start-context">right click or ctrl
-                <option id="start-ctrl">ctrl
+                <option id="start_auto">automatically
+                <option id="start_context">right click or ctrl
+                <option id="start_ctrl">ctrl
               </select>
             </label>
             <label>after <input id="delay"> ms</label>
@@ -2451,10 +2498,10 @@ function setup() {
             <label>
               Zoom:
               <select id="zoom">
-                <option id="zoom-context">right click or shift
-                <option id="zoom-wheel">wheel up or shift
-                <option id="zoom-shift">shift
-                <option id="zoom-auto">automatically
+                <option id="zoom_context">right click or shift
+                <option id="zoom_wheel">wheel up or shift
+                <option id="zoom_shift">shift
+                <option id="zoom_auto">automatically
               </select>
             </label>
             <label>Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2"></label>
@@ -2493,13 +2540,13 @@ function setup() {
       </main>
     `;
     if (cfg.hosts) {
-      const parent = $('hosts');
+      const parent = $.hosts;
       const template = parent.firstElementChild;
       for (const rule of cfg.hosts) {
         const el = template.cloneNode();
         el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
         parent.appendChild(el);
-        check({target: el});
+        checkRule({target: el});
       }
       on(parent, 'focusin', ({target: el}) => {
         if (el !== parent) {
@@ -2516,11 +2563,11 @@ function setup() {
         if (el.__json)
           el.value = formatRuleCollapse(el.__json);
       });
-      const se = $('search');
+      const se = $.search;
       const doSearch = () => {
         const s = se.value.toLowerCase();
         setup.search = s;
-        for (const el of $('hosts').children)
+        for (const el of $.hosts.children)
           el.hidden = s && !el.value.toLowerCase().includes(s);
       };
       let timer;
@@ -2535,40 +2582,38 @@ function setup() {
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
     on(root, 'keydown', e => !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
-    on($('start-auto').parentNode, 'change', update);
-    on($('cancel'), 'click', close);
-    on($('export'), 'click', exp);
-    on($('import'), 'click', imp);
-    on($('hosts'), 'input', check);
-    on($('install'), 'click', install);
-    on($('ok'), 'click', () => {
-      saveCfg(getCfg());
+    on($.start_auto.parentNode, 'change', updateActivationControls);
+    on($.cancel, 'click', closeSetup);
+    on($.export, 'click', exportSettings);
+    on($.import, 'click', importSettings);
+    on($.hosts, 'input', checkRule);
+    on($.install, 'click', installRule);
+    on($.ok, 'click', () => {
+      saveCfg(collectSettings());
       hostRules = loadHosts();
-      close();
+      closeSetup();
     });
-    $('delay').value = cfg.delay;
-    $('scale').value = cfg.scale;
-    $('center').checked = cfg.center;
-    $('imgtab').checked = cfg.imgtab;
-    $('close').selected = cfg.close;
-    $('preload').checked = cfg.preload;
-    $('css').value = cfg.css;
-    $('scales').value = cfg.scales.join(' ');
-    $('xhr').checked = cfg.xhr;
-    $('xhr').onclick = function () {
+    $.delay.value = cfg.delay;
+    $.scale.value = cfg.scale;
+    $.center.checked = cfg.center;
+    $.imgtab.checked = cfg.imgtab;
+    $.close.selected = cfg.close;
+    $.preload.checked = cfg.preload;
+    $.css.value = cfg.css;
+    $.scales.value = cfg.scales.join(' ');
+    $.xhr.checked = cfg.xhr;
+    $.xhr.onclick = function () {
       if (!this.checked)
         return confirm('Do not disable this unless you spoof the HTTP headers yourself.');
     };
-    $('zoom-' + cfg.zoom).selected = true;
-    $('start-' + cfg.start).selected = true;
-    update();
+    $[`zoom_${cfg.zoom}`].selected = true;
+    $[`start_${cfg.start}`].selected = true;
+    updateActivationControls();
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
-      $('css').style.height = clamp($('css').scrollHeight, 40, div.clientHeight / 4) + 'px';
+      $.css.style.height = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
     });
   }
-
-  init(loadCfg());
 }
 
 function addStyle(name, css) {

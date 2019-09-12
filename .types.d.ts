@@ -69,9 +69,10 @@ declare namespace mpiv {
     caption: string
     // video controls are shown
     controlled: boolean
-    cr: boolean
-    cx: number
-    cy: number
+    // is mouse still over PopupInfo.rect
+    isOverRect: boolean
+    clientX: number
+    clientY: number
     gIndex: number
     gItems: GalleryItemsArray
     iurl: StringOrArrayOfStrings
