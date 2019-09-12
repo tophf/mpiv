@@ -34,6 +34,8 @@ const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
                    !doc.links.length;
 const SETUP_ID = 'mpiv-setup:host';
+// used to detect JS code in host rules
+const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 
 let cfg = loadCfg();
 let enabled = cfg.imgtab || !isImageTab;
@@ -216,30 +218,10 @@ function saveCfg(newCfg) {
  'r' is checked only if 'u' matches first
 */
 function loadHosts() {
-  const customHosts = [];
-  const rxHasCode = /(^|[^-\w])return[\W\s]/;
-  for (let h of cfg.hosts || []) {
-    try {
-      if (typeof h === 'string')
-        h = JSON.parse(h);
-      if (typeof h.d !== 'string')
-        h.d = undefined;
-      else if (h.d && !hostname.includes(h.d))
-        continue;
-      if (h.r)
-        h.r = new RegExp(h.r, 'i');
-      if (rxHasCode.test(h.s))
-        h.s = new Function('m', 'node', 'rule', h.s);
-      if (rxHasCode.test(h.q))
-        h.q = new Function('text', 'doc', 'node', 'rule', h.q);
-      if (rxHasCode.test(h.c))
-        h.c = new Function('text', 'doc', 'node', 'rule', h.c);
-      customHosts.push(h);
-    } catch (e) {
-      if (!e.message.includes('unsafe-eval'))
-        handleError('Invalid custom host rule:', h);
-    }
-  }
+  const errors = new Map();
+  const customHosts = (cfg.hosts || []).map(parseRule, errors);
+  for (const rule of errors.keys())
+    handleError('Invalid custom host rule:', rule);
 
   // rules that disable previewing
   const disablers = [
@@ -921,6 +903,36 @@ function loadHosts() {
       distinct: true,
     },
   ].filter(Boolean);
+}
+
+/** @returns mpiv.HostRule | Error | false | undefined */
+function parseRule(rule) {
+  const isBatchOp = this instanceof Map;
+  try {
+    if (typeof rule === 'string')
+      rule = JSON.parse(rule);
+    if ('d' in rule && typeof rule.d !== 'string')
+      rule.d = undefined;
+    else if (isBatchOp && rule.d && !hostname.includes(rule.d))
+      return false;
+    const compileTo = isBatchOp ? rule : {};
+    if (rule.r)
+      compileTo.r = new RegExp(rule.r, 'i');
+    if (RX_HAS_CODE.test(rule.s))
+      compileTo.s = new Function('m', 'node', 'rule', rule.s);
+    if (RX_HAS_CODE.test(rule.q))
+      compileTo.q = new Function('text', 'doc', 'node', 'rule', rule.q);
+    if (RX_HAS_CODE.test(rule.c))
+      compileTo.c = new Function('text', 'doc', 'node', 'rule', rule.c);
+    return rule;
+  } catch (e) {
+    if (!e.message.includes('unsafe-eval'))
+      if (isBatchOp) {
+        this.set(rule, e);
+      } else {
+        return e;
+      }
+  }
 }
 
 function onMouseOver(e) {
@@ -1908,7 +1920,7 @@ function toggleZoom() {
   return app.zoom;
 }
 
-function handleError(o) {
+function handleError(o, rule = app.rule) {
   const error = o.message || (
     o.readyState ?
       'Request failed.' :
@@ -1921,10 +1933,10 @@ function handleError(o) {
     ['', 'font-weight:normal;color:unset'],
   ];
   try {
-    if (app.rule.u)
-      m.push(['Url simple match: %o', app.rule.u]);
-    if (app.rule.r)
-      m.push(['RegExp match: %o', app.rule.r]);
+    if (rule.u)
+      m.push(['Url simple match: %o', rule.u]);
+    if (rule.r)
+      m.push(['RegExp match: %o', rule.r]);
     if (app.url)
       m.push(['URL: %s', app.url]);
     if (app.iurl && app.iurl !== app.url)
@@ -2212,24 +2224,21 @@ function setup() {
       $('preload').parentNode.style.display = $('start-auto').selected ? '' : 'none';
   }
 
-  function check(e) {
-    const t = e.target;
-    let ok, json;
-    try {
-      const pes = t.previousElementSibling;
-      if (t.value) {
-        if (!pes) {
-          const inp = t.cloneNode();
-          inp.value = '';
-          t.insertAdjacentElement('beforebegin', inp);
-        }
-        json = JSON.parse(t.value);
-        if (json.r)
-          new RegExp(json.r);
-      } else if (pes) {
-        pes.focus();
-        t && t.remove();
-      }
+  function check({target: el}) {
+    let json, error;
+    if (el.value) {
+      json = parseRule(el.value);
+      error = json instanceof Error && (json.message || String(json));
+      if (!el.previousElementSibling)
+        el.insertAdjacentElement('beforebegin', Object.assign(el.cloneNode(), {value: ''}));
+    } else if (el.previousElementSibling) {
+      el.previousElementSibling.focus();
+      el && el.remove();
+    }
+    el.__json = !error && json;
+    el.title = error || '';
+    el.setCustomValidity(error || '');
+  }
       ok = 1;
     } catch (e) {}
     t.__json = json;
