@@ -9,7 +9,6 @@
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
-// @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
@@ -1112,14 +1111,7 @@ function onKeyUp(e) {
       break;
     case 'KeyD': {
       drop(e);
-      let name = (app.imageUrl || app.popup.src).split('/').pop().replace(/[:#?].*/, '');
-      if (!name.includes('.'))
-        name += '.jpg';
-      GM_download({
-        name,
-        url: app.popup.src,
-        onerror: () => setBar(`Could not download ${name}.`, 'error'),
-      });
+      saveFile();
       break;
     }
     case 'KeyT':
@@ -2230,6 +2222,30 @@ function guessMimeType(response) {
     case 'svg': return 'image/svg+xml';
     case 'tif': return 'image/tiff';
     default: return 'application/octet-stream';
+  }
+}
+
+async function saveFile() {
+  let url = app.popup.src || app.popup.currentSrc;
+  let name = (app.imageUrl || url).split('/').pop().replace(/[:#?].*/, '');
+  if (!name.includes('.'))
+    name += '.jpg';
+  try {
+    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+      const {response} = await gmXhr({
+        url,
+        responseType: 'blob',
+        headers: {'Referer': url},
+      });
+      url = URL.createObjectURL(response);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    const a = doc.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.dispatchEvent(new MouseEvent('click'));
+  } catch (e) {
+    setBar(`Could not download ${name}.`, 'error');
   }
 }
 
