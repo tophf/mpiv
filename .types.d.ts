@@ -75,7 +75,7 @@ declare namespace mpiv {
     clientY: number
     gIndex: number
     gItems: GalleryItemsArray
-    iurl: StringOrArrayOfStrings
+    imageUrl: StringOrArrayOfStrings
     large: boolean
     lazyUnload: boolean
     // margin+border height

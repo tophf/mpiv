@@ -706,14 +706,10 @@ function loadHosts() {
           return;
         const info = JSON.parse(RegExp.$1);
         let images = info.is_album ? info.album_images.images : [info];
-        if (info.num_images > images.length)
-          images = await new Promise(resolve => {
-            GM_xmlhttpRequest({
-              method: 'GET',
-              url: `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`,
-              onload: r => resolve(tryCatch(() => JSON.parse(r.responseText).data.images)),
-            });
-          });
+        if (info.num_images > images.length) {
+          const url = `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`;
+          images = JSON.parse((await gmXhr({url})).responseText).data.images;
+        }
         const items = [];
         for (const img of images || []) {
           const u = `https://i.imgur.com/${img.hash}`;
@@ -1117,7 +1113,7 @@ function onKeyUp(e) {
       break;
     case 'KeyD': {
       drop(e);
-      let name = (app.iurl || app.popup.src).split('/').pop().replace(/[:#?].*/, '');
+      let name = (app.imageUrl || app.popup.src).split('/').pop().replace(/[:#?].*/, '');
       if (!name.includes('.'))
         name += '.jpg';
       GM_download({
@@ -1186,98 +1182,123 @@ function schedulePopup() {
 
 function startPopup() {
   updateStyles();
-  setStatus(false);
+  setStatus('loading');
   if (app.gallery)
     startGalleryPopup();
   else
     startSinglePopup(app.url);
 }
 
-function startSinglePopup(url) {
+function startSinglePopup() {
   setStatus('loading');
-  app.iurl = null;
+  app.imageUrl = null;
   if (app.rule.follow && !app.rule.q && !app.rule.s) {
-    findRedirect(app.url, url => {
-      const info = findInfo(url, app.node, {noHtml: true});
-      if (!info || !info.url)
-        throw 'Couldn\'t follow redirection target: ' + url;
-      restartSinglePopup(info);
-    });
-    return;
+    findRedirect();
+  } else if (app.rule.q && !Array.isArray(app.urls)) {
+    downloadPage(app.url)
+      .then(processDownloadedPage)
+      .catch(handleError);
+  } else {
+    updateCaption();
+    setImageUrl(app.url);
   }
-  if (app.rule.q && !Array.isArray(app.urls)) {
-    downloadPage(url, processRemotePage);
-    return;
-  }
-  updateCaption();
-  app.iurl = url;
-  if (app.xhr)
-    downloadImage(url, app.url);
-  else
-    setPopup(url);
 }
 
-function processRemotePage(html, pageUrl) {
+async function startGalleryPopup() {
+  try {
+    const startUrl = app.url;
+    const p = await downloadPage(startUrl);
+    const items = await new Promise(resolve => {
+      const it = app.gallery(p.responseText, p.finalUrl, app.match, app.rule, resolve);
+      if (Array.isArray(it))
+        resolve(it);
+    });
+    // bail out if the gallery's async callback took too long
+    if (app.url !== startUrl)
+      return;
+    app.gItems = items.length && items;
+    if (app.gItems) {
+      app.gIndex = findGalleryPosition(app.url);
+      setTimeout(nextGalleryItem);
+    } else {
+      throw 'Empty gallery';
+    }
+  } catch (e) {
+    handleError(e);
+  }
+}
+
+function processDownloadedPage({responseText, finalUrl}) {
   let url;
-  const doc = createDoc(html);
+  const doc = createDoc(responseText);
 
   if (typeof app.rule.q === 'function') {
-    url = app.rule.q(html, doc, app.node, app.rule);
+    url = app.rule.q(responseText, doc, app.node, app.rule);
     if (Array.isArray(url)) {
       app.urls = url.slice(1);
       url = url[0];
     }
   } else {
     const el = qsMany(app.rule.q, doc);
-    url = el && findFile(el, pageUrl);
+    url = el && findFile(el, finalUrl);
   }
   if (!url)
     throw 'File not found.';
 
-  updateCaption(doc, html);
+  updateCaption(doc, responseText);
 
   if (isFollowableUrl(url, app.rule)) {
     const info = findInfo(url, app.node, {noHtml: true});
     if (!info || !info.url)
-      throw 'Couldn\'t follow URL: ' + url;
-    restartSinglePopup(info);
+      throw `Couldn't follow URL: ${url}`;
+    Object.assign(app, info);
+    startSinglePopup();
+  } else {
+    setImageUrl(url, finalUrl);
+  }
+}
+
+async function setImageUrl(url, pageUrl = app.url) {
+  app.imageUrl = url;
+  if (!app.xhr) {
+    setPopup(url);
     return;
   }
-
-  app.iurl = url;
-  if (app.xhr) {
-    downloadImage(url, pageUrl);
-  } else {
-    setPopup(url);
-  }
-}
-
-function restartSinglePopup(info) {
-  Object.assign(app, info);
-  startSinglePopup(app.url);
-}
-
-function startGalleryPopup() {
-  setStatus('loading');
-  const startUrl = app.url;
-  downloadPage(app.url, (text, url) => {
-    try {
-      const items = app.gallery(text, url, app.match, app.rule, useItems);
-      if (Array.isArray(items))
-        useItems(items);
-    } catch (e) {
-      handleError('Parsing error: ' + e);
+  const start = Date.now();
+  let bar;
+  try {
+    const response = await gmXhr({
+      url,
+      responseType: 'blob',
+      headers: {
+        'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
+        'Referer': pageUrl,
+      },
+      onprogress: e => {
+        if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
+          bar = true;
+        if (bar) {
+          const pct = (e.loaded / e.total * 100).toFixed();
+          const mb = (e.total / 1024).toFixed();
+          setBar(`${pct}% of ${mb} kiB`, 'xhr');
+        }
+      },
+    });
+    setBar(false);
+    const type = guessMimeType(response);
+    let b = response.response;
+    if (b.type !== type)
+      b = b.slice(0, b.size, type);
+    if (URL && app.xhr !== 'data') {
+      setPopup(URL.createObjectURL(b));
+    } else {
+      const fr = new FileReader();
+      fr.onload = () => setPopup(fr.result);
+      fr.onerror = handleError;
+      fr.readAsDataURL(b);
     }
-  });
-  function useItems(items) {
-    const {url} = app;
-    if (!url || url !== startUrl)
-      return;
-    app.gItems = items.length && items;
-    if (!app.gItems)
-      throw 'empty';
-    app.gIndex = findGalleryPosition(url);
-    setTimeout(nextGalleryItem);
+  } catch (e) {
+    handleError(e);
   }
 }
 
@@ -1368,7 +1389,7 @@ function nextGalleryItem(dir) {
     app.url = item.url;
   }
   setPopup(false);
-  startSinglePopup(app.url);
+  startSinglePopup();
   showFileInfo();
   preloadNextGalleryItem(dir);
 }
@@ -1576,124 +1597,37 @@ function isFollowableUrl(url, {follow}) {
   return typeof follow === 'function' ? follow(url) : follow;
 }
 
-function downloadPage(url, cb) {
-  let req;
-  const opts = {
-    url,
-    method: 'GET',
-    onload: res => {
-      try {
-        if (req !== app.req)
-          return;
-        app.req = null;
-        if (res.status >= 400)
-          throw 'Server error: ' + res.status;
-        cb(res.responseText, res.finalUrl || url);
-      } catch (e) {
-        handleError(e);
-      }
-    },
-    onerror: res => {
-      if (req === app.req)
-        handleError(res);
-    },
-  };
-  if (app.post) {
-    opts.method = 'POST';
-    opts.data = app.post;
-    opts.headers = {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Referer': url,
-    };
+function downloadPage(url) {
+  return !app.post ?
+    gmXhr({url}) :
+    gmXhr({
+      url,
+      method: 'POST',
+      data: app.post,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Referer': url,
+      },
+    });
+}
+
+async function findRedirect() {
+  try {
+    const {finalUrl} = await gmXhr({
+      url: app.url,
+      method: 'HEAD',
+      headers: {
+        'Referer': location.href.split('#', 1)[0],
+      },
+    });
+    const info = findInfo(finalUrl, app.node, {noHtml: true});
+    if (!info || !info.url)
+      throw `Couldn't follow redirection target: ${finalUrl}`;
+    Object.assign(app, info);
+    startSinglePopup();
+  } catch (e) {
+    handleError(e);
   }
-  app.req = req = GM_xmlhttpRequest(opts);
-}
-
-function downloadImage(url, referer) {
-  const start = Date.now();
-  let bar;
-  let req;
-  app.req = req = GM_xmlhttpRequest({
-    url,
-    method: 'GET',
-    responseType: 'blob',
-    headers: {
-      'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
-      'Referer': referer,
-    },
-    onprogress: e => {
-      if (req !== app.req)
-        return;
-      if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
-        bar = true;
-      if (bar) {
-        const pct = (e.loaded / e.total * 100).toFixed();
-        const mb = (e.total / 1e6).toFixed(1);
-        setBar(`${pct}% of ${mb} MB`, 'xhr');
-      }
-    },
-    onload: res => {
-      try {
-        if (req !== app.req)
-          return;
-        app.req = null;
-        setBar(false);
-        if (res.status >= 400)
-          throw 'HTTP error ' + res.status;
-        let type;
-        if (/Content-Type:\s*(.+)/i.exec(res.responseHeaders) &&
-            !RegExp.$1.includes('text/plain'))
-          type = RegExp.$1;
-        if (!type) {
-          const ext = /\.([a-z0-9]+?)($|\?|#)/i.exec(url) ? RegExp.$1.toLowerCase() : 'jpg';
-          const types = {
-            bmp: 'image/bmp',
-            gif: 'image/gif',
-            jpe: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            jpg: 'image/jpeg',
-            mp4: 'video/mp4',
-            png: 'image/png',
-            svg: 'image/svg+xml',
-            tif: 'image/tiff',
-            tiff: 'image/tiff',
-            webm: 'video/webm',
-          };
-          type = types[ext] || 'application/octet-stream';
-        }
-        let b = res.response;
-        if (b.type !== type)
-          b = b.slice(0, b.size, type);
-        if (URL && app.xhr !== 'data') {
-          setPopup(URL.createObjectURL(b));
-          return;
-        }
-        const fr = new FileReader();
-        fr.onload = () => setPopup(fr.result);
-        fr.onerror = handleError;
-        fr.readAsDataURL(b);
-      } catch (e) {
-        handleError(e);
-      }
-    },
-    onerror: res => {
-      if (req === app.req)
-        handleError(res);
-    },
-  });
-}
-
-function findRedirect(url, cb) {
-  let req;
-  app.req = req = GM_xmlhttpRequest({
-    url,
-    method: 'HEAD',
-    headers: {Referer: location.href.replace(location.hash, '')},
-    onload: res => {
-      if (req === app.req)
-        cb(res.finalUrl);
-    },
-  });
 }
 
 function findFile(n, url) {
@@ -1961,8 +1895,8 @@ function handleError(o, rule = app.rule) {
       m.push(['RegExp match: %o', rule.r]);
     if (app.url)
       m.push(['URL: %s', app.url]);
-    if (app.iurl && app.iurl !== app.url)
-      m.push(['File: %s', app.iurl]);
+    if (app.imageUrl && app.imageUrl !== app.url)
+      m.push(['File: %s', app.imageUrl]);
     m.push(['Node: %o', app.node]);
     const control = m.map(([k]) => k).filter(Boolean).join('\n');
     console.warn(control, ...m.map(([, v]) => v));
@@ -1971,13 +1905,13 @@ function handleError(o, rule = app.rule) {
       location.search.includes('tbm=isch') &&
       !app.xhr && cfg.xhr) {
     app.xhr = true;
-    startSinglePopup(app.url);
+    startSinglePopup();
   } else if (app.urls && app.urls.length) {
     app.url = app.urls.shift();
     if (!app.url) {
       deactivate();
     } else {
-      startSinglePopup(app.url);
+      startSinglePopup();
     }
   } else if (app.node) {
     setStatus('error');
@@ -2264,6 +2198,49 @@ function tryCatch(fn, ...args) {
 
 function tryJson(s) {
   return tryCatch.call(JSON, JSON.parse, s);
+}
+
+function gmXhr(opts) {
+  if (app.req)
+    tryCatch.call(app.req, app.req.abort);
+  return new Promise((resolve, reject) => {
+    const url = opts.url;
+    if (!opts.method)
+      opts.method = 'GET';
+    opts.onload = opts.onerror = e => {
+      app.req = null;
+      e.status < 400 && !e.error ?
+        resolve(e) :
+        reject(`Server error ${e.status} ${e.error}\nURL: ${url}`);
+    };
+    opts.timeout = opts.timeout || 10e3;
+    opts.ontimeout = e => {
+      app.req = null;
+      reject(`Timeout fetching ${url}`);
+    };
+    app.req = GM_xmlhttpRequest(opts);
+  });
+}
+
+function guessMimeType(response) {
+  if (/Content-Type:\s*(\S+)/i.test(response.responseHeaders) &&
+      !RegExp.$1.includes('text/plain'))
+    return RegExp.$1;
+  const ext = /\.([a-z0-9]+?)($|\?|#)/i.exec(response.finalUrl) ? RegExp.$1 : 'jpg';
+  switch (ext.toLowerCase()) {
+    case 'bmp': return 'image/bmp';
+    case 'gif': return 'image/gif';
+    case 'jpeg': return 'image/jpeg';
+    case 'mp4': return 'video/mp4';
+    case 'png': return 'image/png';
+    case 'tiff': return 'image/tiff';
+    case 'webm': return 'video/webm';
+    case 'jpe': return 'image/jpeg';
+    case 'jpg': return 'image/jpeg';
+    case 'svg': return 'image/svg+xml';
+    case 'tif': return 'image/tiff';
+    default: return 'application/octet-stream';
+  }
 }
 
 function setup() {
