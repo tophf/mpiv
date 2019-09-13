@@ -43,8 +43,6 @@ let enabled = cfg.imgtab || !isImageTab;
 let app = {rule: {}};
 /** @type mpiv.HostRule[] */
 let hostRules;
-/** @type DOMParser */
-let domParser;
 
 on(doc, 'mouseover', onMouseOver, {passive: true});
 GM_registerMenuCommand('Configure', setup);
@@ -2126,9 +2124,7 @@ function tag(n) {
 }
 
 function createDoc(text) {
-  if (!domParser)
-    domParser = new DOMParser();
-  return domParser.parseFromString(text, 'text/html');
+  return new DOMParser().parseFromString(text, 'text/html');
 }
 
 function on(n, e, f, options) {
