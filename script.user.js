@@ -1511,7 +1511,7 @@ function findInfo(url, node, {noHtml, skipRule} = {}) {
         // but we'll only allow it to match rules without 's' in the nested findInfo call
         tn === 'IMG' && !('s' in rule) && !skipRule)
       continue;
-    urls = rule.s ? makeSubstitution(node, rule, m) : [m.input];
+    urls = 's' in rule ? makeSubstitution(node, rule, m) : [m.input];
     if (!urls.skipRule) {
       const url = urls[0];
       return !url ? null :
