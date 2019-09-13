@@ -1128,38 +1128,11 @@ function onKeyUp(e) {
     }
     case 'KeyT':
       app.lazyUnload = true;
-      if (app.rule.tabfix && !app.xhr && tag(app.popup) === 'IMG' &&
-          navigator.userAgent.includes('Gecko/')) {
-        GM_openInTab('data:text/html;,' + encodeURIComponent(`
-          <style>
-            body {
-              margin: 0;
-              padding: 0;
-              background: #222
-            }
-            .fit {
-              overflow: hidden
-            }
-            .fit > img {
-              max-width: 100vw;
-              max-height: 100vh
-            }
-            body > img {
-              margin: auto;
-              position: absolute;
-              left: 0;
-              right: 0;
-              top: 0;
-              bottom: 0
-            }
-          </style>
-          <body class="fit">
-            <img onclick="document.body.classList.toggle('fit')" src="${app.popup.src}">
-          </body>
-        `.replace(/[\r\n]+\s*/g, '')));
-      } else {
-        GM_openInTab(app.popup.src);
-      }
+      GM_openInTab(
+        app.rule.tabfix && app.popup.tagName === 'IMG' && !app.xhr &&
+        navigator.userAgent.includes('Gecko/') ?
+          makeUrlWithTabFix() :
+          app.popup.src);
       deactivate();
       break;
     default:
@@ -2197,6 +2170,36 @@ function lazyGetRect(obj, node, selector) {
       return value;
     },
   });
+}
+
+function makeUrlWithTabFix() {
+  return `data:text/html;charset=utf8,
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #222
+      }
+      .fit {
+        overflow: hidden
+      }
+      .fit > img {
+        max-width: 100vw;
+        max-height: 100vh
+      }
+      body > img {
+        margin: auto;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0
+      }
+    </style>
+    <body class="fit">
+      <img onclick="document.body.classList.toggle('fit')" src="${app.popup.src}">
+    </body>
+  `.replace(/[\r\n]+\s*/g, '').replace(/#/g, '%23');
 }
 
 function tag(n) {
