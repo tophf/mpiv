@@ -1050,7 +1050,7 @@ function onMouseScroll(e) {
         return;
       }
       app.zoom = false;
-      showFileInfo();
+      updateFileInfo();
     }
     if (app.zooming)
       app.popup.classList.add('mpiv-zooming');
@@ -1091,9 +1091,8 @@ function onKeyUp(e) {
         app.controlled = false;
         return;
       }
-      if (app.popup && (app.zoomed || app.isOverRect !== false))
-        toggleZoom();
-      else
+      app.popup && (app.zoomed || app.isOverRect !== false) ?
+        toggleZoom() :
         deactivate({wait: true});
       break;
     case 'Control':
@@ -1183,10 +1182,9 @@ function schedulePopup() {
 function startPopup() {
   updateStyles();
   setStatus('loading');
-  if (app.gallery)
-    startGalleryPopup();
-  else
-    startSinglePopup(app.url);
+  app.gallery ?
+    startGalleryPopup() :
+    startSinglePopup();
 }
 
 function startSinglePopup() {
@@ -1274,7 +1272,7 @@ async function setImageUrl(url, pageUrl = app.url) {
         'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
         'Referer': pageUrl,
       },
-      onprogress: e => {
+      onprogress(e) {
         if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
           bar = true;
         if (bar) {
@@ -1303,23 +1301,19 @@ async function setImageUrl(url, pageUrl = app.url) {
 }
 
 function findGalleryPosition(gUrl) {
-  let dir = 0;
   const sel = gUrl.split('#')[1];
-  if (sel) {
-    if (/^[0-9]+$/.test(sel)) {
-      dir += parseInt(sel);
-    } else {
-      for (let i = app.gItems.length; i--;) {
-        const url = ensureArray(app.gItems[i].url)[0];
-        const file = url.substr(url.lastIndexOf('/') + 1);
-        if (file.includes(sel)) {
-          dir += i;
-          break;
-        }
-      }
-    }
+  if (!sel)
+    return 0;
+  if (/^\d+$/.test(sel))
+    return parseInt(sel);
+  for (let i = app.gItems.length; i--;) {
+    let {url} = app.gItems[i];
+    if (Array.isArray(url))
+      url = url[0];
+    if (url.indexOf(sel, url.lastIndexOf('/')) > 0)
+      return i;
   }
-  return dir;
+  return 0;
 }
 
 function loadGalleryParser(g) {
@@ -1390,7 +1384,7 @@ function nextGalleryItem(dir) {
   }
   setPopup(false);
   startSinglePopup();
-  showFileInfo();
+  updateFileInfo();
   preloadNextGalleryItem(dir);
 }
 
@@ -1417,7 +1411,11 @@ function activate(node, event) {
   if (app.node)
     deactivate();
   app = info;
-  app.view = viewRect();
+  const view = doc.compatMode === 'BackCompat' ? doc.body : doc.documentElement;
+  app.view = {
+    width: view.clientWidth,
+    height: view.clientHeight,
+  };
   app.zooming = includes(cfg.css, 'mpiv-zooming');
   suppressHoverTooltip();
   updateMouse(event);
@@ -1677,7 +1675,7 @@ function checkProgress(start) {
   updateTitle();
   placePopup();
   if (!app.bar)
-    showFileInfo();
+    updateFileInfo();
   app.large = app.nwidth > p.clientWidth + app.mbw ||
               app.nheight > p.clientHeight + app.mbh;
   if (app.large)
@@ -1782,7 +1780,7 @@ function updateMouse(e) {
                      cy > r.top - 2;
 }
 
-function showFileInfo() {
+function updateFileInfo() {
   const gi = app.gItems;
   if (gi) {
     const item = gi[app.gIndex];
@@ -1872,7 +1870,7 @@ function toggleZoom() {
   if (cfg.zoom !== 'auto')
     setBar(false);
   if (!app.zoom)
-    showFileInfo();
+    updateFileInfo();
   return app.zoom;
 }
 
@@ -1982,7 +1980,7 @@ function setPopup(src) {
       off(e.target, 'progress', onProgress);
       if (app.bar && app.bar.classList.contains('mpiv-xhr')) {
         setBar(false);
-        showFileInfo();
+        updateFileInfo();
       }
     });
   } else {
@@ -2000,11 +1998,11 @@ function setPopup(src) {
   checkProgress(true);
 }
 
-function setBar(label, cn) {
+function setBar(label, className) {
   let b = app.bar;
   if (!label) {
     b && b.remove();
-    delete app.bar;
+    app.bar = null;
     return;
   }
   if (!b) {
@@ -2018,7 +2016,7 @@ function setBar(label, cn) {
     // do a forced layout
     b.clientHeight;
   }
-  b.className = 'mpiv-show mpiv-' + cn;
+  b.className = 'mpiv-show mpiv-' + className;
 }
 
 function rel2abs(rel, abs) {
@@ -2070,14 +2068,6 @@ function findScale(url, parent) {
     if (isFinite(s))
       return s;
   }
-}
-
-function viewRect() {
-  const node = doc.compatMode === 'BackCompat' ? doc.body : doc.documentElement;
-  return {
-    width: node.clientWidth,
-    height: node.clientHeight,
-  };
 }
 
 function rect(node, selector) {
