@@ -32,6 +32,7 @@ const trusted = ['greasyfork.org', 'w9p.co'];
 const isImageTab = doc.images.length === 1 &&
                    doc.images[0].parentNode === doc.body &&
                    !doc.links.length;
+const STATUS_PREFIX = 'mpiv-';
 const SETUP_ID = 'mpiv-setup:host';
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 // used to detect JS code in host rules
@@ -1985,23 +1986,25 @@ function handleError(o, rule = app.rule) {
 }
 
 function setStatus(status) {
-  const action = /^[+-]/.test(status) && status[0];
-  if (action)
-    status = status.slice(1);
-  const el = doc.documentElement;
-  let cls = el.className.split(/\s+/);
-  if (action === '-') {
-    const i = cls.indexOf('mpiv-' + status);
-    i >= 0 && cls.splice(i, 1);
-  } else {
-    if (action !== '+')
-      cls = cls.filter(c => !/^mpiv-\w+$/.test(c));
-    if (status && !cls.includes('mpiv-' + status))
-      cls.push('mpiv-' + status);
+  const action = status && /^[+-]/.test(status) && status[0];
+  const name = status && `${STATUS_PREFIX}${action ? status.slice(1) : status}`;
+  const cls = new Set(doc.documentElement.className.split(/\s+/));
+  switch (action) {
+    case '-':
+      cls.delete(name);
+      break;
+    case false:
+      for (const c of cls)
+        if (c.startsWith(STATUS_PREFIX) && c !== name)
+          cls.delete(c);
+      // fallthrough to +
+    case '+':
+      cls.add(name);
+      break;
   }
-  const s = cls.join(' ');
-  if (el.className !== s)
-    el.className = s;
+  const s = [...cls].join(' ');
+  if (doc.documentElement.className !== s)
+    doc.documentElement.className = s;
 }
 
 function setPopup(src) {
