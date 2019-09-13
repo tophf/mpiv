@@ -594,7 +594,7 @@ function loadHosts() {
     {
       u: '//gyazo.com/',
       r: /\.com\/\w{32,}/,
-      q: '.image',
+      q: 'meta[name="twitter:image"]',
       xhr: true,
     },
     {
