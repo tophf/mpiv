@@ -6,6 +6,22 @@ https://definitelytyped.org/directory/tools.html
 
 declare namespace mpiv {
 
+  type Config = {
+    center: boolean
+    close: boolean
+    css: string
+    delay: number
+    hosts: HostRule[]
+    imgtab: boolean
+    preload: boolean
+    scale: number
+    scales: (string | number)[]
+    start: 'auto' | 'context' | 'ctrl'
+    version: number
+    xhr: boolean
+    zoom: 'context' | 'wheel' | 'shift' | 'auto'
+  };
+
   type HostRule = {
     // URL match using plain text and AdBlock-compatible special symbols ||, |, ^
     u?: StringOrArrayOfStrings
@@ -93,8 +109,12 @@ declare namespace mpiv {
     // padding width
     pw: number
     popup: HTMLImageElement | HTMLVideoElement
+    // true when 'load' event fired on the element
+    popupLoaded: boolean
     // time, ms
     preloadStart: number
+    // used by gallery to preload the next image
+    preloadUrl: string
     rect: DOMRect
     req: { abort: VoidFunction }
     scale: number
