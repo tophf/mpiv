@@ -2559,20 +2559,21 @@ function setup() {
         parent.appendChild(el);
         checkRule({target: el});
       }
-      on(parent, 'focusin', ({target: el}) => {
-        if (el !== parent) {
-          if (el.__json)
-            el.value = formatRuleExpand(el.__json);
-          const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
-          if (h > el.offsetHeight)
-            el.style.height = h + 'px';
-        }
-      });
-      on(parent, 'focusout', ({target: el}) => {
-        if (el !== parent && el.style.height)
-          el.style.height = '';
+      on(parent, 'focusin', ({target: el, relatedTarget: from}) => {
+        if (el === parent)
+          return;
         if (el.__json)
-          el.value = formatRuleCollapse(el.__json);
+          el.value = formatRuleExpand(el.__json);
+        const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
+        if (h > el.offsetHeight)
+          el.style.height = h + 'px';
+        if (!parent.contains(from))
+          from = [...qsa('[style*="height"]', parent)].find(_ => _ !== el);
+        if (from) {
+          from.style.height = '';
+          if (from.__json)
+            from.value = formatRuleCollapse(from.__json);
+        }
       });
       const se = $.search;
       const doSearch = () => {
