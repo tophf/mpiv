@@ -917,9 +917,6 @@ function loadHosts() {
     {
       u: [
         '.jp',
-        '.jpg',
-        '.jpe',
-        '.jpeg',
         '.gif',
         '.png',
         '.svg',
