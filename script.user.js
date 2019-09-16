@@ -2560,9 +2560,12 @@ function setup() {
           padding: 2px 0;
           vertical-align: middle;
         }
-        input, select, #css {
+        select, #css {
           border: 1px solid gray;
           padding: 2px;
+        }
+        input {
+          vertical-align: middle;
         }
         textarea {
           resize: vertical;
