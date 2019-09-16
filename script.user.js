@@ -1051,6 +1051,10 @@ class Ruler {
         rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
       },
       {
+        u: '||twimg.com/media/',
+        r: /format=(jpe?g|png|gif)/i,
+      },
+      {
         u: '||tumblr.com',
         r: /_500\.jpg/,
         s: ['/_500/_1280/', ''],
