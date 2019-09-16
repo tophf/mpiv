@@ -168,19 +168,19 @@ class App {
   }
 
   static setStatus(status) {
-    if (!status && !cfg.exposeStatus) {
+    if (!status && !cfg.globalStatus) {
       ai.node && ai.node.removeAttribute(STATUS_ATTR);
       return;
     }
-    const prefix = cfg.exposeStatus ? PREFIX : '';
+    const prefix = cfg.globalStatus ? PREFIX : '';
     const action = status && /^[+-]/.test(status) && status[0];
     const name = status && `${prefix}${action ? status.slice(1) : status}`;
-    const el = cfg.exposeStatus ? doc.documentElement :
+    const el = cfg.globalStatus ? doc.documentElement :
       name === 'edge' ? ai.popup :
         ai.node;
     if (!el)
       return;
-    const attr = cfg.exposeStatus ? 'class' : STATUS_ATTR;
+    const attr = cfg.globalStatus ? 'class' : STATUS_ATTR;
     const oldValue = (el.getAttribute(attr) || '').trim();
     const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
     switch (action) {
@@ -386,7 +386,7 @@ class App {
         will-change: display, width, height, left, top;
         cursor: none;
       }
-      ${cfg.exposeStatus ? `
+      ${cfg.globalStatus ? `
         .${PREFIX}loading:not(.${PREFIX}preloading) * {
           cursor: wait !important;
         }
@@ -448,7 +448,7 @@ class Config {
       close: true,
       css: '',
       delay: 500,
-      exposeStatus: false,
+      globalStatus: false,
       hosts: [],
       imgtab: false,
       preload: false,
@@ -482,7 +482,7 @@ class Config {
     }
     if (cfg && (
       cfg.css !== c.css ||
-      cfg.exposeStatus !== c.exposeStatus
+      cfg.globalStatus !== c.globalStatus
     )) {
       App.globalStyle = '';
     }
@@ -2515,7 +2515,7 @@ function setup() {
     data.css = $.css.value.trim();
     data.close = $.close.selected;
     data.delay = !isNaN(delay) && delay >= 0 ? delay : undefined;
-    data.exposeStatus = $.exposeStatus.checked;
+    data.globalStatus = $.globalStatus.checked;
     data.hosts = [...$.hosts.children]
       .map(el => [el.value.trim(), el.__json])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
@@ -2712,7 +2712,7 @@ function setup() {
             <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
           </li>
           <li>
-            <label><input type="checkbox" id="exposeStatus">
+            <label><input type="checkbox" id="globalStatus">
               expose status on &lt;html&gt; node</label>
             <small>(Don't enable unless you know what it is
              since it may slow down sites noticeably)</small>
@@ -2809,7 +2809,7 @@ function setup() {
     $.scale.value = config.scale;
     $.center.checked = config.center;
     $.imgtab.checked = config.imgtab;
-    $.exposeStatus.checked = config.exposeStatus;
+    $.globalStatus.checked = config.globalStatus;
     $.close.selected = config.close;
     $.preload.checked = config.preload;
     $.css.value = config.css;

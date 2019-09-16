@@ -11,7 +11,7 @@ declare namespace mpiv {
     close: boolean
     css: string
     delay: number
-    exposeStatus: boolean
+    globalStatus: boolean
     hosts: HostRule[]
     imgtab: boolean
     preload: boolean
