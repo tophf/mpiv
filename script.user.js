@@ -1842,7 +1842,7 @@ class Popup {
     p.addEventListener('error', App.handleError);
     p.addEventListener('load', Popup.onLoad, {once: true});
     if (ai.zooming)
-      p.addEventListener('transitionend', Popup.onZoom, {once: true});
+      p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
     App.checkProgress(true);
   }
