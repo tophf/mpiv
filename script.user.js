@@ -2553,6 +2553,27 @@ function setup() {
       .replace(/^{\s+/g, '{');
   }
 
+  function onRuleFocused({type, target: el, relatedTarget: from, currentTarget}) {
+    if (el === currentTarget)
+      return;
+    if (type === 'paste') {
+      setTimeout(onRuleFocused, 0, {target: el, currentTarget});
+      return;
+    }
+    if (el.__json)
+      el.value = formatRuleExpand(el.__json);
+    const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
+    if (h > el.offsetHeight)
+      el.style.height = h + 'px';
+    if (!currentTarget.contains(from))
+      from = [...qsa('[style*="height"]', currentTarget)].find(_ => _ !== el);
+    if (from) {
+      from.style.height = '';
+      if (from.__json)
+        from.value = formatRuleCollapse(from.__json);
+    }
+  }
+
   function init(config) {
     closeSetup();
     if (!trusted.includes(hostname))
@@ -2750,22 +2771,7 @@ function setup() {
         parent.appendChild(el);
         checkRule({target: el});
       }
-      parent.addEventListener('focusin', ({target: el, relatedTarget: from}) => {
-        if (el === parent)
-          return;
-        if (el.__json)
-          el.value = formatRuleExpand(el.__json);
-        const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
-        if (h > el.offsetHeight)
-          el.style.height = h + 'px';
-        if (!parent.contains(from))
-          from = [...qsa('[style*="height"]', parent)].find(_ => _ !== el);
-        if (from) {
-          from.style.height = '';
-          if (from.__json)
-            from.value = formatRuleCollapse(from.__json);
-        }
-      });
+
       const se = $.search;
       const doSearch = () => {
         const s = se.value.toLowerCase();
@@ -2791,6 +2797,8 @@ function setup() {
     $.export.addEventListener('click', exportSettings);
     $.import.addEventListener('click', importSettings);
     $.hosts.addEventListener('input', checkRule);
+    $.hosts.addEventListener('focusin', onRuleFocused);
+    $.hosts.addEventListener('paste', onRuleFocused);
     $.install.addEventListener('click', installRule);
     $.ok.addEventListener('click', () => {
       cfg = collectConfig({save: true});
