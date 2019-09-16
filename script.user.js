@@ -210,9 +210,12 @@ class App {
     return ai.zoom;
   }
 
-  static updateCaption(text = document.documentElement.outerHTML, doc = document) {
+  static updateCaption(text, doc = document) {
     switch (typeof ai.rule.c) {
       case 'function':
+        // don't specify as a parameter's default value, instead get the html only when needed
+        if (text === undefined)
+          text = doc.documentElement.outerHTML;
         ai.caption = ai.rule.c(text, doc, ai.node, ai.rule);
         break;
       case 'string': {
