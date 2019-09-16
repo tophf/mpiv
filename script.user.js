@@ -2470,40 +2470,39 @@ function setup() {
       init(new Config({data: s}));
   }
 
-  function collectConfig() {
+  function collectConfig({save} = {}) {
     const data = {};
     const delay = parseInt($.delay.value);
-    if (!isNaN(delay) && delay >= 0)
-      data.delay = delay;
     const scale = parseFloat($.scale.value.replace(',', '.'));
-    if (!isNaN(scale))
-      data.scale = Math.max(1, scale);
-    data.start =
-      $.start_context.selected ? 'context' :
-        $.start_ctrl.selected ? 'ctrl' :
-          'auto';
-    data.zoom =
-      $.zoom_context.selected ? 'context' :
-        $.zoom_wheel.selected ? 'wheel' :
-          $.zoom_shift.selected ? 'shift' :
-            'auto';
     data.center = $.center.checked;
-    data.imgtab = $.imgtab.checked;
-    data.close = $.close.selected;
-    data.preload = $.preload.checked;
     data.css = $.css.value.trim();
-    data.scales = $.scales.value
-      .trim()
-      .split(/[,;]*\s+/)
-      .map(x => x.replace(',', '.'))
-      .filter(x => !isNaN(parseFloat(x)));
-    data.xhr = $.xhr.checked;
+    data.close = $.close.selected;
+    data.delay = !isNaN(delay) && delay >= 0 ? delay : undefined;
+    data.exposeStatus = $.exposeStatus.checked;
     data.hosts = [...$.hosts.children]
       .map(el => [el.value.trim(), el.__json])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
       .map(([s, json]) => json || s)
       .filter(Boolean);
-    return new Config({data});
+    data.imgtab = $.imgtab.checked;
+    data.preload = $.preload.checked;
+    data.scale = !isNaN(scale) ? Math.max(1, scale) : undefined;
+    data.scales = $.scales.value
+      .trim()
+      .split(/[,;]*\s+/)
+      .map(x => x.replace(',', '.'))
+      .filter(x => !isNaN(parseFloat(x)));
+    data.start =
+      $.start_context.selected ? 'context' :
+        $.start_ctrl.selected ? 'ctrl' :
+          'auto';
+    data.xhr = $.xhr.checked;
+    data.zoom =
+      $.zoom_context.selected ? 'context' :
+        $.zoom_wheel.selected ? 'wheel' :
+          $.zoom_shift.selected ? 'shift' :
+            'auto';
+    return new Config({data, save});
   }
 
   function formatRuleCollapse(rule) {
@@ -2517,7 +2516,7 @@ function setup() {
       .replace(/^{\s+/g, '{');
   }
 
-  function init(cfg) {
+  function init(config) {
     closeSetup();
     if (!trusted.includes(hostname))
       window.addEventListener('message', Events.onMessage);
@@ -2705,10 +2704,10 @@ function setup() {
         </div>
       </main>
     `;
-    if (cfg.hosts) {
+    if (config.hosts) {
       const parent = $.hosts;
       const template = parent.firstElementChild;
-      for (const rule of cfg.hosts) {
+      for (const rule of config.hosts) {
         const el = template.cloneNode();
         el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
         parent.appendChild(el);
@@ -2757,26 +2756,26 @@ function setup() {
     $.hosts.addEventListener('input', checkRule);
     $.install.addEventListener('click', installRule);
     $.ok.addEventListener('click', () => {
-      cfg = collectConfig();
+      cfg = collectConfig({save: true});
       Ruler.init();
       closeSetup();
     });
-    $.delay.value = cfg.delay;
-    $.scale.value = cfg.scale;
-    $.center.checked = cfg.center;
-    $.imgtab.checked = cfg.imgtab;
-    $.exposeStatus.checked = cfg.exposeStatus;
-    $.close.selected = cfg.close;
-    $.preload.checked = cfg.preload;
-    $.css.value = cfg.css;
-    $.scales.value = cfg.scales.join(' ');
-    $.xhr.checked = cfg.xhr;
+    $.delay.value = config.delay;
+    $.scale.value = config.scale;
+    $.center.checked = config.center;
+    $.imgtab.checked = config.imgtab;
+    $.exposeStatus.checked = config.exposeStatus;
+    $.close.selected = config.close;
+    $.preload.checked = config.preload;
+    $.css.value = config.css;
+    $.scales.value = config.scales.join(' ');
+    $.xhr.checked = config.xhr;
     $.xhr.onclick = function () {
       if (!this.checked)
         return confirm('Do not disable this unless you spoof the HTTP headers yourself.');
     };
-    $[`zoom_${cfg.zoom}`].selected = true;
-    $[`start_${cfg.start}`].selected = true;
+    $[`zoom_${config.zoom}`].selected = true;
+    $[`start_${config.start}`].selected = true;
     updateActivationControls();
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
