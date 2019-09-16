@@ -37,6 +37,7 @@ const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 
 const PREFIX = 'mpiv-';
 const SETUP_ID = PREFIX + 'setup:host';
+const STATUS_ATTR = `${PREFIX}status`;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
@@ -167,27 +168,38 @@ class App {
   }
 
   static setStatus(status) {
-    if (!cfg.exposeStatus)
+    if (!status && !cfg.exposeStatus) {
+      ai.node && ai.node.removeAttribute(STATUS_ATTR);
       return;
+    }
+    const prefix = cfg.exposeStatus ? PREFIX : '';
     const action = status && /^[+-]/.test(status) && status[0];
-    const name = status && `${PREFIX}${action ? status.slice(1) : status}`;
-    const cls = new Set(doc.documentElement.className.split(/\s+/));
+    const name = status && `${prefix}${action ? status.slice(1) : status}`;
+    const el = cfg.exposeStatus ? doc.documentElement :
+      name === 'edge' ? ai.popup :
+        ai.node;
+    if (!el)
+      return;
+    const attr = cfg.exposeStatus ? 'class' : STATUS_ATTR;
+    const oldValue = (el.getAttribute(attr) || '').trim();
+    const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
     switch (action) {
       case '-':
         cls.delete(name);
         break;
       case false:
         for (const c of cls)
-          if (c.startsWith(PREFIX) && c !== name)
+          if (c.startsWith(prefix) && c !== name)
             cls.delete(c);
         // fallthrough to +
       case '+':
-        cls.add(name);
+        if (name)
+          cls.add(name);
         break;
     }
-    const s = [...cls].join(' ');
-    if (doc.documentElement.className !== s)
-      doc.documentElement.className = s;
+    const newValue = [...cls].join(' ');
+    if (newValue !== oldValue)
+      el.setAttribute(attr, newValue);
   }
 
   static toggleZoom() {
@@ -374,23 +386,42 @@ class App {
         will-change: display, width, height, left, top;
         cursor: none;
       }
-      .${PREFIX}loading:not(.${PREFIX}preloading) * {
-        cursor: wait !important;
-      }
-      .${PREFIX}edge #${PREFIX}popup {
-        cursor: default;
-      }
-      .${PREFIX}error * {
-        cursor: not-allowed !important;
-      }
-      .${PREFIX}ready *, .${PREFIX}large * {
-        cursor: zoom-in !important;
-      }
-      .${PREFIX}shift * {
-        cursor: default !important;
-      }
+      ${cfg.exposeStatus ? `
+        .${PREFIX}loading:not(.${PREFIX}preloading) * {
+          cursor: wait !important;
+        }
+        .${PREFIX}edge #${PREFIX}popup {
+          cursor: default;
+        }
+        .${PREFIX}error * {
+          cursor: not-allowed !important;
+        }
+        .${PREFIX}ready *, .${PREFIX}large * {
+          cursor: zoom-in !important;
+        }
+        .${PREFIX}shift * {
+          cursor: default !important;
+        }
+      ` : `
+        [${STATUS_ATTR}~="loading"]:not([${STATUS_ATTR}~="preloading"]) {
+          cursor: wait !important;
+        }
+        #${PREFIX}popup[${STATUS_ATTR}~="edge"] {
+          cursor: default !important;
+        }
+        [${STATUS_ATTR}~="error"] {
+          cursor: not-allowed !important;
+        }
+        [${STATUS_ATTR}~="ready"],
+        [${STATUS_ATTR}~="large"] {
+          cursor: zoom-in !important;
+        }
+        [${STATUS_ATTR}~="shift"] {
+          cursor: default !important;
+        }
+      `}
+      ${cfg.css.includes('{') ? cfg.css : `#${PREFIX}popup {${cfg.css}}`}
     `));
-    Util.addStyle('config', cfg.css.includes('{') ? cfg.css : `#${PREFIX}popup {${cfg.css}}`);
     Util.addStyle('rule', ai.rule.css || '');
   }
 
@@ -448,6 +479,12 @@ class Config {
       c.version = DEFAULTS.version;
       if (save)
         GM_setValue('cfg', JSON.stringify(c));
+    }
+    if (cfg && (
+      cfg.css !== c.css ||
+      cfg.exposeStatus !== c.exposeStatus
+    )) {
+      App.globalStyle = '';
     }
     Object.assign(this, c);
   }

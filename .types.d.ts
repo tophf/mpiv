@@ -73,7 +73,7 @@ declare namespace mpiv {
   type RuleMatchInfo = {
     gallery?: GalleryFunction
     match: string[]
-    node: Node
+    node: HTMLElement
     post: boolean
     rule: HostRule
     url: string
