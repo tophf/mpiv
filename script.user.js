@@ -1891,20 +1891,20 @@ class PopupVideo {
     p.loop = true;
     p.volume = 0.5;
     p.controls = false;
-    p.__start = Date.now();
     p.addEventListener('progress', PopupVideo.progress);
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
+    ai.bufferingBar = false;
+    ai.bufferingStart = Date.now();
     return p;
   }
 
   static progress() {
-    if (!this.duration || !this.buffered.length || Date.now() - this.__start < 2000)
-      return;
-    const pct = Math.round(this.buffered.end(0) / this.duration * 100);
-    if (!this.__bar && pct > 0 && pct < 50)
-      this.__bar = true;
-    if (this.__bar)
-      App.setBar(`${pct}% of ${Math.round(this.duration)}s`, 'xhr');
+    const {duration} = this;
+    if (duration && this.buffered.length && Date.now() - ai.bufferingStart > 2000) {
+      const pct = Math.round(this.buffered.end(0) / duration * 100);
+      if ((ai.bufferingBar |= pct > 0 && pct < 50))
+        App.setBar(`${pct}% of ${Math.round(duration)}s`, 'xhr');
+    }
   }
 
   static progressDone() {

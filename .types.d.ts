@@ -83,6 +83,8 @@ declare namespace mpiv {
 
   type PopupInfo = {
     bar: Element
+    bufferingBar: boolean
+    bufferingStart: number
     caption: string
     // video controls are shown
     controlled: boolean
