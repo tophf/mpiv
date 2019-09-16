@@ -167,6 +167,8 @@ class App {
   }
 
   static setStatus(status) {
+    if (!cfg.exposeStatus)
+      return;
     const action = status && /^[+-]/.test(status) && status[0];
     const name = status && `${PREFIX}${action ? status.slice(1) : status}`;
     const cls = new Set(doc.documentElement.className.split(/\s+/));
@@ -412,6 +414,7 @@ class Config {
       close: true,
       css: '',
       delay: 500,
+      exposeStatus: false,
       hosts: [],
       imgtab: false,
       preload: false,
@@ -2646,6 +2649,12 @@ function setup() {
             <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
           </li>
           <li>
+            <label><input type="checkbox" id="exposeStatus">
+              expose status on &lt;html&gt; node</label>
+            <small>(Don't enable unless you know what it is
+             since it may slow down sites noticeably)</small>
+          </li>
+          <li>
             <label>
               Zoom:
               <select id="zoom">
@@ -2750,6 +2759,7 @@ function setup() {
     $.scale.value = cfg.scale;
     $.center.checked = cfg.center;
     $.imgtab.checked = cfg.imgtab;
+    $.exposeStatus.checked = cfg.exposeStatus;
     $.close.selected = cfg.close;
     $.preload.checked = cfg.preload;
     $.css.value = cfg.css;
