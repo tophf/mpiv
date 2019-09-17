@@ -123,7 +123,7 @@ declare namespace mpiv {
     req: { abort: VoidFunction }
     scale: number
     scales: number[]
-    timeout: number
+    timer: number
     title: string
     tooltip: { node: Node, text: string }
     view: { width: number, height: number }

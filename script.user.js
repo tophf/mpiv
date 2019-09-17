@@ -117,7 +117,7 @@ class App {
   }
 
   static deactivate({wait} = {}) {
-    clearTimeout(ai.timeout);
+    clearTimeout(ai.timer);
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
@@ -296,7 +296,7 @@ class App {
     if (ai.preloadStart) {
       const wait = ai.preloadStart + cfg.delay - Date.now();
       if (wait > 0) {
-        ai.timeout = setTimeout(App.checkProgress, wait);
+        ai.timer = setTimeout(App.checkProgress, wait);
         return;
       }
     }
@@ -1763,7 +1763,7 @@ class Popup {
       App.setStatus('+preloading');
       setTimeout(App.setStatus, cfg.delay, '-preloading');
     } else {
-      ai.timeout = setTimeout(Popup.start, cfg.delay);
+      ai.timer = setTimeout(Popup.start, cfg.delay);
     }
   }
 
@@ -2437,14 +2437,15 @@ function setup() {
 
   function checkRule({target: el}) {
     let json, error;
+    const prev = el.previousElementSibling;
     if (el.value) {
       json = Ruler.parse(el.value);
       error = json instanceof Error && (json.message || String(json));
-      if (!el.previousElementSibling)
+      if (!prev)
         el.insertAdjacentElement('beforebegin', Object.assign(el.cloneNode(), {value: ''}));
-    } else if (el.previousElementSibling) {
-      el.previousElementSibling.focus();
-      el && el.remove();
+    } else if (prev) {
+      prev.focus();
+      el.remove();
     }
     el.__json = !error && json;
     el.title = error || '';
@@ -2738,30 +2739,30 @@ function setup() {
       </main>
     `;
     // rules
-    const elRules = $.rules;
-    elRules.addEventListener('input', checkRule);
-    elRules.addEventListener('focusin', onRuleFocused);
-    elRules.addEventListener('paste', onRuleFocused);
+    const rules = $.rules;
+    rules.addEventListener('input', checkRule);
+    rules.addEventListener('focusin', onRuleFocused);
+    rules.addEventListener('paste', onRuleFocused);
     if (config.hosts) {
-      const template = elRules.firstElementChild;
+      const template = rules.firstElementChild;
       for (const rule of config.hosts) {
         const el = template.cloneNode();
         el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
-        elRules.appendChild(el);
+        rules.appendChild(el);
         checkRule({target: el});
       }
     }
     // search rules
-    const elSearch = $.search;
-    elSearch.oninput = () => {
-      setup.search = elSearch.value;
-      const s = elSearch.value.toLowerCase();
-      for (const el of elRules.children)
+    const search = $.search;
+    search.oninput = () => {
+      setup.search = search.value;
+      const s = search.value.toLowerCase();
+      for (const el of rules.children)
         el.hidden = s && !el.value.toLowerCase().includes(s);
     };
-    elSearch.value = setup.search || '';
-    if (elSearch.value)
-      elSearch.oninput();
+    search.value = setup.search || '';
+    if (search.value)
+      search.oninput();
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
     root.addEventListener('keydown', e =>
