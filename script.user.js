@@ -2305,8 +2305,7 @@ class Util {
       node = n;
     } else {
       let maxHeight = node.offsetHeight;
-      const walker = doc.createTreeWalker(node, NodeFilter.SHOW_ELEMENT);
-      while ((n = walker.nextNode())) {
+      for (n of node.getElementsByTagName('*')) {
         const height = n.offsetHeight;
         if (height > maxHeight) {
           maxHeight = height;
