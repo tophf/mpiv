@@ -464,7 +464,6 @@ class Config {
   constructor({data: c = GM_getValue('cfg'), save}) {
     const DEFAULTS = Object.assign(Object.create(null), {
       center: false,
-      close: true,
       css: '',
       delay: 500,
       globalStatus: false,
@@ -480,19 +479,22 @@ class Config {
       scale: 1.5,
       scales: [],
       start: 'auto',
-      version: 5,
+      version: 6,
       xhr: true,
       zoom: 'context',
+      zoomOut: 'auto',
     });
     if (typeof c === 'string')
       c = tryCatch(JSON.parse, c);
     if (typeof c !== 'object' || !c)
       c = {};
-    if (typeof c.hosts === 'string')
-      c.hosts = c.hosts.split('\n')
-        .map(s => tryCatch(JSON.parse, s) || s)
-        .filter(Boolean);
     if (c.version !== DEFAULTS.version) {
+      if (typeof c.hosts === 'string')
+        c.hosts = c.hosts.split('\n')
+          .map(s => tryCatch(JSON.parse, s) || s)
+          .filter(Boolean);
+      if (c.close === true || c.close === false)
+        c.zoomOut = c.close ? 'auto' : 'stay';
       for (const dp in DEFAULTS)
         if (typeof c[dp] !== typeof DEFAULTS[dp])
           c[dp] = DEFAULTS[dp];
@@ -1632,12 +1634,14 @@ class Events {
       const i = ai.scales.indexOf(ai.scale) - dir;
       if (i >= 0 && i < ai.scales.length)
         ai.scale = ai.scales[i];
-      if (i === 0 && cfg.close) {
-        if (!ai.gItems || ai.gItems.length < 2) {
+      if (i === 0 && cfg.zoomOut !== 'stay') {
+        if ((cfg.zoomOut === 'close' || !ai.isOverRect) &&
+            (!ai.gItems || ai.gItems.length < 2)) {
           App.deactivate({wait: true});
           return;
         }
         ai.zoom = false;
+        ai.zoomed = false;
         App.updateFileInfo();
       }
       if (ai.zooming)
@@ -2495,7 +2499,6 @@ function setup() {
     const scale = parseFloat($.scale.value.replace(',', '.'));
     const data = {
       css: $.css.value.trim(),
-      close: $.close.selected,
       delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
       hosts: [...$.rules.children]
         .map(el => [el.value.trim(), el.__json])
@@ -2510,6 +2513,7 @@ function setup() {
         .filter(x => !isNaN(parseFloat(x))),
       start: $.start.value,
       zoom: $.zoom.value,
+      zoomOut: $.zoomOut.value,
     };
     for (const el of qsa('[type="checkbox"]', root))
       data[el.id] = el.checked;
@@ -2673,23 +2677,6 @@ function setup() {
           </li>
           <li>
             <label>
-              Only show popup over scaled-down image when natural size is
-              <input id="scale"> times larger
-            </label>
-          </li>
-          <li>
-            <label><input type="checkbox" id="center"> Always centered</label>
-            <label><input type="checkbox" id="imgtab"> Run in image tabs</label>
-            <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
-          </li>
-          <li>
-            <label><input type="checkbox" id="globalStatus">
-              expose status on &lt;html&gt; node</label>
-            <small>(Don't enable unless you know what it is
-             since it may slow down sites noticeably)</small>
-          </li>
-          <li>
-            <label>
               Zoom:
               <select id="zoom">
                 <option value="context">right click or shift
@@ -2706,12 +2693,30 @@ function setup() {
           </li>
           <li>
             <label>
-              If zooming out further is not possible,
-              <select>
-                <option>stay in zoom mode
-                <option id="close">close popup
+              When zoomed out completely, 
+              <select id="zoomOut">
+                <option value="stay">stay in zoom mode
+                <option value="auto">stay if still hovered
+                <option value="close">close popup
               </select>
             </label>
+          </li>
+          <li>
+            <label>
+              Only show popup over scaled-down image when natural size is
+              <input id="scale"> times larger
+            </label>
+          </li>
+          <li>
+            <label><input type="checkbox" id="center"> Always centered</label>
+            <label><input type="checkbox" id="imgtab"> Run in image tabs</label>
+            <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
+          </li>
+          <li>
+            <label><input type="checkbox" id="globalStatus">
+              expose status on &lt;html&gt; node</label>
+            <small>(Don't enable unless you know what it is
+             since it may slow down sites noticeably)</small>
           </li>
           <li>
             <a href="${MPIV_BASE_URL}css.html" target="_blank">Custom CSS:</a>
@@ -2763,7 +2768,6 @@ function setup() {
     root.addEventListener('keydown', e =>
       !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
     $.cancel.onclick = closeSetup;
-    $.close.selected = config.close;
     $.css.value = config.css;
     $.delay.value = config.delay;
     $.export.onclick = exportSettings;
@@ -2787,6 +2791,7 @@ function setup() {
       e.target.checked ||
       confirm('Disable only if you spoof the HTTP headers yourself.\nPlease confirm.');
     $.zoom.value = config.zoom;
+    $.zoomOut.value = config.zoomOut;
     for (const el of qsa('[type="checkbox"]', root))
       el.checked = config[el.id];
     doc.body.appendChild(div);

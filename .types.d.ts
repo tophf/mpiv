@@ -8,7 +8,6 @@ declare namespace mpiv {
 
   type Config = {
     center: boolean
-    close: boolean
     css: string
     delay: number
     globalStatus: boolean
@@ -21,6 +20,7 @@ declare namespace mpiv {
     version: number
     xhr: boolean
     zoom: 'context' | 'wheel' | 'shift' | 'auto'
+    zoomOut: 'close' | 'stay' | 'auto'
   };
 
   type HostRule = {
