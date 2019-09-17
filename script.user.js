@@ -1666,7 +1666,7 @@ class Events {
     switch (e.key.length > 1 ? e.key : e.code) {
       case 'Shift':
         App.setStatus('-shift');
-        if (ai.popup.controls)
+        if ((ai.popup || {}).controls)
           ai.popup.controls = false;
         if (ai.controlled) {
           ai.controlled = false;
