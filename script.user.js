@@ -557,11 +557,11 @@ class Ruler {
         css: '#post-preview{display:none}',
       },
       hostname.includes('amazon.') && {
-        u: 'amazon.com/images/I/',
-        r: /(?:^|\/\/)(.+?\/I\/.+?\.)/,
+        u: '/images/I/',
+        r: /.+?\/I\/.+?\./,
         s: m => {
           const uh = doc.getElementById('universal-hover');
-          return uh ? '' : m[1] + 'jpg';
+          return uh ? '' : m[0] + 'jpg';
         },
         css: '#zoomWindow{display:none!important;}',
       },
