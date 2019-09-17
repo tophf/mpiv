@@ -375,7 +375,7 @@ class App {
       }
       #${PREFIX}popup {
         display: none;
-        border: 1px solid gray;
+        border: none;
         box-sizing: content-box;
         background-color: white;
         position: fixed;
@@ -385,6 +385,7 @@ class App {
         max-height: none;
         will-change: display, width, height, left, top;
         cursor: none;
+        box-shadow: 6px 6px 30px black;
       }
       ${cfg.globalStatus ? `
         .${PREFIX}loading:not(.${PREFIX}preloading) * {
