@@ -24,21 +24,17 @@
 
 'use strict';
 
-//#region Global vars
-
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
-const trusted = ['greasyfork.org', 'w9p.co'];
-const isImageTab = doc.images.length === 1 &&
-                   doc.images[0].parentNode === doc.body &&
-                   !doc.links.length;
+const trustedDomains = ['greasyfork.org', 'w9p.co'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 
 const PREFIX = 'mpiv-';
-const SETUP_ID = PREFIX + 'setup:host';
+const SETUP_ID = `${PREFIX}setup`;
 const STATUS_ATTR = `${PREFIX}status`;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
+const PASSIVE = {passive: true};
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 
@@ -47,10 +43,35 @@ let cfg;
 /** @type mpiv.AppInfo */
 let ai = {rule: {}};
 
-//#endregion
-//#region App
-
 class App {
+
+  static init() {
+    cfg = new Config({save: true});
+    App.isImageTab = doc.images.length === 1 &&
+                     doc.images[0].parentNode === doc.body &&
+                     !doc.links.length;
+    App.enabled = cfg.imgtab || !App.isImageTab;
+
+    GM_registerMenuCommand('Configure', setup);
+    doc.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
+
+    if (isGoogleDomain && doc.getElementById('main'))
+      doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, PASSIVE);
+
+    if (trustedDomains.includes(hostname)) {
+      window.addEventListener('message', Events.onMessage);
+      doc.addEventListener('click', e => {
+        const el = e.target.closest('blockquote, code, pre');
+        const text = el && el.textContent;
+        if (text && e.button === 0 &&
+            /^\s*{\s*"\w+"\s*:[\s\S]+}\s*$/.test(text) &&
+            tryCatch(JSON.parse, text)) {
+          postMessage(`${PREFIX}rule ${text}`, '*');
+          Events.drop(e);
+        }
+      });
+    }
+  }
 
   static activate(info, event) {
     const force = event.ctrlKey;
@@ -157,7 +178,7 @@ class App {
 
   static setListeners(enable = true) {
     const onOff = enable ? doc.addEventListener : doc.removeEventListener;
-    const passive = enable ? {passive: true} : undefined;
+    const passive = enable ? PASSIVE : undefined;
     onOff.call(doc, 'mousemove', Events.onMouseMove, passive);
     onOff.call(doc, 'mouseout', Events.onMouseOut, passive);
     onOff.call(doc, 'mousedown', Events.onMouseDown, passive);
@@ -296,7 +317,7 @@ class App {
                ai.nheight > ai.popup.clientHeight + ai.mbh;
     if (ai.large)
       App.setStatus('large');
-    if (cfg.imgtab && isImageTab || cfg.zoom === 'auto')
+    if (cfg.imgtab && App.isImageTab || cfg.zoom === 'auto')
       App.toggleZoom();
   }
 
@@ -439,9 +460,6 @@ class App {
   }
 }
 
-//#endregion
-//#region Config
-
 class Config {
   constructor({data: c = GM_getValue('cfg'), save}) {
     const DEFAULTS = Object.assign(Object.create(null), {
@@ -496,9 +514,6 @@ class Config {
     Object.assign(this, c);
   }
 }
-
-//#endregion
-//#region Ruler
 
 class Ruler {
 /*
@@ -1281,9 +1296,6 @@ class Ruler {
   }
 }
 
-//#endregion
-//#region SimpleUrlMatcher
-
 const SimpleUrlMatcher = (() => {
   // string-to-regexp escaped chars
   const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
@@ -1407,9 +1419,6 @@ const SimpleUrlMatcher = (() => {
   };
 })();
 
-//#endregion
-//#region RuleMatcher
-
 class RuleMatcher {
 
   /** @returns ?mpiv.RuleMatchInfo */
@@ -1507,9 +1516,6 @@ class RuleMatcher {
   }
 }
 
-//#endregion
-//#region Events
-
 class Events {
 
   static drop(e) {
@@ -1565,7 +1571,7 @@ class Events {
 
   static pierceShadow(node, x, y) {
     for (let root; (root = node.shadowRoot);) {
-      root.addEventListener('mouseover', Events.onMouseOver, {passive: true});
+      root.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
       root.addEventListener('mouseout', Events.onMouseOutShadow);
       const inner = root.elementFromPoint(x, y);
       if (!inner || inner === node)
@@ -1735,7 +1741,7 @@ class Events {
 
   static onMessage(e) {
     if (typeof e.data !== 'string' ||
-        !trusted.includes(e.origin.substr(e.origin.indexOf('//') + 2)) ||
+        !trustedDomains.includes(e.origin.substr(e.origin.indexOf('//') + 2)) ||
         !e.data.startsWith(`${PREFIX}rule `))
       return;
     if (!doc.getElementById(SETUP_ID))
@@ -1747,9 +1753,6 @@ class Events {
     el.select();
   }
 }
-
-//#endregion
-//#region Popup
 
 class Popup {
 
@@ -1924,9 +1927,6 @@ class Popup {
   }
 }
 
-//#endregion
-//#region PopupVideo
-
 class PopupVideo {
   static create() {
     const p = doc.createElement('video');
@@ -1958,9 +1958,6 @@ class PopupVideo {
     }
   }
 }
-
-//#endregion
-//#region Gallery
 
 class Gallery {
 
@@ -2064,9 +2061,6 @@ class Gallery {
     }
   }
 }
-
-//#endregion
-//#region Remoting
 
 class Remoting {
 
@@ -2227,9 +2221,6 @@ class Remoting {
     return new DOMParser().parseFromString(text, 'text/html');
   }
 }
-
-//#endregion
-//#region Util
 
 class Util {
 
@@ -2393,9 +2384,6 @@ class Util {
   }
 }
 
-//#endregion
-//#region Global util
-
 function qs(s, n = doc) {
   return n.querySelector(s);
 }
@@ -2430,9 +2418,6 @@ function tryCatch(fn, ...args) {
   } catch (e) {}
 }
 
-//#endregion
-//#region Setup
-
 function setup() {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   let div, root;
@@ -2447,7 +2432,7 @@ function setup() {
   function closeSetup() {
     const el = doc.getElementById(SETUP_ID);
     el && el.remove();
-    if (!trusted.includes(hostname))
+    if (!trustedDomains.includes(hostname))
       window.removeEventListener('message', Events.onMessage);
   }
 
@@ -2569,7 +2554,7 @@ function setup() {
 
   function init(config) {
     closeSetup();
-    if (!trusted.includes(hostname))
+    if (!trustedDomains.includes(hostname))
       window.addEventListener('message', Events.onMessage);
     div = doc.createElement('div');
     div.id = SETUP_ID;
@@ -2815,30 +2800,4 @@ function setup() {
   }
 }
 
-//#endregion
-//#region Init
-
-cfg = new Config({save: true});
-App.enabled = cfg.imgtab || !isImageTab;
-GM_registerMenuCommand('Configure', setup);
-doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
-
-if (isGoogleDomain)
-  if (doc.getElementById('main'))
-    doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, {passive: true});
-
-if (trusted.includes(hostname)) {
-  window.addEventListener('message', Events.onMessage);
-  doc.addEventListener('click', e => {
-    const t = e.target;
-    if (e.which !== 1 ||
-        !/BLOCKQUOTE|CODE|PRE/.test(t.tagName + t.parentNode.tagName) ||
-        !/^\s*{\s*".+:.+}\s*$/.test(t.textContent)) {
-      return;
-    }
-    postMessage(`${PREFIX}rule ${t.textContent}`, '*');
-    e.preventDefault();
-  });
-}
-
-//#endregion
+App.init();
