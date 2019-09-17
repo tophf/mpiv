@@ -1616,16 +1616,12 @@ class Events {
   }
 
   static onMouseDown({shiftKey, button}) {
-    switch (button) {
-      case 0:
-        if (shiftKey && ai.popup && ai.popup.controls)
-          ai.controlled = ai.zoomed = true;
-        break;
-      case 2:
-        break;
-      default:
-        if (!shiftKey)
-          App.deactivate({wait: true});
+    if (button === 0 && shiftKey && ai.popup && ai.popup.controls) {
+      ai.controlled = ai.zoomed = true;
+    } else if (button === 2 || shiftKey) {
+      // we ignore RMB and Shift
+    } else {
+      App.deactivate({wait: true});
     }
   }
 
