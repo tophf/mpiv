@@ -450,7 +450,13 @@ class Config {
       css: '',
       delay: 500,
       globalStatus: false,
-      hosts: [],
+      hosts: [{
+        d: 'www.youtube.com',
+        note: 'To enable MPIV on YouTube, turn off this rule ' +
+              "by adding '-' before 'www' inside 'd' above",
+        e: 'ytd-thumbnail *',
+        s: '',
+      }],
       imgtab: false,
       preload: false,
       scale: 1.5,
@@ -514,7 +520,8 @@ class Ruler {
       dotDomain.endsWith('.stackoverflow.com') && {
         e: '.post-tag, .post-tag img',
         s: '',
-      }, {
+      },
+      {
         u: '||disqus.com/',
         s: '',
       },
@@ -675,10 +682,6 @@ class Ruler {
         e: '.grid-tweet > .media-overlay',
         s: (m, node) => node.previousElementSibling.src,
         follow: true,
-      },
-      dotDomain.endsWith('.youtube.com') && {
-        e: 'ytd-thumbnail *',
-        s: '',
       },
     ];
 
