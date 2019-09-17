@@ -2102,8 +2102,8 @@ class Remoting {
   }
 
   static async getImage(url, pageUrl) {
-    let bar;
-    const start = Date.now();
+    ai.bufferingBar = false;
+    ai.bufferingStart = Date.now();
     const response = await Remoting.gmXhr({
       url,
       responseType: 'blob',
@@ -2111,15 +2111,7 @@ class Remoting {
         'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
         'Referer': pageUrl,
       },
-      onprogress(e) {
-        if (!bar && Date.now() - start > 3000 && e.loaded / e.total < 0.5)
-          bar = true;
-        if (bar) {
-          const pct = (e.loaded / e.total * 100).toFixed();
-          const mb = (e.total / 1024).toFixed();
-          App.setBar(`${pct}% of ${mb} kiB`, 'xhr');
-        }
-      },
+      onprogress: Remoting.getImageProgress,
     });
     App.setBar(false);
     const type = Remoting.guessMimeType(response);
@@ -2129,6 +2121,16 @@ class Remoting {
     return ai.xhr === 'data' ?
       Remoting.blobToDataUrl(b) :
       URL.createObjectURL(b);
+  }
+
+  static getImageProgress(e) {
+    if (!ai.bufferingBar && Date.now() - ai.bufferingStart > 3000 && e.loaded / e.total < 0.5)
+      ai.bufferingBar = true;
+    if (ai.bufferingBar) {
+      const pct = e.loaded / e.total * 100 | 0;
+      const size = e.total / 1024 | 0;
+      App.setBar(`${pct}% of ${size} kiB`, 'xhr');
+    }
   }
 
   static async findRedirect() {
