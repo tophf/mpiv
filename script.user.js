@@ -1736,7 +1736,7 @@ class Events {
     if (!doc.getElementById(SETUP_ID))
       setup();
     const el = doc.getElementById(SETUP_ID).shadowRoot.getElementById('hosts').firstElementChild;
-    el.value = e.data.substr(10).trim();
+    el.value = e.data.substr(`${PREFIX}rule `.length).trim();
     el.dispatchEvent(new Event('input', {bubbles: true}));
     el.parentNode.scrollTop = 0;
     el.select();
@@ -1852,7 +1852,7 @@ class Popup {
     ai.popupLoaded = true;
   }
 
-  static onZoom(e) {
+  static onZoom() {
     return this.classList.remove(`${PREFIX}zooming`);
   }
 
@@ -2079,7 +2079,7 @@ class Remoting {
           reject(`Server error ${e.status} ${e.error}\nURL: ${url}`);
       };
       opts.timeout = opts.timeout || 10e3;
-      opts.ontimeout = e => {
+      opts.ontimeout = () => {
         ai.req = null;
         reject(`Timeout fetching ${url}`);
       };
@@ -2446,12 +2446,6 @@ function setup() {
       window.removeEventListener('message', Events.onMessage);
   }
 
-  function updateActivationControls() {
-    $.delay.parentNode.hidden =
-      $.preload.parentNode.hidden =
-        !$.start_auto.selected;
-  }
-
   function checkRule({target: el}) {
     let json, error;
     if (el.value) {
@@ -2511,37 +2505,28 @@ function setup() {
   }
 
   function collectConfig({save} = {}) {
-    const data = {};
     const delay = parseInt($.delay.value);
     const scale = parseFloat($.scale.value.replace(',', '.'));
-    data.center = $.center.checked;
-    data.css = $.css.value.trim();
-    data.close = $.close.selected;
-    data.delay = !isNaN(delay) && delay >= 0 ? delay : undefined;
-    data.globalStatus = $.globalStatus.checked;
-    data.hosts = [...$.hosts.children]
-      .map(el => [el.value.trim(), el.__json])
-      .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
-      .map(([s, json]) => json || s)
-      .filter(Boolean);
-    data.imgtab = $.imgtab.checked;
-    data.preload = $.preload.checked;
-    data.scale = !isNaN(scale) ? Math.max(1, scale) : undefined;
-    data.scales = $.scales.value
-      .trim()
-      .split(/[,;]*\s+/)
-      .map(x => x.replace(',', '.'))
-      .filter(x => !isNaN(parseFloat(x)));
-    data.start =
-      $.start_context.selected ? 'context' :
-        $.start_ctrl.selected ? 'ctrl' :
-          'auto';
-    data.xhr = $.xhr.checked;
-    data.zoom =
-      $.zoom_context.selected ? 'context' :
-        $.zoom_wheel.selected ? 'wheel' :
-          $.zoom_shift.selected ? 'shift' :
-            'auto';
+    const data = {
+      css: $.css.value.trim(),
+      close: $.close.selected,
+      delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
+      hosts: [...$.rules.children]
+        .map(el => [el.value.trim(), el.__json])
+        .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
+        .map(([s, json]) => json || s)
+        .filter(Boolean),
+      scale: !isNaN(scale) ? Math.max(1, scale) : undefined,
+      scales: $.scales.value
+        .trim()
+        .split(/[,;]*\s+/)
+        .map(x => x.replace(',', '.'))
+        .filter(x => !isNaN(parseFloat(x))),
+      start: $.start.value,
+      zoom: $.zoom.value,
+    };
+    for (const el of qsa('[type="checkbox"]', root))
+      data[el.id] = el.checked;
     return new Config({data, save});
   }
 
@@ -2653,10 +2638,7 @@ function setup() {
         #hosts textarea {
           word-break: break-all;
         }
-        #search {
-          float: right;
-        }
-        #importExport {
+        #search, #importExport {
           float: right;
         }
         #exportNotification {
@@ -2694,10 +2676,10 @@ function setup() {
           <li>
             <label>
               Popup:
-              <select>
-                <option id="start_auto">automatically
-                <option id="start_context">right click or ctrl
-                <option id="start_ctrl">ctrl
+              <select id="start">
+                <option value="auto">automatically
+                <option value="context">right click or ctrl
+                <option value="ctrl">ctrl
               </select>
             </label>
             <label>after <input id="delay"> ms</label>
@@ -2724,10 +2706,10 @@ function setup() {
             <label>
               Zoom:
               <select id="zoom">
-                <option id="zoom_context">right click or shift
-                <option id="zoom_wheel">wheel up or shift
-                <option id="zoom_shift">shift
-                <option id="zoom_auto">automatically
+                <option value="context">right click or shift
+                <option value="wheel">wheel up or shift
+                <option value="shift">shift
+                <option value="auto">automatically
               </select>
             </label>
             <label>Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2"></label>
@@ -2753,7 +2735,7 @@ function setup() {
             <a href="${MPIV_BASE_URL}host_rules.html"
                target="_blank">Custom host rules:</a>
             <input id="search" type="search" placeholder="Search">
-            <div id="hosts"><textarea rows="1" spellcheck="false"></textarea></div>
+            <div id="rules"><textarea rows="1" spellcheck="false"></textarea></div>
           </li>
           <li>
             <a href="#" id="install">Install rule from repository...</a>
@@ -2765,66 +2747,62 @@ function setup() {
         </div>
       </main>
     `;
+    // rules
+    const elRules = $.rules;
+    elRules.addEventListener('input', checkRule);
+    elRules.addEventListener('focusin', onRuleFocused);
+    elRules.addEventListener('paste', onRuleFocused);
     if (config.hosts) {
-      const parent = $.hosts;
-      const template = parent.firstElementChild;
+      const template = elRules.firstElementChild;
       for (const rule of config.hosts) {
         const el = template.cloneNode();
         el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
-        parent.appendChild(el);
+        elRules.appendChild(el);
         checkRule({target: el});
       }
-
-      const se = $.search;
-      const doSearch = () => {
-        const s = se.value.toLowerCase();
-        setup.search = s;
-        for (const el of $.hosts.children)
-          el.hidden = s && !el.value.toLowerCase().includes(s);
-      };
-      let timer;
-      se.addEventListener('input', e => {
-        clearTimeout(timer);
-        setTimeout(doSearch, 200);
-      });
-      se.value = setup.search || '';
-      if (se.value)
-        doSearch();
     }
+    // search rules
+    const elSearch = $.search;
+    elSearch.oninput = () => {
+      setup.search = elSearch.value;
+      const s = elSearch.value.toLowerCase();
+      for (const el of elRules.children)
+        el.hidden = s && !el.value.toLowerCase().includes(s);
+    };
+    elSearch.value = setup.search || '';
+    if (elSearch.value)
+      elSearch.oninput();
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
     root.addEventListener('keydown', e =>
       !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
-    $.start_auto.parentNode.addEventListener('change', updateActivationControls);
-    $.cancel.addEventListener('click', closeSetup);
-    $.export.addEventListener('click', exportSettings);
-    $.import.addEventListener('click', importSettings);
-    $.hosts.addEventListener('input', checkRule);
-    $.hosts.addEventListener('focusin', onRuleFocused);
-    $.hosts.addEventListener('paste', onRuleFocused);
-    $.install.addEventListener('click', installRule);
-    $.ok.addEventListener('click', () => {
+    $.cancel.onclick = closeSetup;
+    $.close.selected = config.close;
+    $.css.value = config.css;
+    $.delay.value = config.delay;
+    $.export.onclick = exportSettings;
+    $.import.onclick = importSettings;
+    $.install.onclick = installRule;
+    $.ok.onclick = () => {
       cfg = collectConfig({save: true});
       Ruler.init();
       closeSetup();
-    });
-    $.delay.value = config.delay;
-    $.scale.value = config.scale;
-    $.center.checked = config.center;
-    $.imgtab.checked = config.imgtab;
-    $.globalStatus.checked = config.globalStatus;
-    $.close.selected = config.close;
-    $.preload.checked = config.preload;
-    $.css.value = config.css;
-    $.scales.value = config.scales.join(' ');
-    $.xhr.checked = config.xhr;
-    $.xhr.onclick = function () {
-      if (!this.checked)
-        return confirm('Do not disable this unless you spoof the HTTP headers yourself.');
     };
-    $[`zoom_${config.zoom}`].selected = true;
-    $[`start_${config.start}`].selected = true;
-    updateActivationControls();
+    $.scale.value = config.scale;
+    $.scales.value = config.scales.join(' ');
+    $.start.value = config.start;
+    $.start.onchange = function () {
+      $.delay.closest('label').hidden =
+        $.preload.closest('label').hidden =
+          this.value !== 'auto';
+    };
+    $.start.onchange();
+    $.xhr.onclick = e =>
+      e.target.checked ||
+      confirm('Disable only if you spoof the HTTP headers yourself.\nPlease confirm.');
+    $.zoom.value = config.zoom;
+    for (const el of qsa('[type="checkbox"]', root))
+      el.checked = config[el.id];
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
       $.css.style.height = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
