@@ -1442,12 +1442,14 @@ class RuleMatcher {
           // but we'll only allow it to match rules without 's' in the nested find call
           tn === 'IMG' && !('s' in rule) && !skipRule)
         continue;
+      if (rule.s === '')
+        return {};
       urls = 's' in rule ?
         Ruler.runS(node, rule, m) :
         [m.input];
       if (!urls.skipRule) {
         const url = urls[0];
-        return !url ? null :
+        return !url ? {} :
           rule.s && !rule.q && RuleMatcher.isFollowableUrl(url, rule) ?
             RuleMatcher.find(url, node, {skipRule: rule}) :
             RuleMatcher.makeInfo(urls, node, rule, m);
