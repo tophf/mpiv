@@ -2192,15 +2192,15 @@ class Remoting {
     switch (ext.toLowerCase()) {
       case 'bmp': return 'image/bmp';
       case 'gif': return 'image/gif';
+      case 'jpe': return 'image/jpeg';
       case 'jpeg': return 'image/jpeg';
+      case 'jpg': return 'image/jpeg';
       case 'mp4': return 'video/mp4';
       case 'png': return 'image/png';
-      case 'tiff': return 'image/tiff';
-      case 'webm': return 'video/webm';
-      case 'jpe': return 'image/jpeg';
-      case 'jpg': return 'image/jpeg';
       case 'svg': return 'image/svg+xml';
       case 'tif': return 'image/tiff';
+      case 'tiff': return 'image/tiff';
+      case 'webm': return 'video/webm';
       default: return 'application/octet-stream';
     }
   }
