@@ -1740,7 +1740,7 @@ class Events {
       return;
     if (!doc.getElementById(SETUP_ID))
       setup();
-    const el = doc.getElementById(SETUP_ID).shadowRoot.getElementById('hosts').firstElementChild;
+    const el = doc.getElementById(SETUP_ID).shadowRoot.getElementById('rules').firstElementChild;
     el.value = e.data.substr(`${PREFIX}rule `.length).trim();
     el.dispatchEvent(new Event('input', {bubbles: true}));
     el.parentNode.scrollTop = 0;
