@@ -81,9 +81,9 @@ class App {
   }
 
   static checkProgress(start) {
-    const oldTimer = App.progressTimer;
+    const oldTimer = ai.progressTimer;
     if (start === true) {
-      App.progressTimer = setInterval(App.checkProgress, 150);
+      ai.progressTimer = setInterval(App.checkProgress, 150);
     } else if (ai.popup) {
       const p = ai.popup;
       ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && 800;
