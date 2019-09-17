@@ -67,7 +67,7 @@ class App {
       width: view.clientWidth,
       height: view.clientHeight,
     };
-    ai.zooming = includes(cfg.css, `${PREFIX}zooming`);
+    ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressHoverTooltip();
     App.setListeners();
     App.updateMouse(event);
@@ -246,7 +246,7 @@ class App {
     if (gi) {
       const item = gi[ai.gIndex];
       let c = gi.length > 1 ? '[' + (ai.gIndex + 1) + '/' + gi.length + '] ' : '';
-      if (ai.gIndex === 0 && gi.title && (!item.desc || !includes(item.desc, gi.title)))
+      if (ai.gIndex === 0 && gi.title && (!item.desc || !safeIncludes(item.desc, gi.title)))
         c += gi.title + (item.desc ? ' - ' : '');
       if (item.desc)
         c += item.desc;
@@ -970,7 +970,7 @@ class Ruler {
               desc: [img.title, img.description].filter(Boolean).join(' - '),
             });
           }
-          if (images && info.is_album && !includes(items[0].desc, info.title))
+          if (images && info.is_album && !safeIncludes(items[0].desc, info.title))
             items.title = info.title;
           cb(items);
         },
@@ -2407,7 +2407,7 @@ function qsMany(q, doc) {
   }
 }
 
-function includes(a, b) {
+function safeIncludes(a, b) {
   return typeof a === 'string' && a.includes(b);
 }
 
