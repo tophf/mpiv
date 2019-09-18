@@ -2015,7 +2015,7 @@ class Gallery {
       ai.urls = item.url.slice(1);
       ai.url = item.url[0];
     } else {
-      delete ai.urls;
+      ai.urls = null;
       ai.url = item.url;
     }
     Popup.destroy();
