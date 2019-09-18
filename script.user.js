@@ -2083,7 +2083,7 @@ class Gallery {
 
 class Remoting {
 
-  static gmXhr(url, opts) {
+  static gmXhr(url, opts = {}) {
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     return new Promise((resolve, reject) => {
