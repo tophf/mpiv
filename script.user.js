@@ -1767,6 +1767,7 @@ class Events {
     el.value = e.data.substr(`${PREFIX}rule `.length).trim();
     el.dispatchEvent(new Event('input', {bubbles: true}));
     el.parentNode.scrollTop = 0;
+    el.hidden = false;
     el.select();
   }
 }
