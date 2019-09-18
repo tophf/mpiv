@@ -35,6 +35,9 @@ const SETUP_ID = `${PREFIX}setup`;
 const STATUS_ATTR = `${PREFIX}status`;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 const PASSIVE = {passive: true};
+// time for volatile things to settle down meanwhile we postpone action
+// examples: loading image from cache, quickly moving mouse over one element to another
+const SETTLE_TIME = 50;
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 
@@ -101,23 +104,26 @@ class App {
     }
   }
 
-  static checkProgress(start) {
-    const oldTimer = ai.progressTimer;
-    if (start === true) {
-      ai.progressTimer = setInterval(App.checkProgress, 150);
-    } else if (ai.popup) {
-      const p = ai.popup;
+  static checkProgress({start} = {}) {
+    const p = ai.popup;
+    if (p) {
       ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && 800;
       ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && 1200;
-      if (!ai.nheight)
+      if (ai.nheight) {
+        App.updateProgress();
+        clearInterval(ai.timerProgress);
+        clearTimeout(ai.timerStatus);
         return;
-      App.updateProgress();
+      }
     }
-    clearInterval(oldTimer);
+    if (start)
+      ai.timerProgress = setInterval(App.checkProgress, 150);
   }
 
   static deactivate({wait} = {}) {
     clearTimeout(ai.timer);
+    clearTimeout(ai.timerStatus);
+    clearInterval(ai.timerProgress);
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
@@ -221,6 +227,15 @@ class App {
     const newValue = [...cls].join(' ');
     if (newValue !== oldValue)
       el.setAttribute(attr, newValue);
+  }
+
+  static setStatusLoading(force) {
+    if (!force) {
+      clearTimeout(ai.timerStatus);
+      ai.timerStatus = setTimeout(App.setStatusLoading, SETTLE_TIME, true);
+    } else if (!ai.popupLoaded) {
+      App.setStatus('+loading');
+    }
   }
 
   static toggleZoom() {
@@ -1735,7 +1750,7 @@ class Events {
       Popup.start();
       Events.drop(e);
     } else {
-      setTimeout(App.deactivate, 50, {wait: true});
+      setTimeout(App.deactivate, SETTLE_TIME, {wait: true});
     }
   }
 
@@ -1756,27 +1771,28 @@ class Events {
 
 class Popup {
 
-  static schedule() {
-    if (cfg.preload) {
+  static schedule(force) {
+    if (!cfg.preload) {
+      ai.timer = setTimeout(Popup.start, cfg.delay);
+    } else if (!force) {
+      // we don't want to preload everything in the path of a quickly moving mouse cursor
+      ai.timer = setTimeout(Popup.start, SETTLE_TIME, force);
       ai.preloadStart = Date.now();
-      Popup.start();
+    } else {
       App.setStatus('+preloading');
       setTimeout(App.setStatus, cfg.delay, '-preloading');
-    } else {
-      ai.timer = setTimeout(Popup.start, cfg.delay);
     }
   }
 
   static start() {
     App.updateStyles();
-    App.setStatus('loading');
     ai.gallery ?
       Popup.startGallery() :
       Popup.startSingle();
   }
 
   static startSingle() {
-    App.setStatus('loading');
+    App.setStatusLoading();
     ai.imageUrl = null;
     if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
       Remoting.findRedirect();
@@ -1811,6 +1827,7 @@ class Popup {
   }
 
   static async startGallery() {
+    App.setStatusLoading();
     try {
       const startUrl = ai.url;
       const p = await Remoting.fetch(startUrl);
@@ -1853,7 +1870,7 @@ class Popup {
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
-    App.checkProgress(true);
+    ai.timer = setTimeout(App.checkProgress, 0, {start: true});
   }
 
   static onLoad() {

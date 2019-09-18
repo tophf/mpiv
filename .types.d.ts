@@ -118,12 +118,13 @@ declare namespace mpiv {
     preloadStart: number
     // used by gallery to preload the next image
     preloadUrl: string
-    progressTimer: number
     rect: DOMRect
     req: { abort: VoidFunction }
     scale: number
     scales: number[]
     timer: number
+    timerProgress: number
+    timerStatus: number
     title: string
     tooltip: { node: Node, text: string }
     view: { width: number, height: number }
