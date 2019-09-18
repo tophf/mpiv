@@ -1013,7 +1013,7 @@ class Ruler {
       },
       {
         u: '||imgur.com/',
-        r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+)/,
+        r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+\w*)/,
         s: 'gallery',
         g: (text, doc, url, m) =>
           m[2].split(',').map(id => ({
