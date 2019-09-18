@@ -1932,7 +1932,6 @@ class Popup {
     const p = ai.popup;
     if (!p)
       return;
-    ai.zoom = false;
     p.removeEventListener('error', App.handleError);
     if (typeof p.pause === 'function')
       p.pause();
@@ -1941,7 +1940,9 @@ class Popup {
         URL.revokeObjectURL(p.src);
       p.src = '';
     }
-    p && p.remove();
+    p.remove();
+    ai.zoom = false;
+    ai.popupLoaded = false;
     ai.popup = null;
   }
 }
