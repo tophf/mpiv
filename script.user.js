@@ -985,7 +985,7 @@ class Ruler {
           '||imgur.com/gallery/',
           '||imgur.com/t/',
         ],
-        g: async (text, url, m, rule, cb) => {
+        g: async (text, doc, url, m, rule, cb) => {
           // simplified extraction of JSON as it occupies only one line
           if (!/(?:mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()[\s\S]*?[,\s{"'](?:image|album)\s*:\s*({[^\r\n]+?}),?[\r\n]/.test(text))
             return;
@@ -993,7 +993,7 @@ class Ruler {
           let images = info.is_album ? info.album_images.images : [info];
           if (info.num_images > images.length) {
             const url = `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`;
-            images = JSON.parse((await Remoting.gmXhr({url})).responseText).data.images;
+            images = JSON.parse((await Remoting.gmXhr(url)).responseText).data.images;
           }
           const items = [];
           for (const img of images || []) {
@@ -1014,7 +1014,8 @@ class Ruler {
       {
         u: '||imgur.com/',
         r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+)/,
-        g: (text, url, m) =>
+        s: 'gallery',
+        g: (text, doc, url, m) =>
           m[2].split(',').map(id => ({
             url: `https://i.${m[1]}${id}.jpg`,
           })),
@@ -1473,13 +1474,14 @@ class RuleMatcher {
         continue;
       if (rule.s === '')
         return {};
-      urls = 's' in rule ?
+      const hasS = 's' in rule && rule.s !== 'gallery';
+      urls = hasS ?
         Ruler.runS(node, rule, m) :
         [m.input];
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
-          rule.s && !rule.q && RuleMatcher.isFollowableUrl(url, rule) ?
+          hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule) ?
             RuleMatcher.find(url, node, {skipRule: rule}) :
             RuleMatcher.makeInfo(urls, node, rule, m);
       }
@@ -1806,8 +1808,7 @@ class Popup {
 
   static async startFromQ() {
     try {
-      const {responseText, finalUrl} = await Remoting.fetch(ai.url);
-      const doc = Remoting.createDoc(responseText);
+      const {responseText, doc, finalUrl} = await Remoting.getDoc(ai.url);
       const url = Ruler.runQ(responseText, doc, finalUrl);
       if (!url)
         throw 'File not found.';
@@ -1830,9 +1831,10 @@ class Popup {
     App.setStatusLoading();
     try {
       const startUrl = ai.url;
-      const p = await Remoting.fetch(startUrl);
+      const p = ai.rule.s === 'gallery' ? {} :
+        await Remoting.getDoc(startUrl);
       const items = await new Promise(resolve => {
-        const it = ai.gallery(p.responseText, p.finalUrl, ai.match, ai.rule, resolve);
+        const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, resolve);
         if (Array.isArray(it))
           resolve(it);
       });
@@ -1981,7 +1983,7 @@ class Gallery {
   static makeParser(g) {
     return (
       typeof g === 'function' ? g :
-        typeof g === 'string' ? new Function('text', 'url', 'm', 'rule', 'cb', g) :
+        typeof g === 'string' ? new Function('text', 'doc', 'url', 'm', 'rule', 'cb', g) :
           Gallery.defaultParser
     );
   }
@@ -2034,7 +2036,7 @@ class Gallery {
     doc.createElement('img').src = ai.preloadUrl;
   }
 
-  static defaultParser(text, docUrl, m, rule) {
+  static defaultParser(text, doc, docUrl, m, rule) {
     const {g} = rule;
     const qEntry = g.entry;
     const qCaption = ensureArray(g.caption);
@@ -2043,7 +2045,6 @@ class Gallery {
     const fix =
       (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
       (s => s.trim());
-    const doc = Remoting.createDoc(text);
     const items = [...qsa(qEntry || qImage, doc)]
       .map(processEntry)
       .filter(Boolean);
@@ -2081,11 +2082,11 @@ class Gallery {
 
 class Remoting {
 
-  static gmXhr(opts) {
+  static gmXhr(url, opts) {
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     return new Promise((resolve, reject) => {
-      const url = opts.url;
+      opts.url = url;
       if (!opts.method)
         opts.method = 'GET';
       opts.onload = opts.onerror = e => {
@@ -2103,25 +2104,25 @@ class Remoting {
     });
   }
 
-  static fetch(url) {
-    return !ai.post ?
-      Remoting.gmXhr({url}) :
-      Remoting.gmXhr({
-        url,
+  static async getDoc(url) {
+    const r = await (!ai.post ?
+      Remoting.gmXhr(url) :
+      Remoting.gmXhr(url, {
         method: 'POST',
         data: ai.post,
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Referer': url,
         },
-      });
+      }));
+    r.doc = new DOMParser().parseFromString(r.responseText, 'text/html');
+    return r;
   }
 
   static async getImage(url, pageUrl) {
     ai.bufferingBar = false;
     ai.bufferingStart = Date.now();
-    const response = await Remoting.gmXhr({
-      url,
+    const response = await Remoting.gmXhr(url, {
       responseType: 'blob',
       headers: {
         'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
@@ -2151,8 +2152,7 @@ class Remoting {
 
   static async findRedirect() {
     try {
-      const {finalUrl} = await Remoting.gmXhr({
-        url: ai.url,
+      const {finalUrl} = await Remoting.gmXhr(ai.url, {
         method: 'HEAD',
         headers: {
           'Referer': location.href.split('#', 1)[0],
@@ -2175,8 +2175,7 @@ class Remoting {
       name += '.jpg';
     try {
       if (!url.startsWith('blob:') && !url.startsWith('data:')) {
-        const {response} = await Remoting.gmXhr({
-          url,
+        const {response} = await Remoting.gmXhr(url, {
           responseType: 'blob',
           headers: {'Referer': url},
         });
@@ -2232,10 +2231,6 @@ class Remoting {
       /https?:\/\/[./a-z0-9_+%-]+\.(jpe?g|gif|png|svg|webm|mp4)/i.exec(n.outerHTML) &&
         RegExp.lastMatch;
     return path ? Util.rel2abs(path.trim(), base ? base.getAttribute('href') : url) : false;
-  }
-
-  static createDoc(text) {
-    return new DOMParser().parseFromString(text, 'text/html');
   }
 }
 
