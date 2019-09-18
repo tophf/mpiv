@@ -2170,7 +2170,7 @@ class Remoting {
 
   static async saveFile() {
     let url = ai.popup.src || ai.popup.currentSrc;
-    let name = (ai.imageUrl || url).split('/').pop().replace(/[:#?].*/, '');
+    let name = decodeURIComponent(ai.imageUrl || url).split('/').pop().replace(/[:#?].*/, '');
     if (!name.includes('.'))
       name += '.jpg';
     try {
