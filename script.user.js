@@ -49,13 +49,41 @@ let ai = {rule: {}};
 class App {
 
   static init() {
+    /** @type mpiv.Config */
+    Config.DEFAULTS = Object.assign(Object.create(null), {
+      center: false,
+      css: '',
+      delay: 500,
+      globalStatus: false,
+      // prefer ' inside rules because " will be displayed as \"
+      hosts: [{
+        rule: 'No popup for YouTube thumbnails',
+        d: 'www.youtube.com',
+        e: 'ytd-thumbnail *',
+        s: '',
+      }, {
+        rule: 'No popup for SVG icons',
+        d: '',
+        e: "img[src*='icon'][src*='.svg']",
+        s: '',
+      }],
+      imgtab: false,
+      preload: false,
+      scale: 1.25,
+      scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16],
+      start: 'auto',
+      version: 6,
+      xhr: true,
+      zoom: 'context',
+      zoomOut: 'auto',
+    });
     cfg = new Config({save: true});
     App.isImageTab = doc.images.length === 1 &&
                      doc.images[0].parentNode === doc.body &&
                      !doc.links.length;
     App.enabled = cfg.imgtab || !App.isImageTab;
 
-    GM_registerMenuCommand('Configure', setup);
+    GM_registerMenuCommand('MPIV: configure', setup);
     doc.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
 
     if (isGoogleDomain && doc.getElementById('main'))
@@ -337,8 +365,7 @@ class App {
   }
 
   static updateScales() {
-    const scales = cfg.scales.length ? cfg.scales :
-      ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16];
+    const scales = cfg.scales.length ? cfg.scales : Config.DEFAULTS.scales.slice();
     const fit = Math.min(
       (ai.view.width - ai.mbw - ai.outline * 2) / ai.nwidth,
       (ai.view.height - ai.mbh - ai.outline * 2) / ai.nheight);
@@ -477,32 +504,11 @@ class App {
 
 class Config {
   constructor({data: c = GM_getValue('cfg'), save}) {
-    const DEFAULTS = Object.assign(Object.create(null), {
-      center: false,
-      css: '',
-      delay: 500,
-      globalStatus: false,
-      hosts: [{
-        d: 'www.youtube.com',
-        note: 'To enable MPIV on YouTube, turn off this rule ' +
-              "by adding '-' before 'www' inside 'd' above",
-        e: 'ytd-thumbnail *',
-        s: '',
-      }],
-      imgtab: false,
-      preload: false,
-      scale: 1.5,
-      scales: [],
-      start: 'auto',
-      version: 6,
-      xhr: true,
-      zoom: 'context',
-      zoomOut: 'auto',
-    });
     if (typeof c === 'string')
       c = tryCatch(JSON.parse, c);
     if (typeof c !== 'object' || !c)
       c = {};
+    const {DEFAULTS} = Config;
     if (c.version !== DEFAULTS.version) {
       if (typeof c.hosts === 'string')
         c.hosts = c.hosts.split('\n')
@@ -510,14 +516,14 @@ class Config {
           .filter(Boolean);
       if (c.close === true || c.close === false)
         c.zoomOut = c.close ? 'auto' : 'stay';
-      for (const dp in DEFAULTS)
-        if (typeof c[dp] !== typeof DEFAULTS[dp])
-          c[dp] = DEFAULTS[dp];
+      for (const key in DEFAULTS)
+        if (typeof c[key] !== typeof DEFAULTS[key])
+          c[key] = DEFAULTS[key];
       if (c.version === 3 && c.scales[0] === 0)
         c.scales[0] = '0!';
-      for (const cp in c)
-        if (!(cp in DEFAULTS))
-          delete c[cp];
+      for (const key in c)
+        if (!(key in DEFAULTS))
+          delete c[key];
       c.version = DEFAULTS.version;
       if (save)
         GM_setValue('cfg', JSON.stringify(c));
@@ -2449,65 +2455,6 @@ function setup() {
       window.removeEventListener('message', Events.onMessage);
   }
 
-  function checkRule({target: el}) {
-    let json, error;
-    const prev = el.previousElementSibling;
-    if (el.value) {
-      json = Ruler.parse(el.value);
-      error = json instanceof Error && (json.message || String(json));
-      if (!prev)
-        el.insertAdjacentElement('beforebegin', Object.assign(el.cloneNode(), {value: ''}));
-    } else if (prev) {
-      prev.focus();
-      el.remove();
-    }
-    el.__json = !error && json;
-    el.title = error || '';
-    el.setCustomValidity(error || '');
-  }
-
-  function installRule(e) {
-    Events.drop(e);
-    const parent = e.target.parentNode;
-    parent.textContent = 'Loading...';
-    parent.appendChild(Object.assign(doc.createElement('iframe'), {
-      src: MPIV_BASE_URL + 'more_host_rules.html',
-      hidden: true,
-      style: `
-        width: 100%;
-        height: 26px;
-        border: 0;
-        margin: 0;
-      `,
-      onload() {
-        this.hidden = false;
-        this.previousSibling.remove();
-      },
-    }));
-  }
-
-  function exportSettings(e) {
-    Events.drop(e);
-    const txt = document.createElement('textarea');
-    txt.style = 'opacity:0; position:absolute';
-    txt.value = JSON.stringify(collectConfig(), null, '  ');
-    root.appendChild(txt);
-    txt.select();
-    txt.focus();
-    document.execCommand('copy');
-    e.target.focus();
-    txt.remove();
-    $.exportNotification.hidden = false;
-    setTimeout(() => ($.exportNotification.hidden = true), 1000);
-  }
-
-  function importSettings(e) {
-    Events.drop(e);
-    const s = prompt('Paste settings:');
-    if (s)
-      init(new Config({data: s}));
-  }
-
   function collectConfig({save} = {}) {
     const delay = parseInt($.delay.value);
     const scale = parseFloat($.scale.value.replace(',', '.'));
@@ -2534,15 +2481,43 @@ function setup() {
     return new Config({data, save});
   }
 
-  function formatRuleCollapse(rule) {
-    return JSON.stringify(rule, null, ' ')
-      .replace(/\n\s*/g, ' ')
-      .replace(/^({)\s|\s(})$/g, '$1$2');
+  function exportSettings(e) {
+    Events.drop(e);
+    const txt = document.createElement('textarea');
+    txt.style = 'opacity:0; position:absolute';
+    txt.value = JSON.stringify(collectConfig(), null, '  ');
+    root.appendChild(txt);
+    txt.select();
+    txt.focus();
+    document.execCommand('copy');
+    e.target.focus();
+    txt.remove();
+    $.exportNotification.hidden = false;
+    setTimeout(() => ($.exportNotification.hidden = true), 1000);
   }
 
-  function formatRuleExpand(rule) {
-    return JSON.stringify(rule, null, ' ')
-      .replace(/^{\s+/g, '{');
+  function importSettings(e) {
+    Events.drop(e);
+    const s = prompt('Paste settings:');
+    if (s)
+      init(new Config({data: s}));
+  }
+
+  function checkRule({target: el}) {
+    let json, error;
+    const prev = el.previousElementSibling;
+    if (el.value) {
+      json = Ruler.parse(el.value);
+      error = json instanceof Error && (json.message || String(json));
+      if (!prev)
+        el.insertAdjacentElement('beforebegin', Object.assign(el.cloneNode(), {value: ''}));
+    } else if (prev) {
+      prev.focus();
+      el.remove();
+    }
+    el.__json = !error && json;
+    el.title = error || '';
+    el.setCustomValidity(error || '');
   }
 
   function onRuleFocused({type, target: el, relatedTarget: from, currentTarget}) {
@@ -2556,14 +2531,45 @@ function setup() {
       el.value = formatRuleExpand(el.__json);
     const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
     if (h > el.offsetHeight)
-      el.style.height = h + 'px';
+      el.style.minHeight = h + 'px';
     if (!currentTarget.contains(from))
       from = [...qsa('[style*="height"]', currentTarget)].find(_ => _ !== el);
     if (from) {
-      from.style.height = '';
+      from.style.minHeight = '';
       if (from.__json)
         from.value = formatRuleCollapse(from.__json);
     }
+  }
+
+  function formatRuleCollapse(rule) {
+    return JSON.stringify(rule, null, ' ')
+      .replace(/\n\s*/g, ' ')
+      .replace(/^({)\s|\s(})$/g, '$1$2');
+  }
+
+  function formatRuleExpand(rule) {
+    return JSON.stringify(rule, null, ' ')
+      .replace(/^{\s+/g, '{');
+  }
+
+  function installRule(e) {
+    Events.drop(e);
+    const parent = this.parentNode;
+    parent.textContent = 'Loading...';
+    parent.appendChild(Object.assign(doc.createElement('iframe'), {
+      src: this.href,
+      hidden: true,
+      style: `
+        width: 100%;
+        height: 26px;
+        border: 0;
+        margin: 0;
+      `,
+      onload() {
+        this.hidden = false;
+        this.previousSibling.remove();
+      },
+    }));
   }
 
   function init(config) {
@@ -2588,7 +2594,7 @@ function setup() {
           color: #000 !important;
           background: #eee !important;
           box-shadow: 5px 5px 25px 2px #000 !important;
-          width: 640px !important;
+          width: 500px !important;
           border: 1px solid black !important;
           display: flex !important;
           flex-direction: column !important;
@@ -2601,61 +2607,76 @@ function setup() {
           margin: 10px 0 15px 0;
           padding: 0;
           list-style: none;
-          display: flex;
-          flex-direction: column;
         }
         li {
           margin: 0;
-          padding: 2px 0;
-          vertical-align: middle;
+          padding: .25em 0;
         }
-        select, #css {
-          border: 1px solid gray;
-          padding: 2px;
+        li.options {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
         }
-        input {
-          vertical-align: middle;
+        label {
+          display: inline-flex;
+          align-items: center;
+        }
+        label:not(:last-child) {
+          margin-right: 1em;
+        }
+        label > :not(span) {
+          margin-right: .25em;
+        }
+        label > :not(span):not(:first-child) {
+          margin-left: .5em;
+        }
+        input:first-child {
+          margin-left: 0;
+        }
+        input, select {
+          height: 1.6em;
+          box-sizing: border-box;
         }
         textarea {
+          flex: 1;
           resize: vertical;
-          width: 98%;
           margin: 1px 0;
-          font-family: Consolas, monospace;
-        }
-        #scales {
-          width: 130px;
-        }
-        #zoom {
-          margin-right: 18px;
-        }
-        #delay, #scale {
-          width: 36px;
-        }
-        #cursor, #imgtab, #xhr, #preload {
-          margin-left: 18px;
-        }
-        #hosts {
-          padding: 2px;
-          margin: 4px 0;
-          clear: both;
-        }
-        #hosts textarea {
-          word-break: break-all;
-        }
-        #search, #importExport {
-          float: right;
-        }
-        #exportNotification {
-          color: green;
-          position: absolute;
-        }
-        button {
-          width: 150px;
-          margin: 0 10px;
+          font: 11px/1.25 Consolas, monospace;
         }
         textarea:invalid {
           background-color: #f002;
           border-color: #800;
+        }
+        code {
+          font-weight: bold;
+        }
+        a {
+          text-decoration: none;
+        }
+        a:hover {
+          text-decoration: underline;
+        }
+        button {
+          padding: .2em 1em;
+          margin: 0 1em;
+        }
+        .column {
+          display: flex;
+          flex-direction: column;
+        }
+        #rules textarea {
+          word-break: break-all;
+        }
+        #x {
+          position: absolute;
+          top: 0;
+          right: 0;
+          padding: 4px 8px;
+          cursor: pointer;
+          user-select: none;
+        }
+        #x:hover {
+          background-color: #8884;
         }
         @media (prefers-color-scheme: dark) {
           :host {
@@ -2668,30 +2689,31 @@ function setup() {
         }
       </style>
       <main>
-        <div>
-          <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
-          <div id="importExport">
-            <a href="#" id="import">Import</a> |
-            <a href="#" id="export">Export</a>
-            <p id="exportNotification" hidden>Copied to clipboard.</p>
-          </div>
-        </div>
-        <ul>
-          <li>
+        <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
+        <div id="x">x</div>
+        <ul class="column">
+          <li class="options">
             <label>
-              Popup:
+              <span>Popup:</span>
               <select id="start">
                 <option value="auto">automatically
                 <option value="context">right click or ctrl
                 <option value="ctrl">ctrl
               </select>
             </label>
-            <label>after <input id="delay"> ms</label>
-            <label><input type="checkbox" id="preload"> Start preloading immediately</label>
-          </li>
-          <li>
             <label>
-              Zoom:
+              <span>after</span>
+              <input id="delay" type="number" min="0" max="10000" step="50" style="width: 4em">
+              <span>ms</span>
+            </label>
+            <label>
+              <input type="checkbox" id="preload">
+              <span>Start preloading immediately</span>
+            </label>
+          </li>
+          <li class="options">
+            <label>
+              <span>Zoom:</span>
               <select id="zoom">
                 <option value="context">right click or shift
                 <option value="wheel">wheel up or shift
@@ -2699,15 +2721,8 @@ function setup() {
                 <option value="auto">automatically
               </select>
             </label>
-            <label>Custom scale factors: <input id="scales" placeholder="e.g. 0 0.5 1* 2"></label>
-            <span title="values smaller than non-zoomed size are ignored,
-                         0 = fit to window, 0! = same as 0 but also removes smaller values,
-                         asterisk after value marks default zoom factor (e.g. 1*)"
-                  style="cursor:help">(?)</span>
-          </li>
-          <li>
             <label>
-              When zoomed out completely, 
+              <span>When zoomed out completely</span> 
               <select id="zoomOut">
                 <option value="stay">stay in zoom mode
                 <option value="auto">stay if still hovered
@@ -2715,40 +2730,77 @@ function setup() {
               </select>
             </label>
           </li>
-          <li>
+          <li class="options">
             <label>
-              Only show popup over scaled-down image when natural size is
-              <input id="scale"> times larger
+              <span>Only show popup over scaled-down image when natural size is</span>
+              <input id="scale" type="number" min="1" max="100" step=".05" style="width: 4em;">
+              <span>times larger</span>
+            </label>
+          </li>
+          <li class="options">
+            <label>
+              <span>Custom scale factors:</span>
+              <input id="scales" style="width: 18em"
+                     placeholder="${Config.DEFAULTS.scales.join(' ')}">
+              <span title="${`
+                0 = fit to window
+                0! = same as 0 but also removes smaller values
+                * after value marks default zoom factor, example 1*
+                Values smaller than non-zoomed size are ignored.
+              `.trim().replace(/\n\s+/g, '\n')}" style="cursor:help">(?)</span>
+            </label>
+          </li>
+          <li class="options">
+            <label><input type="checkbox" id="center"><span>Always centered</span></label>
+            <label><input type="checkbox" id="imgtab"><span>Run in image tabs</span></label>
+            <label title="Disable only if you spoof the HTTP headers yourself">
+              <input type="checkbox" id="xhr">
+              <span>Anti-hotlinking workaround</span>
+            </label>
+            <label>
+              <input type="checkbox" id="globalStatus">
+              <span>Expose status on &lt;html&gt; node (note: may cause noticeable slowdown)</small>
             </label>
           </li>
           <li>
-            <label><input type="checkbox" id="center"> Always centered</label>
-            <label><input type="checkbox" id="imgtab"> Run in image tabs</label>
-            <label><input type="checkbox" id="xhr"> Anti-hotlinking workaround</label>
+            <div class="column">
+              <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
+              <textarea id="css" spellcheck="false"></textarea>
+            </div>
+          </li>
+          <li style="overflow-y: auto">
+            <div style="display: flex; justify-content: space-between;">
+              <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
+              <div style="white-space: nowrap">
+                To disable, put any symbol except <code>a..z 0..9 - .</code><br>
+                in "d" value, for example <code>"d": "!foo.com"</code>
+              </div>
+              <div>
+                <input id="search" type="search" placeholder="Search"
+                       style="width: 10em; margin-left: 1em">
+              </div>
+            </div>
+            <div id="rules" class="column">
+              <textarea rows="1" spellcheck="false"></textarea>
+            </div>
           </li>
           <li>
-            <label><input type="checkbox" id="globalStatus">
-              expose status on &lt;html&gt; node</label>
-            <small>(Don't enable unless you know what it is
-             since it may slow down sites noticeably)</small>
-          </li>
-          <li>
-            <a href="${MPIV_BASE_URL}css.html" target="_blank">Custom CSS:</a>
-            <div><textarea id="css" spellcheck="false"></textarea></div>
-          </li>
-          <li style="overflow-y:auto">
-            <a href="${MPIV_BASE_URL}host_rules.html"
-               target="_blank">Custom host rules:</a>
-            <input id="search" type="search" placeholder="Search">
-            <div id="rules"><textarea rows="1" spellcheck="false"></textarea></div>
-          </li>
-          <li>
-            <a href="#" id="install">Install rule from repository...</a>
+            <a href="${MPIV_BASE_URL}more_host_rules.html" id="install">
+              Install rule from repository...</a>
           </li>
         </ul>
         <div style="text-align:center">
           <button id="ok">OK</button>
+          <button id="import" style="margin-right: 0">Import</button>
+          <button id="export" style="margin-left: 0">Export</button>
           <button id="cancel">Cancel</button>
+          <div id="exportNotification" hidden style="
+            color: green;
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            right: 0;
+            font-weight: bold;">Copied to clipboard.</div>
         </div>
       </main>
     `;
@@ -2801,16 +2853,19 @@ function setup() {
           this.value !== 'auto';
     };
     $.start.onchange();
-    $.xhr.onclick = e =>
-      e.target.checked ||
-      confirm('Disable only if you spoof the HTTP headers yourself.\nPlease confirm.');
+    $.x.onclick = closeSetup;
+    $.xhr.onclick = ({target: el}) => el.checked || confirm(el.closest('[title]').title);
     $.zoom.value = config.zoom;
     $.zoomOut.value = config.zoomOut;
     for (const el of qsa('[type="checkbox"]', root))
       el.checked = config[el.id];
+    for (const el of qsa('a[href^="http"]', root)) {
+      el.target = '_blank';
+      el.rel = 'noreferrer noopener external';
+    }
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
-      $.css.style.height = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
+      $.css.style.minHeight = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
     });
   }
 }
