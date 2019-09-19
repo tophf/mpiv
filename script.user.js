@@ -4,7 +4,10 @@
 // @description Shows images and videos behind links and thumbnails.
 
 // @include     http*
-// @connect-src *
+// @connect     *
+
+// allow rule installer in config dialog https://w9p.co/userscripts/mpiv/more_host_rules.html
+// @connect     w9p.co
 
 // @grant       GM_getValue
 // @grant       GM_setValue
@@ -31,7 +34,6 @@ const trustedDomains = ['greasyfork.org', 'w9p.co'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 
 const PREFIX = 'mpiv-';
-const SETUP_ID = `${PREFIX}setup`;
 const STATUS_ATTR = `${PREFIX}status`;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 const PASSIVE = {passive: true};
@@ -90,14 +92,14 @@ class App {
       doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, PASSIVE);
 
     if (trustedDomains.includes(hostname)) {
-      window.addEventListener('message', Events.onMessage);
       doc.addEventListener('click', e => {
         const el = e.target.closest('blockquote, code, pre');
-        const text = el && el.textContent;
+        const text = el && el.textContent.trim();
+        let rule;
         if (text && e.button === 0 &&
             /^\s*{\s*"\w+"\s*:[\s\S]+}\s*$/.test(text) &&
-            tryCatch(JSON.parse, text)) {
-          postMessage(`${PREFIX}rule ${text}`, '*');
+            (rule = tryCatch(JSON.parse, text))) {
+          setup({rule});
           Events.drop(e);
         }
       });
@@ -1231,6 +1233,18 @@ class Ruler {
     Ruler.rules = [].concat(customRules, disablers, perDomain, main).filter(Boolean);
   }
 
+  static format(rule, {expand} = {}) {
+    const s = JSON.stringify(rule, null, ' ');
+    return expand ?
+      /* {"a": ...,
+          "b": ...,
+          "c": ...
+         } */
+      s.replace(/^{\s+/g, '{') :
+      /* {"a": ..., "b": ..., "c": ...} */
+      s.replace(/\n\s*/g, ' ').replace(/^({)\s|\s+(})$/g, '$1$2');
+  }
+
   /** @returns mpiv.HostRule | Error | false | undefined */
   static parse(rule) {
     const isBatchOp = this instanceof Map;
@@ -1245,11 +1259,11 @@ class Ruler {
       if (rule.r)
         compileTo.r = new RegExp(rule.r, 'i');
       if (RX_HAS_CODE.test(rule.s))
-        compileTo.s = new Function('m', 'node', 'rule', rule.s);
+        compileTo.s = Util.newFunction('m', 'node', 'rule', rule.s);
       if (RX_HAS_CODE.test(rule.q))
-        compileTo.q = new Function('text', 'doc', 'node', 'rule', rule.q);
+        compileTo.q = Util.newFunction('text', 'doc', 'node', 'rule', rule.q);
       if (RX_HAS_CODE.test(rule.c))
-        compileTo.c = new Function('text', 'doc', 'node', 'rule', rule.c);
+        compileTo.c = Util.newFunction('text', 'doc', 'node', 'rule', rule.c);
       return rule;
     } catch (e) {
       if (!e.message.includes('unsafe-eval'))
@@ -1761,21 +1775,6 @@ class Events {
       setTimeout(App.deactivate, SETTLE_TIME, {wait: true});
     }
   }
-
-  static onMessage(e) {
-    if (typeof e.data !== 'string' ||
-        !trustedDomains.includes(e.origin.substr(e.origin.indexOf('//') + 2)) ||
-        !e.data.startsWith(`${PREFIX}rule `))
-      return;
-    if (!doc.getElementById(SETUP_ID))
-      setup();
-    const el = doc.getElementById(SETUP_ID).shadowRoot.getElementById('rules').firstElementChild;
-    el.value = e.data.substr(`${PREFIX}rule `.length).trim();
-    el.dispatchEvent(new Event('input', {bubbles: true}));
-    el.parentNode.scrollTop = 0;
-    el.hidden = false;
-    el.select();
-  }
 }
 
 class Popup {
@@ -1991,7 +1990,7 @@ class Gallery {
   static makeParser(g) {
     return (
       typeof g === 'function' ? g :
-        typeof g === 'string' ? new Function('text', 'doc', 'url', 'm', 'rule', 'cb', g) :
+        typeof g === 'string' ? Util.newFunction('text', 'doc', 'url', 'm', 'rule', 'cb', g) :
           Gallery.defaultParser
     );
   }
@@ -2051,7 +2050,7 @@ class Gallery {
     const qImage = g.image;
     const qTitle = g.title;
     const fix =
-      (typeof g.fix === 'string' ? new Function('s', 'isURL', g.fix) : g.fix) ||
+      (typeof g.fix === 'string' ? Util.newFunction('s', 'isURL', g.fix) : g.fix) ||
       (s => s.trim());
     const items = [...qsa(qEntry || qImage, doc)]
       .map(processEntry)
@@ -2257,6 +2256,20 @@ class Util {
     return el;
   }
 
+  static deepEqual(a, b) {
+    if (typeof a !== typeof b)
+      return false;
+    if (!a || !b || typeof a !== 'object')
+      return a === b;
+    if (Array.isArray(a))
+      return Array.isArray(b) &&
+             a.length === b.length &&
+             a.every((v, i) => Util.deepEqual(v, b[i]));
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length &&
+           keys.every(k => Util.deepEqual(a[k], b[k]));
+  }
+
   static findScale(url, parent) {
     const imgs = qsa('img, video', parent);
     for (let i = imgs.length, img; (img = imgs[--i]);) {
@@ -2317,6 +2330,17 @@ class Util {
         return value;
       },
     });
+  }
+
+  static newFunction(...args) {
+    try {
+      return App.NOP || new Function(...args);
+    } catch (e) {
+      if (!e.message.includes('unsafe-eval'))
+        throw e;
+      App.NOP = () => {};
+      return App.NOP;
+    }
   }
 
   static rect(node, selector) {
@@ -2437,22 +2461,27 @@ function tryCatch(fn, ...args) {
   } catch (e) {}
 }
 
-function setup() {
+function setup({rule} = {}) {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
-  let div, root;
+  const SETUP_ID = `${PREFIX}setup`;
+  const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
+  let div = doc.getElementById(SETUP_ID);
+  let root = div && div.shadowRoot;
+  let {blankRuleElement} = setup;
   /** @type NodeList */
   const $ = new Proxy({}, {
     get(_, id) {
       return root.getElementById(id);
     },
   });
-  init(new Config({save: true}));
+  if (!rule || !div)
+    init(new Config({save: true}));
+  if (rule)
+    installRule(rule);
 
   function closeSetup() {
     const el = doc.getElementById(SETUP_ID);
     el && el.remove();
-    if (!trustedDomains.includes(hostname))
-      window.removeEventListener('message', Events.onMessage);
   }
 
   function collectConfig({save} = {}) {
@@ -2461,11 +2490,7 @@ function setup() {
     const data = {
       css: $.css.value.trim(),
       delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
-      hosts: [...$.rules.children]
-        .map(el => [el.value.trim(), el.__json])
-        .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
-        .map(([s, json]) => json || s)
-        .filter(Boolean),
+      hosts: collectRules(),
       scale: !isNaN(scale) ? Math.max(1, scale) : undefined,
       scales: $.scales.value
         .trim()
@@ -2479,6 +2504,14 @@ function setup() {
     for (const el of qsa('[type="checkbox"]', root))
       data[el.id] = el.checked;
     return new Config({data, save});
+  }
+
+  function collectRules() {
+    return [...$.rules.children]
+      .map(el => [el.value.trim(), el[RULE]])
+      .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
+      .map(([s, json]) => json || s)
+      .filter(Boolean);
   }
 
   function exportSettings(e) {
@@ -2510,72 +2543,60 @@ function setup() {
       json = Ruler.parse(el.value);
       error = json instanceof Error && (json.message || String(json));
       if (!prev)
-        el.insertAdjacentElement('beforebegin', Object.assign(el.cloneNode(), {value: ''}));
+        el.insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
     } else if (prev) {
       prev.focus();
       el.remove();
     }
-    el.__json = !error && json;
+    el[RULE] = !error && json;
     el.title = error || '';
     el.setCustomValidity(error || '');
   }
 
-  function onRuleFocused({type, target: el, relatedTarget: from, currentTarget}) {
-    if (el === currentTarget)
+  function focusRule({type, target: el, relatedTarget: from}) {
+    if (el === this)
       return;
     if (type === 'paste') {
-      setTimeout(onRuleFocused, 0, {target: el, currentTarget});
+      setTimeout(() => focusRule.call(this, {target: el}));
       return;
     }
-    if (el.__json)
-      el.value = formatRuleExpand(el.__json);
+    if (el[RULE])
+      el.value = Ruler.format(el[RULE], {expand: true});
     const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
     if (h > el.offsetHeight)
       el.style.minHeight = h + 'px';
-    if (!currentTarget.contains(from))
-      from = [...qsa('[style*="height"]', currentTarget)].find(_ => _ !== el);
+    if (!this.contains(from))
+      from = [...qsa('[style*="height"]', this)].find(_ => _ !== el);
     if (from) {
       from.style.minHeight = '';
-      if (from.__json)
-        from.value = formatRuleCollapse(from.__json);
+      if (from[RULE])
+        from.value = Ruler.format(from[RULE]);
     }
   }
 
-  function formatRuleCollapse(rule) {
-    return JSON.stringify(rule, null, ' ')
-      .replace(/\n\s*/g, ' ')
-      .replace(/^({)\s|\s(})$/g, '$1$2');
-  }
-
-  function formatRuleExpand(rule) {
-    return JSON.stringify(rule, null, ' ')
-      .replace(/^{\s+/g, '{');
-  }
-
-  function installRule(e) {
-    Events.drop(e);
-    const parent = this.parentNode;
-    parent.textContent = 'Loading...';
-    parent.appendChild(Object.assign(doc.createElement('iframe'), {
-      src: this.href,
-      hidden: true,
-      style: `
-        width: 100%;
-        height: 26px;
-        border: 0;
-        margin: 0;
-      `,
-      onload() {
-        this.hidden = false;
-        this.previousSibling.remove();
-      },
-    }));
+  function installRule(rule) {
+    const inputs = $.rules.children;
+    let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
+    if (!el) {
+      el = inputs[0];
+      el[RULE] = rule;
+      el.value = Ruler.format(rule);
+      el.hidden = false;
+      const i = Math.max(0, collectRules().indexOf(rule));
+      inputs[i].insertAdjacentElement('afterend', el);
+      inputs[0].insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
+    }
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0 ||
+        rect.bottom > el.parentNode.offsetHeight)
+      el.scrollIntoView();
+    el.classList.add('highlight');
+    el.addEventListener('animationend', () => el.classList.remove('highlight'), {once: true});
+    el.focus();
   }
 
   function init(config) {
     closeSetup();
-    if (!trustedDomains.includes(hostname))
-      window.addEventListener('message', Events.onMessage);
     div = doc.createElement('div');
     div.id = SETUP_ID;
     // prevent the main page from interpreting key presses in inputs as hotkeys
@@ -2634,7 +2655,7 @@ function setup() {
           margin-left: 0;
         }
         input, select {
-          height: 1.6em;
+          min-height: 1.6em;
           box-sizing: border-box;
         }
         textarea {
@@ -2664,6 +2685,10 @@ function setup() {
           display: flex;
           flex-direction: column;
         }
+        .highlight {
+          animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
+          animation-fill-mode: both;
+        }
         #rules textarea {
           word-break: break-all;
         }
@@ -2677,6 +2702,10 @@ function setup() {
         }
         #x:hover {
           background-color: #8884;
+        }
+        @keyframes fade-in {
+          from { background-color: deepskyblue }
+          to {}
         }
         @media (prefers-color-scheme: dark) {
           :host {
@@ -2768,29 +2797,41 @@ function setup() {
               <textarea id="css" spellcheck="false"></textarea>
             </div>
           </li>
-          <li style="overflow-y: auto">
-            <div style="display: flex; justify-content: space-between;">
-              <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
-              <div style="white-space: nowrap">
-                To disable, put any symbol except <code>a..z 0..9 - .</code><br>
-                in "d" value, for example <code>"d": "!foo.com"</code>
-              </div>
-              <div>
-                <input id="search" type="search" placeholder="Search"
-                       style="width: 10em; margin-left: 1em">
-              </div>
+          <li style="display: flex; justify-content: space-between;">
+            <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
+            <div style="white-space: nowrap">
+              To disable, put any symbol except <code>a..z 0..9 - .</code><br>
+              in "d" value, for example <code>"d": "!foo.com"</code>
             </div>
+            <div>
+              <input id="search" type="search" placeholder="Search"
+                     style="width: 10em; margin-left: 1em">
+            </div>
+          </li>
+          <li style="
+            overflow-y: auto;
+            margin-left: -3px;
+            margin-right: -3px;
+            padding-left: 3px;
+            padding-right: 3px;
+          ">
             <div id="rules" class="column">
               <textarea rows="1" spellcheck="false"></textarea>
             </div>
           </li>
           <li>
+            <div hidden id="installLoading">
+              Loading...
+            </div>
+            <div hidden id="installHint">
+              Double-click the rule (or select and press Enter) to add it. Click OK when done.
+            </div>
             <a href="${MPIV_BASE_URL}more_host_rules.html" id="install">
               Install rule from repository...</a>
           </li>
         </ul>
         <div style="text-align:center">
-          <button id="ok">OK</button>
+          <button id="ok" style="font-weight: bold">Save</button>
           <button id="import" style="margin-right: 0">Import</button>
           <button id="export" style="margin-left: 0">Export</button>
           <button id="cancel">Cancel</button>
@@ -2807,16 +2848,16 @@ function setup() {
     // rules
     const rules = $.rules;
     rules.addEventListener('input', checkRule);
-    rules.addEventListener('focusin', onRuleFocused);
-    rules.addEventListener('paste', onRuleFocused);
-    if (config.hosts) {
-      const template = rules.firstElementChild;
-      for (const rule of config.hosts) {
-        const el = template.cloneNode();
-        el.value = typeof rule === 'string' ? rule : formatRuleCollapse(rule);
-        rules.appendChild(el);
-        checkRule({target: el});
-      }
+    rules.addEventListener('focusin', focusRule);
+    rules.addEventListener('paste', focusRule);
+    blankRuleElement =
+      setup.blankRuleElement =
+        setup.blankRuleElement || rules.firstElementChild.cloneNode();
+    for (const rule of config.hosts || []) {
+      const el = blankRuleElement.cloneNode();
+      el.value = typeof rule === 'string' ? rule : Ruler.format(rule);
+      rules.appendChild(el);
+      checkRule({target: el});
     }
     // search rules
     const search = $.search;
@@ -2838,7 +2879,7 @@ function setup() {
     $.delay.value = config.delay;
     $.export.onclick = exportSettings;
     $.import.onclick = importSettings;
-    $.install.onclick = installRule;
+    $.install.onclick = setupRuleInstaller;
     $.ok.onclick = () => {
       cfg = collectConfig({save: true});
       Ruler.init();
@@ -2867,6 +2908,85 @@ function setup() {
     requestAnimationFrame(() => {
       $.css.style.minHeight = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
     });
+  }
+}
+
+async function setupRuleInstaller(e) {
+  Events.drop(e);
+  const parent = this.parentElement;
+  parent.children.installLoading.hidden = false;
+  this.remove();
+  let rules;
+
+  try {
+    rules = extractRules((await Remoting.getDoc(this.href)).doc);
+    const selector = Object.assign(document.createElement('select'), {
+      size: 8,
+      style: 'width: 100%',
+      ondblclick: e => e.target !== selector && maybeSetup(e),
+      onkeyup: e => e.key === 'Enter' && maybeSetup(e),
+    });
+    selector.append(...rules.map(renderRule));
+    selector.selectedIndex = findMatchingRuleIndex();
+    // remove "name" since the installed rules don't need it
+    for (const r of rules)
+      delete r.name;
+    parent.children.installLoading.remove();
+    parent.children.installHint.hidden = false;
+    parent.appendChild(selector);
+  } catch (e) {
+    parent.textContent = 'Error loading rules: ' + (e.message || e);
+  }
+
+  function extractRules(doc) {
+    const code = qs('script', doc).textContent;
+    // sort by name
+    return JSON.parse(code.match(/var\s+rules\s*=\s*(\[.+]);?[\r\n]/)[1])
+      .filter(r => !r.d || hostname.includes(r.d))
+      .sort((a, b) =>
+        (a = a.name.toLowerCase()) < (b = b.name.toLowerCase()) ? -1 :
+          a > b ? 1 :
+            0);
+  }
+
+  function findMatchingRuleIndex() {
+    // get the core part of the current domain that's not "www", "m", etc.
+    const h = hostname.split('.');
+    const core = h[0] === 'www' || h.length > 2 && h[0].length === 1 ? h[1] : h[0];
+    // find a rule matching the domain core
+    return rules.findIndex(r =>
+      r.name.toLowerCase().includes(core) ||
+      r.d && hostname.includes(r.d));
+  }
+
+  function renderRule(r) {
+    const {name, ...copy} = r;
+    return Object.assign(document.createElement('option'), {
+      textContent: name,
+      title: Ruler.format(copy, {expand: true})
+        .replace(/^{|\s*}$/g, '')
+        .split('\n')
+        .slice(0, 12)
+        .map(renderTitleLine)
+        .filter(Boolean)
+        .join('\n'),
+    });
+  }
+
+  function renderTitleLine(line, i, arr) {
+    return (
+      // show ... on 10th line if there are more lines
+      i === 9 && arr.length > 10 ? '...' :
+        i > 10 ? '' :
+          // truncate to 100 chars
+          (line.length > 100 ? line.slice(0, 100) + '...' : line)
+            // strip the leading space
+            .replace(/^\s/, ''));
+  }
+
+  function maybeSetup(e) {
+    if (!e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
+      setup({rule: rules[e.currentTarget.selectedIndex]});
   }
 }
 
