@@ -199,10 +199,8 @@ class App {
       ai.bar = null;
       return;
     }
-    if (!b) {
-      b = ai.bar = doc.createElement('div');
-      b.id = `${PREFIX}bar`;
-    }
+    if (!b)
+      b = ai.bar = $create('div', {id: `${PREFIX}bar`});
     App.updateStyles();
     b.innerHTML = label;
     if (!b.parentNode) {
@@ -297,7 +295,7 @@ class App {
         ai.caption = ai.rule.c(text, doc, ai.node, ai.rule);
         break;
       case 'string': {
-        const el = qsMany(ai.rule.c, doc);
+        const el = $many(ai.rule.c, doc);
         ai.caption = !el ? '' :
           el.getAttribute('content') ||
           el.getAttribute('title') ||
@@ -613,7 +611,7 @@ class Ruler {
         e: 'a[href*="ref=hovercard"]',
         s: (m, node) =>
           'https://www.facebook.com/photo.php?fbid=' +
-          /\/[0-9]+_([0-9]+)_/.exec(qs('img', node).src)[1],
+          /\/[0-9]+_([0-9]+)_/.exec($('img', node).src)[1],
         follow: true,
       },
       dotDomain.endsWith('.facebook.com') && {
@@ -683,7 +681,7 @@ class Ruler {
           const n = node.closest('a[href*="/p/"], article');
           if (!n)
             return;
-          const a = n.tagName === 'A' ? n : qs('a[href*="/p/"]', n);
+          const a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
           if (!a)
             return;
           try {
@@ -769,7 +767,7 @@ class Ruler {
         u: '||dropbox.com/s',
         r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
         q: (text, doc) => {
-          const i = qs('img.absolute-center', doc);
+          const i = $('img.absolute-center', doc);
           return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
         },
       },
@@ -782,7 +780,7 @@ class Ruler {
       {
         u: '||i.ebayimg.com/',
         s: (m, node) =>
-          qs('.zoom_trigger_mask', node.parentNode) ? '' :
+          $('.zoom_trigger_mask', node.parentNode) ? '' :
             m.input.replace(/~~60_\d+/, '~~60_57'),
       },
       {
@@ -816,7 +814,7 @@ class Ruler {
         r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
         s: (m, node) => {
           if (node.id === 'fbPhotoImage') {
-            const a = qs('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
+            const a = $('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
             if (a)
               return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
           }
@@ -839,7 +837,7 @@ class Ruler {
             `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` :
             false,
         q: (text, doc) => {
-          const links = qsa('.sizes-list a', doc);
+          const links = $$('.sizes-list a', doc);
           return 'https://www.flickr.com' + links[links.length - 1].getAttribute('href');
         },
         follow: true,
@@ -1284,7 +1282,7 @@ class Ruler {
         url = url[0];
       }
     } else {
-      const el = qsMany(ai.rule.q, doc);
+      const el = $many(ai.rule.q, doc);
       url = el && Remoting.findFileUrl(el, docUrl);
     }
     return url;
@@ -1870,7 +1868,7 @@ class Popup {
       src.startsWith('data:video') ||
       !src.startsWith('data:') && /\.(webm|mp4)($|\?)/.test(src) ?
         PopupVideo.create() :
-        doc.createElement('img');
+        $create('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
@@ -1955,7 +1953,7 @@ class Popup {
 
 class PopupVideo {
   static create() {
-    const p = doc.createElement('video');
+    const p = $create('video');
     p.autoplay = true;
     p.loop = true;
     p.volume = 0.5;
@@ -2040,7 +2038,7 @@ class Gallery {
   }
 
   static preloadOnLoad() {
-    doc.createElement('img').src = ai.preloadUrl;
+    $create('img', {src: ai.preloadUrl});
   }
 
   static defaultParser(text, doc, docUrl, m, rule) {
@@ -2052,7 +2050,7 @@ class Gallery {
     const fix =
       (typeof g.fix === 'string' ? Util.newFunction('s', 'isURL', g.fix) : g.fix) ||
       (s => s.trim());
-    const items = [...qsa(qEntry || qImage, doc)]
+    const items = [...$$(qEntry || qImage, doc)]
       .map(processEntry)
       .filter(Boolean);
     items.title = processTitle();
@@ -2061,7 +2059,7 @@ class Gallery {
     function processEntry(entry) {
       const item = {};
       try {
-        const img = qEntry ? qs(qImage, entry) : entry;
+        const img = qEntry ? $(qImage, entry) : entry;
         item.url = fix(Remoting.findFileUrl(img, docUrl), true);
         item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(' - ');
       } catch (e) {}
@@ -2069,20 +2067,20 @@ class Gallery {
     }
 
     function processCaption(selector) {
-      const el = qs(selector, this) ||
-                 qsSibling(selector, this.previousElementSibling) ||
-                 qsSibling(selector, this.nextElementSibling);
+      const el = $(selector, this) ||
+                 $orSelf(selector, this.previousElementSibling) ||
+                 $orSelf(selector, this.nextElementSibling);
       return el && fix(el.textContent);
     }
 
     function processTitle() {
-      const el = qs(qTitle, doc);
+      const el = $(qTitle, doc);
       return el && fix(el.getAttribute('content') || el.textContent) || '';
     }
 
-    function qsSibling(selector, el) {
+    function $orSelf(selector, el) {
       if (el && !el.matches(qEntry))
-        return el.matches(selector) ? el : qs(selector, el);
+        return el.matches(selector) ? el : $(selector, el);
     }
   }
 }
@@ -2189,10 +2187,8 @@ class Remoting {
         url = URL.createObjectURL(response);
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
-      const a = doc.createElement('a');
-      a.href = url;
-      a.download = name;
-      a.dispatchEvent(new MouseEvent('click'));
+      $create('a', {href: url, download: name})
+        .dispatchEvent(new MouseEvent('click'));
     } catch (e) {
       App.setBar(`Could not download ${name}.`, 'error');
     }
@@ -2229,7 +2225,7 @@ class Remoting {
   }
 
   static findFileUrl(n, url) {
-    const base = qs('base[href]', n.ownerDocument);
+    const base = $('base[href]', n.ownerDocument);
     const path =
       n.getAttribute('src') ||
       n.getAttribute('data-m4v') ||
@@ -2246,7 +2242,7 @@ class Util {
   static addStyle(name, css) {
     const id = `${PREFIX}style:${name}`;
     const el = doc.getElementById(id) ||
-               css && Object.assign(doc.createElement('style'), {id});
+               css && $create('style', {id});
     if (!el)
       return;
     if (el.textContent !== css)
@@ -2271,7 +2267,7 @@ class Util {
   }
 
   static findScale(url, parent) {
-    const imgs = qsa('img, video', parent);
+    const imgs = $$('img, video', parent);
     for (let i = imgs.length, img; (img = imgs[--i]);) {
       if ((img.src || img.currentSrc) !== url)
         continue;
@@ -2295,7 +2291,7 @@ class Util {
         message = 'Request failed.';
       else if (e.type === 'error')
         message = "File can't be displayed." + (
-          qs('div[bgactive*="flashblock"]', doc) ?
+          $('div[bgactive*="flashblock"]', doc) ?
             ' Check Flashblock settings.' :
             '');
       else
@@ -2427,20 +2423,24 @@ class Util {
   }
 }
 
-function qs(s, n = doc) {
+function $(s, n = doc) {
   return n.querySelector(s);
 }
 
-function qsa(s, n = doc) {
+function $$(s, n = doc) {
   return n.querySelectorAll(s);
 }
 
-function qsMany(q, doc) {
+function $many(q, doc) {
   for (const selector of q ? ensureArray(q) : []) {
-    const el = qs(selector, doc);
+    const el = $(selector, doc);
     if (el)
       return el;
   }
+}
+
+function $create(tag, props) {
+  return Object.assign(document.createElement(tag), props);
 }
 
 function safeIncludes(a, b) {
@@ -2469,7 +2469,7 @@ function setup({rule} = {}) {
   let root = div && div.shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
-  const $ = new Proxy({}, {
+  const UI = new Proxy({}, {
     get(_, id) {
       return root.getElementById(id);
     },
@@ -2485,29 +2485,29 @@ function setup({rule} = {}) {
   }
 
   function collectConfig({save} = {}) {
-    const delay = parseInt($.delay.value);
-    const scale = parseFloat($.scale.value.replace(',', '.'));
+    const delay = parseInt(UI.delay.value);
+    const scale = parseFloat(UI.scale.value.replace(',', '.'));
     const data = {
-      css: $.css.value.trim(),
+      css: UI.css.value.trim(),
       delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
       hosts: collectRules(),
       scale: !isNaN(scale) ? Math.max(1, scale) : undefined,
-      scales: $.scales.value
+      scales: UI.scales.value
         .trim()
         .split(/[,;]*\s+/)
         .map(x => x.replace(',', '.'))
         .filter(x => !isNaN(parseFloat(x))),
-      start: $.start.value,
-      zoom: $.zoom.value,
-      zoomOut: $.zoomOut.value,
+      start: UI.start.value,
+      zoom: UI.zoom.value,
+      zoomOut: UI.zoomOut.value,
     };
-    for (const el of qsa('[type="checkbox"]', root))
+    for (const el of $$('[type="checkbox"]', root))
       data[el.id] = el.checked;
     return new Config({data, save});
   }
 
   function collectRules() {
-    return [...$.rules.children]
+    return [...UI.rules.children]
       .map(el => [el.value.trim(), el[RULE]])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
       .map(([s, json]) => json || s)
@@ -2516,17 +2516,18 @@ function setup({rule} = {}) {
 
   function exportSettings(e) {
     Events.drop(e);
-    const txt = document.createElement('textarea');
-    txt.style = 'opacity:0; position:absolute';
-    txt.value = JSON.stringify(collectConfig(), null, '  ');
+    const txt = $create('textarea', {
+      style: 'opacity:0; position:absolute',
+      value: JSON.stringify(collectConfig(), null, '  '),
+    });
     root.appendChild(txt);
     txt.select();
     txt.focus();
     document.execCommand('copy');
     e.target.focus();
     txt.remove();
-    $.exportNotification.hidden = false;
-    setTimeout(() => ($.exportNotification.hidden = true), 1000);
+    UI.exportNotification.hidden = false;
+    setTimeout(() => (UI.exportNotification.hidden = true), 1000);
   }
 
   function importSettings(e) {
@@ -2566,7 +2567,7 @@ function setup({rule} = {}) {
     if (h > el.offsetHeight)
       el.style.minHeight = h + 'px';
     if (!this.contains(from))
-      from = [...qsa('[style*="height"]', this)].find(_ => _ !== el);
+      from = [...$$('[style*="height"]', this)].find(_ => _ !== el);
     if (from) {
       from.style.minHeight = '';
       if (from[RULE])
@@ -2575,7 +2576,7 @@ function setup({rule} = {}) {
   }
 
   function installRule(rule) {
-    const inputs = $.rules.children;
+    const inputs = UI.rules.children;
     let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
     if (!el) {
       el = inputs[0];
@@ -2597,11 +2598,12 @@ function setup({rule} = {}) {
 
   function init(config) {
     closeSetup();
-    div = doc.createElement('div');
-    div.id = SETUP_ID;
-    // prevent the main page from interpreting key presses in inputs as hotkeys
-    // which may happen since it sees only the outer <div> in the event |target|
-    div.contentEditable = true;
+    div = $create('div', {
+      id: SETUP_ID,
+      // prevent the main page from interpreting key presses in inputs as hotkeys
+      // which may happen since it sees only the outer <div> in the event |target|
+      contentEditable: true,
+    });
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
       <style>
@@ -2846,7 +2848,7 @@ function setup({rule} = {}) {
       </main>
     `;
     // rules
-    const rules = $.rules;
+    const rules = UI.rules;
     rules.addEventListener('input', checkRule);
     rules.addEventListener('focusin', focusRule);
     rules.addEventListener('paste', focusRule);
@@ -2860,7 +2862,7 @@ function setup({rule} = {}) {
       checkRule({target: el});
     }
     // search rules
-    const search = $.search;
+    const search = UI.search;
     search.oninput = () => {
       setup.search = search.value;
       const s = search.value.toLowerCase();
@@ -2874,39 +2876,39 @@ function setup({rule} = {}) {
     // which may happen since it sees only the outer <div> in the event |target|
     root.addEventListener('keydown', e =>
       !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
-    $.cancel.onclick = closeSetup;
-    $.css.value = config.css;
-    $.delay.value = config.delay;
-    $.export.onclick = exportSettings;
-    $.import.onclick = importSettings;
-    $.install.onclick = setupRuleInstaller;
-    $.ok.onclick = () => {
+    UI.cancel.onclick = closeSetup;
+    UI.css.value = config.css;
+    UI.delay.value = config.delay;
+    UI.export.onclick = exportSettings;
+    UI.import.onclick = importSettings;
+    UI.install.onclick = setupRuleInstaller;
+    UI.ok.onclick = () => {
       cfg = collectConfig({save: true});
       Ruler.init();
       closeSetup();
     };
-    $.scale.value = config.scale;
-    $.scales.value = config.scales.join(' ');
-    $.start.value = config.start;
-    $.start.onchange = function () {
-      $.delay.closest('label').hidden =
-        $.preload.closest('label').hidden =
+    UI.scale.value = config.scale;
+    UI.scales.value = config.scales.join(' ');
+    UI.start.value = config.start;
+    UI.start.onchange = function () {
+      UI.delay.closest('label').hidden =
+        UI.preload.closest('label').hidden =
           this.value !== 'auto';
     };
-    $.start.onchange();
-    $.x.onclick = closeSetup;
-    $.xhr.onclick = ({target: el}) => el.checked || confirm(el.closest('[title]').title);
-    $.zoom.value = config.zoom;
-    $.zoomOut.value = config.zoomOut;
-    for (const el of qsa('[type="checkbox"]', root))
+    UI.start.onchange();
+    UI.x.onclick = closeSetup;
+    UI.xhr.onclick = ({target: el}) => el.checked || confirm(el.closest('[title]').title);
+    UI.zoom.value = config.zoom;
+    UI.zoomOut.value = config.zoomOut;
+    for (const el of $$('[type="checkbox"]', root))
       el.checked = config[el.id];
-    for (const el of qsa('a[href^="http"]', root)) {
+    for (const el of $$('a[href^="http"]', root)) {
       el.target = '_blank';
       el.rel = 'noreferrer noopener external';
     }
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
-      $.css.style.minHeight = clamp($.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
+      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
     });
   }
 }
@@ -2920,7 +2922,7 @@ async function setupRuleInstaller(e) {
 
   try {
     rules = extractRules((await Remoting.getDoc(this.href)).doc);
-    const selector = Object.assign(document.createElement('select'), {
+    const selector = $create('select', {
       size: 8,
       style: 'width: 100%',
       ondblclick: e => e.target !== selector && maybeSetup(e),
@@ -2939,7 +2941,7 @@ async function setupRuleInstaller(e) {
   }
 
   function extractRules(doc) {
-    const code = qs('script', doc).textContent;
+    const code = $('script', doc).textContent;
     // sort by name
     return JSON.parse(code.match(/var\s+rules\s*=\s*(\[.+]);?[\r\n]/)[1])
       .filter(r => !r.d || hostname.includes(r.d))
@@ -2961,7 +2963,7 @@ async function setupRuleInstaller(e) {
 
   function renderRule(r) {
     const {name, ...copy} = r;
-    return Object.assign(document.createElement('option'), {
+    return $create('option', {
       textContent: name,
       title: Ruler.format(copy, {expand: true})
         .replace(/^{|\s*}$/g, '')
