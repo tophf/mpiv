@@ -59,14 +59,15 @@ class App {
       globalStatus: false,
       // prefer ' inside rules because " will be displayed as \"
       hosts: [{
-        rule: 'No popup for YouTube thumbnails',
+        name: 'No popup for YouTube thumbnails',
         d: 'www.youtube.com',
         e: 'ytd-thumbnail *',
         s: '',
       }, {
-        rule: 'No popup for SVG icons',
+        name: 'No popup for SVG/PNG icons',
         d: '',
-        e: "img[src*='icon'][src*='.svg']",
+        e: 'img[src*="icon"]',
+        r: /\/\/[^/]+\/.*\bicons?\b.*\.(?:png|svg)/,
         s: '',
       }],
       imgtab: false,
