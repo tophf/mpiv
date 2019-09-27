@@ -2480,15 +2480,21 @@ function setup({rule} = {}) {
   if (rule)
     installRule(rule);
 
-  function closeSetup() {
+  function closeSetup(event) {
+    if (event && this.id !== 'x') {
+      cfg = collectConfig({save: true, clone: this.id === 'apply'});
+      Ruler.init();
+      if (this.id === 'apply')
+        return;
+    }
     const el = doc.getElementById(SETUP_ID);
     el && el.remove();
   }
 
-  function collectConfig({save} = {}) {
+  function collectConfig({save, clone} = {}) {
     const delay = parseInt(UI.delay.value);
     const scale = parseFloat(UI.scale.value.replace(',', '.'));
-    const data = {
+    let data = {
       css: UI.css.value.trim(),
       delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
       hosts: collectRules(),
@@ -2504,6 +2510,8 @@ function setup({rule} = {}) {
     };
     for (const el of $$('[type="checkbox"]', root))
       data[el.id] = el.checked;
+    if (clone)
+      data = JSON.parse(JSON.stringify(data));
     return new Config({data, save});
   }
 
@@ -2834,7 +2842,8 @@ function setup({rule} = {}) {
           </li>
         </ul>
         <div style="text-align:center">
-          <button id="ok" style="font-weight: bold">Save</button>
+          <button id="ok" accesskey="s">Save</button>
+          <button id="apply" accesskey="a">Apply</button>
           <button id="import" style="margin-right: 0">Import</button>
           <button id="export" style="margin-left: 0">Export</button>
           <button id="cancel">Cancel</button>
@@ -2877,17 +2886,12 @@ function setup({rule} = {}) {
     // which may happen since it sees only the outer <div> in the event |target|
     root.addEventListener('keydown', e =>
       !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
-    UI.cancel.onclick = closeSetup;
+    UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
     UI.css.value = config.css;
     UI.delay.value = config.delay;
     UI.export.onclick = exportSettings;
     UI.import.onclick = importSettings;
     UI.install.onclick = setupRuleInstaller;
-    UI.ok.onclick = () => {
-      cfg = collectConfig({save: true});
-      Ruler.init();
-      closeSetup();
-    };
     UI.scale.value = config.scale;
     UI.scales.value = config.scales.join(' ');
     UI.start.value = config.start;
@@ -2897,7 +2901,6 @@ function setup({rule} = {}) {
           this.value !== 'auto';
     };
     UI.start.onchange();
-    UI.x.onclick = closeSetup;
     UI.xhr.onclick = ({target: el}) => el.checked || confirm(el.closest('[title]').title);
     UI.zoom.value = config.zoom;
     UI.zoomOut.value = config.zoomOut;
