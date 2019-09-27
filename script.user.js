@@ -177,7 +177,8 @@ class App {
 
   static handleError(e, rule = ai.rule) {
     const fe = Util.formatError(e, rule);
-    console.warn(fe.consoleFormat, ...fe.consoleArgs);
+    if (!rule || !ai.urls || !ai.urls.length)
+      console.warn(fe.consoleFormat, ...fe.consoleArgs);
     if (cfg.xhr && !ai.xhr &&
         isGoogleDomain && location.search.includes('tbm=isch')) {
       ai.xhr = true;
