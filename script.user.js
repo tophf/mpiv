@@ -1035,7 +1035,7 @@ class Ruler {
           if (/memegen|random|register|search|signin/.test(m.input))
             return '';
           const a = node.closest('a');
-          if (a && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
+          if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
             return false;
           const id = m[3].replace(/(.{7})[bhm]$/, '$1');
           const ext = m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg';
