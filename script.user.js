@@ -1128,24 +1128,19 @@ class Ruler {
         q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
       },
       {
+        u: '||tumblr.com',
+        r: /_500\.jpg/,
+        s: ['/_500/_1280/', ''],
+      },
+      {
         u: '||twimg.com/',
         r: /\/profile_images/i,
         s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
       },
       {
         u: '||twimg.com/media/',
-        r: /(?:^|\/\/)(.+?\.(jpe?g|png|gif))/i,
-        s: 'https://$1:orig',
-        rect: 'div.tweet a.twitter-timeline-link, div.TwitterPhoto-media',
-      },
-      {
-        u: '||twimg.com/media/',
-        r: /format=(jpe?g|png|gif)/i,
-      },
-      {
-        u: '||tumblr.com',
-        r: /_500\.jpg/,
-        s: ['/_500/_1280/', ''],
+        r: /.+?format=(jpe?g|png|gif)/i,
+        s: '$0&name=large',
       },
       {
         u: '||twimg.com/1/proxy',
@@ -1162,20 +1157,6 @@ class Ruler {
         u: '||twitpic.com/',
         r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
         s: 'https://twitpic.com/show/large/$2',
-      },
-      {
-        u: '||twitter.com/',
-        r: /\/status\/.+\/photo\//,
-        q: [
-          '.OldMedia img',
-          '.media img',
-          'video.animated-gif',
-          '.AdaptiveMedia-singlePhoto img',
-          '.AdaptiveMedia-halfWidthPhoto img',
-          '.AdaptiveMedia-twoThirdsWidthPhoto img',
-          '.AdaptiveMedia-threeQuartersWidthPhoto img',
-        ],
-        follow: url => !/\.mp4$/.test(url),
       },
       {
         u: '||upix.me/files',
