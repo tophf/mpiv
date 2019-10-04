@@ -2709,6 +2709,14 @@ function setup({rule} = {}) {
           a {
             color: deepskyblue;
           }
+          textarea, input, select {
+            background: #111;
+            color: #BBB;
+            border-color: #555;
+          }
+          input[type="checkbox"] {
+            filter: invert(1);
+          }
         }
       </style>
       <main>
