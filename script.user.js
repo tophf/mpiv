@@ -877,7 +877,8 @@ class Ruler {
           node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
           node.matches('.g-hovercard *, a[href*="profile_redirector"] > img') ?
             '' :
-            m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0').replace(/[?&/]\w+=[^&/]+$/, ''),
+            m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0')
+              .replace(/=[-\w]*\d+([&#].*|$)/, ''),
       },
       {
         u: '||gravatar.com/',
