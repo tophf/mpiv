@@ -605,6 +605,10 @@ class Ruler {
             return el.src;
         },
       },
+      dotDomain.endsWith('.deviantart.com') && {
+        u: ',strp/',
+        s: '/\\/v1\\/.*//',
+      },
       dotDomain.endsWith('.dropbox.com') && {
         r: /(.+?&size_mode)=\d+(.*)/,
         s: '$1=5$2',
