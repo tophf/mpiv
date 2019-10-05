@@ -304,6 +304,13 @@ class App {
           el.textContent;
         break;
       }
+      default: {
+        if ((ai.caption = ai.node.alt || ''))
+          return;
+        const el = ai.node.closest('a[title], img[title], video[title]');
+        if (el)
+          ai.caption = el.title || '';
+      }
     }
   }
 
