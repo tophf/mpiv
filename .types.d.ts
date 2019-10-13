@@ -123,9 +123,9 @@ declare namespace mpiv {
     scale: number
     scales: number[]
     timer: number
+    timerBar: number
     timerProgress: number
     timerStatus: number
-    title: string
     tooltip: { node: Node, text: string }
     view: { width: number, height: number }
     zoom: boolean

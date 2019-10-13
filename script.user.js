@@ -159,7 +159,6 @@ class App {
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
       ai.tooltip.node.title = ai.tooltip.text;
-    App.restoreTitle();
     App.setStatus(false);
     App.setBar(false);
     App.setListeners(false);
@@ -196,7 +195,7 @@ class App {
 
   static setBar(label, className) {
     let b = ai.bar;
-    if (!label) {
+    if (typeof label !== 'string') {
       b && b.remove();
       ai.bar = null;
       return;
@@ -204,6 +203,7 @@ class App {
     if (!b)
       b = ai.bar = $create('div', {id: `${PREFIX}bar`});
     App.updateStyles();
+    App.updateTitle();
     b.innerHTML = label;
     if (!b.parentNode) {
       doc.body.appendChild(b);
@@ -281,8 +281,6 @@ class App {
     Popup.move();
     App.updateTitle();
     App.setStatus(ai.zoom ? 'zoom' : false);
-    if (cfg.zoom !== 'auto')
-      App.setBar(false);
     if (!ai.zoom)
       App.updateFileInfo();
     return ai.zoom;
@@ -308,8 +306,10 @@ class App {
         if ((ai.caption = ai.node.alt || ''))
           return;
         const el = ai.node.closest('a[title], img[title], video[title]');
-        if (el)
-          ai.caption = el.title || '';
+        if (el && (ai.caption = el.title || ''))
+          return;
+        const url = ai.node.src || (ai.node.closest('[href]') || 0).href;
+        ai.caption = url ? Remoting.getFileName(url) : '';
       }
     }
   }
@@ -329,6 +329,8 @@ class App {
       App.setBar(ai.caption, 'caption');
     } else if (ai.tooltip) {
       App.setBar(ai.tooltip.text, 'tooltip');
+    } else {
+      App.setBar(' ', 'info');
     }
   }
 
@@ -428,19 +430,23 @@ class App {
         left: 0;
         right: 0;
         top: 0;
-        transform: scaleY(0);
-        transform-origin: top;
-        transition: transform 500ms ease 1000ms;
+        opacity: 0;
+        transition: opacity 1s ease .25s;
         text-align: center;
         font-family: sans-serif;
         font-size: 15px;
         font-weight: bold;
-        background: rgba(0, 0, 0, 0.6);
+        background: #0005;
         color: white;
         padding: 4px 10px;
+        text-shadow: .5px .5px 2px #000;
       }
       #${PREFIX}bar.${PREFIX}show {
-        transform: scaleY(1);
+        opacity: 1;
+      }
+      #${PREFIX}bar[data-zoom]::after {
+        content: " (" attr(data-zoom) ")";
+        opacity: .8;
       }
       #${PREFIX}popup.${PREFIX}show {
         display: inline;
@@ -499,15 +505,15 @@ class App {
   }
 
   static updateTitle() {
-    if (typeof ai.title !== 'string')
-      ai.title = doc.title;
-    doc.title = `${Math.round(ai.scale * 100)}% - ${ai.nwidth}x${ai.nheight}`;
-  }
-
-  static restoreTitle() {
-    const t = ai.title;
-    if (typeof t === 'string' && doc.title !== t)
-      doc.title = t;
+    if (!ai.bar)
+      return;
+    const zoom = `${Math.round(ai.scale * 100)}% - ${ai.nwidth} x ${ai.nheight} px`;
+    if (ai.bar.dataset.zoom !== zoom) {
+      ai.bar.dataset.zoom = zoom;
+      ai.bar.style.removeProperty('opacity');
+      clearTimeout(ai.timerBar);
+      ai.timerBar = setTimeout(() => ai.bar.style.setProperty('opacity', 0), 3000);
+    }
   }
 }
 
@@ -1876,6 +1882,8 @@ class Popup {
 
   static onLoad() {
     ai.popupLoaded = true;
+    if (!ai.bar)
+      App.updateFileInfo();
   }
 
   static onZoom() {
@@ -2170,7 +2178,7 @@ class Remoting {
 
   static async saveFile() {
     let url = ai.popup.src || ai.popup.currentSrc;
-    let name = decodeURIComponent(ai.imageUrl || url).split('/').pop().replace(/[:#?].*/, '');
+    let name = Remoting.getFileName(ai.imageUrl || url);
     if (!name.includes('.'))
       name += '.jpg';
     try {
@@ -2187,6 +2195,10 @@ class Remoting {
     } catch (e) {
       App.setBar(`Could not download ${name}.`, 'error');
     }
+  }
+
+  static getFileName(url) {
+    return decodeURIComponent(url).split('/').pop().replace(/[:#?].*/, '');
   }
 
   static blobToDataUrl(blob) {
