@@ -512,7 +512,7 @@ class App {
       ai.bar.dataset.zoom = zoom;
       ai.bar.style.removeProperty('opacity');
       clearTimeout(ai.timerBar);
-      ai.timerBar = setTimeout(() => ai.bar.style.setProperty('opacity', 0), 3000);
+      ai.timerBar = setTimeout(() => ai.bar && ai.bar.style.setProperty('opacity', 0), 3000);
     }
   }
 }
