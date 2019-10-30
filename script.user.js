@@ -455,7 +455,6 @@ class App {
         display: none;
         border: none;
         box-sizing: content-box;
-        background-color: white;
         position: fixed;
         z-index: 2147483647;
         margin: 0;
@@ -463,7 +462,19 @@ class App {
         max-height: none;
         will-change: display, width, height, left, top;
         cursor: none;
+        animation: .2s ${PREFIX}fadein both;
+      }
+      #${PREFIX}popup.${PREFIX}show {
+        box-shadow: 6px 6px 30px transparent;
+        transition: box-shadow .25s, background-color .25s;
+      }
+      #${PREFIX}popup.${PREFIX}show[loaded] {
         box-shadow: 6px 6px 30px black;
+        background-color: white;
+      }
+      @keyframes ${PREFIX}fadein {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       ${cfg.globalStatus ? `
         .${PREFIX}loading:not(.${PREFIX}preloading) * {
@@ -617,6 +628,13 @@ class Ruler {
           if (el && el.dataset.embedId)
             return el.src;
         },
+      },
+      dotDomain.endsWith('.deviantart.com') && {
+        e: '.dev-view-deviation img',
+        s: () => [
+          ($('.dev-page-download') || 0).href,
+          ($('.dev-content-full') || 0).src,
+        ].filter(Boolean),
       },
       dotDomain.endsWith('.deviantart.com') && {
         u: ',strp/',
@@ -1881,6 +1899,7 @@ class Popup {
   }
 
   static onLoad() {
+    this.setAttribute('loaded', '');
     ai.popupLoaded = true;
     if (!ai.bar)
       App.updateFileInfo();
