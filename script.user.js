@@ -2366,20 +2366,23 @@ class Util {
   }
 
   static rect(node, selector) {
-    let n;
-    if (selector && (n = node.closest(selector))) {
-      node = n;
-    } else {
-      let maxHeight = node.offsetHeight;
-      for (n of node.getElementsByTagName('*')) {
-        const height = n.offsetHeight;
-        if (height > maxHeight) {
-          maxHeight = height;
-          node = n;
-        }
+    let n = selector && node.closest(selector);
+    if (n)
+      return n.getBoundingClientRect();
+    const nested = node.getElementsByTagName('*');
+    let maxArea = 0;
+    let maxBounds;
+    n = node;
+    for (let i = 0; n; n = nested[i++]) {
+      const bounds = n.getBoundingClientRect();
+      const area = bounds.width * bounds.height;
+      if (area > maxArea) {
+        maxArea = area;
+        maxBounds = bounds;
+        node = n;
       }
     }
-    return node.getBoundingClientRect();
+    return maxBounds;
   }
 
   static rel2abs(rel, abs) {
