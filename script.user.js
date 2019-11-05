@@ -825,6 +825,12 @@ class Ruler {
         q: '.image',
       },
       {
+        e: 'a',
+        u: '||fastpic.ru/',
+        r: /.+?\.\w+$/,
+        s: '$0?noht=1',
+      },
+      {
         u: '||facebook.com/',
         r: /photo\.php|[^/]+\/photos\//,
         s: (m, node) =>
