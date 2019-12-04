@@ -61,7 +61,7 @@ class App {
       hosts: [{
         name: 'No popup for YouTube thumbnails',
         d: 'www.youtube.com',
-        e: 'ytd-thumbnail *',
+        e: 'ytd-rich-item-renderer *',
         s: '',
       }, {
         name: 'No popup for SVG/PNG icons',
@@ -2804,7 +2804,7 @@ function setup({rule} = {}) {
               </select>
             </label>
             <label>
-              <span>When zoomed out completely</span> 
+              <span>When zoomed out completely</span>
               <select id="zoomOut">
                 <option value="stay">stay in zoom mode
                 <option value="auto">stay if still hovered
