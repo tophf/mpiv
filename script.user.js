@@ -109,7 +109,7 @@ class App {
 
   static activate(info, event) {
     const force = event.ctrlKey;
-    if (info.rule.distinct && !force) {
+    if (!force) {
       const scale = Util.findScale(info.url, info.node.parentNode);
       if (scale && scale < cfg.scale)
         return;
@@ -1006,7 +1006,6 @@ class Ruler {
         ],
         r: /images\/.+?\.jpg/,
         s: '/V1\\.?_.+?\\.//g',
-        distinct: true,
       },
       {
         u: '||imgbox.com/',
@@ -1248,7 +1247,6 @@ class Ruler {
           '.webm',
         ],
         r: /[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
-        distinct: true,
       },
     ];
 
@@ -1621,9 +1619,7 @@ class Events {
       info = Util.lazyGetRect({
         url: img.src,
         node: img,
-        rule: {
-          distinct: true,
-        },
+        rule: {},
       }, img);
     }
 
