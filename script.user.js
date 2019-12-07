@@ -61,7 +61,7 @@ class App {
       hosts: [{
         name: 'No popup for YouTube thumbnails',
         d: 'www.youtube.com',
-        e: 'ytd-rich-item-renderer *',
+        e: 'ytd-rich-item-renderer *, ytd-thumbnail *',
         s: '',
       }, {
         name: 'No popup for SVG/PNG icons',
