@@ -21,7 +21,9 @@
 // @original-version 2017.9.29
 // @original-author  kuehlschrank
 
-// @homepage    https://w9p.co/userscripts/mpiv/
+// @updateURL	  https://github.com/tophf/mpiv/raw/master/script.user.js
+// @downloadURL	https://github.com/tophf/mpiv/raw/master/script.user.js
+// @homepage    https://github.com/tophf/mpiv
 // @icon        https://w9p.co/userscripts/mpiv/icon.png
 // ==/UserScript==
 
