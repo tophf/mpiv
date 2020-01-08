@@ -1323,7 +1323,7 @@ class Ruler {
     let urls = [];
     for (const s of ensureArray(rule.s))
       urls.push(
-        typeof s === 'string' ? decodeURIComponent(Ruler.substituteSingle(s, m)) :
+        typeof s === 'string' ? Util.maybeDecodeURL(Ruler.substituteSingle(s, m)) :
           typeof s === 'function' ? s(m, node, rule) :
             s);
     if (rule.q && urls.length > 1) {
@@ -1334,9 +1334,7 @@ class Ruler {
       urls = urls[0];
     // `false` returned by "s" property means "skip this rule"
     // any other falsy value (like say "") means "stop all rules"
-    return urls[0] === false ?
-      {skipRule: true} :
-      urls.map(u => u ? decodeURIComponent(u) : u);
+    return urls[0] === false ? {skipRule: true} : urls.map(Util.maybeDecodeURL);
   }
 
   static substituteSingle(s, m) {
@@ -2361,6 +2359,17 @@ class Util {
         return value;
       },
     });
+  }
+
+  // decode only if the main part of the URL is encoded to preserve the encoded parameters
+  static maybeDecodeURL(url) {
+    if (!url)
+      return url;
+    const iPct = url.indexOf('%');
+    const iColon = url.indexOf(':');
+    return iPct >= 0 && (iPct < iColon || iColon < 0) ?
+      decodeURIComponent(url) :
+      url;
   }
 
   static newFunction(...args) {
