@@ -33,6 +33,7 @@ const hostname = location.hostname;
 const dotDomain = '.' + hostname;
 const trustedDomains = ['greasyfork.org', 'w9p.co'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
+const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 
 const PREFIX = 'mpiv-';
 const STATUS_ATTR = `${PREFIX}status`;
@@ -179,8 +180,7 @@ class App {
     const fe = Util.formatError(e, rule);
     if (!rule || !ai.urls || !ai.urls.length)
       console.warn(fe.consoleFormat, ...fe.consoleArgs);
-    if (cfg.xhr && !ai.xhr &&
-        isGoogleDomain && location.search.includes('tbm=isch')) {
+    if (cfg.xhr && !ai.xhr && isGoogleImages) {
       ai.xhr = true;
       Popup.startSingle();
     } else if (ai.urls && ai.urls.length) {
@@ -697,6 +697,12 @@ class Ruler {
             m[2] ? `${m[2]}usercontent${m[3]}` :
               `raw.${m[4]}usercontent${m[5]}${m[6]}`
         }`,
+      },
+      isGoogleImages && {
+        e: 'a',
+        u: '/imgres?imgurl=',
+        r: /imgurl=([^&]+)/,
+        s: '$1',
       },
       dotDomain.endsWith('.instagram.com') && {
         e: [
@@ -1489,11 +1495,10 @@ class RuleMatcher {
       a.getAttribute('data-full-url') ||
       a.getAttribute('data-url') ||
       a.href;
-    if (url.length > 750 || url.startsWith('data:')) {
+    if (url.startsWith('data:'))
       url = false;
-    } else if (url.includes('//t.co/')) {
+    else if (url.includes('//t.co/'))
       url = 'http://' + a.textContent;
-    }
     return RuleMatcher.find(url, a);
   }
 
