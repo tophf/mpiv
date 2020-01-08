@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Mouseover Popup Image Viewer
-// @namespace   https://w9p.co/userscripts/
+// @namespace   https://github.com/tophf
 // @description Shows images and videos behind links and thumbnails.
 
 // @include     http*
@@ -15,7 +15,7 @@
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
-// @version     1.0.10
+// @version     1.0.11
 // @author      tophf
 
 // @original-version 2017.9.29
