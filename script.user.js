@@ -61,6 +61,7 @@ class App {
       delay: 500,
       globalStatus: false,
       // prefer ' inside rules because " will be displayed as \"
+      // example: "img[src*='icon']"
       hosts: [{
         name: 'No popup for YouTube thumbnails',
         d: 'www.youtube.com',
@@ -69,8 +70,8 @@ class App {
       }, {
         name: 'No popup for SVG/PNG icons',
         d: '',
-        e: 'img[src*="icon"]',
-        r: /\/\/[^/]+\/.*\bicons?\b.*\.(?:png|svg)/,
+        e: "img[src*='icon']",
+        r: '//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)',
         s: '',
       }],
       imgtab: false,
