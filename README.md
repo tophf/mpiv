@@ -1,6 +1,29 @@
-Direct installation link for Tampermonkey: [script.user.js](https://github.com/tophf/mpiv/raw/master/script.user.js)
-
 A fork of [MPIV](https://greasyfork.org/en/scripts/404-mouseover-popup-image-viewer/) (Mouseover Popup Image Viewer).
+
+### Installation
+
+* on GreasyFork: [link](https://greasyfork.org/scripts/394820)
+* directly from GitHub: [script.user.js](https://github.com/tophf/mpiv/raw/master/script.user.js) (Tampermonkey/Violentmonkey should be installed first)
+
+### Usage
+
+Action | Trigger
+---|---
+**activate** | move mouse cursor over thumbnail
+**deactivate** | move cursor off thumbnail, or click, or zoom out fully
+**prevent/freeze** | hold down <code>Shift</code> while entering/leaving thumbnail
+**force-activate<br>(for small pics)** | hold <code>Ctrl</code> while entering image element
+&nbsp; |
+**start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
+**zoom** | mouse wheel
+**flip through album** | mouse wheel, <code>j</code> / <code>k</code> or <code>left</code> / <code>right</code> keys
+&nbsp; |
+**open in tab** | press <code>t</code> while popup is visible
+**download** | press <code>d</code> while popup is visible
+&nbsp; |
+**change settings** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
+
+### Technical notes
 
 * Ancient browsers aren't supported because the code was refactored to the common JS norms and ES2015+ syntax
 * Quite a few rules were updated/enhanced, some added, some dead hostings removed
