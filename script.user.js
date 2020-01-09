@@ -240,6 +240,7 @@ class App {
       b = ai.bar = $create('div', {id: `${PREFIX}bar`});
     App.updateStyles();
     App.updateTitle();
+    App.updateBar();
     b.innerHTML = label;
     if (!b.parentNode) {
       doc.body.appendChild(b);
@@ -322,6 +323,18 @@ class App {
     return ai.zoom;
   }
 
+  static updateBar() {
+    if (ai.timerBar)
+      return;
+    clearTimeout(ai.timerBar);
+    ai.bar.style.removeProperty('opacity');
+    ai.timerBar = setTimeout(() => {
+      ai.timerBar = 0;
+      if (ai.bar)
+        ai.bar.style.setProperty('opacity', 0);
+    }, 3000);
+  }
+
   static updateCaption(text, doc = document) {
     switch (typeof ai.rule.c) {
       case 'function':
@@ -360,8 +373,7 @@ class App {
         c += gi.title + (item.desc ? ' - ' : '');
       if (item.desc)
         c += item.desc;
-      if (c)
-        App.setBar(c.trim(), 'gallery', true);
+      App.setBar(c.trim() || ' ', 'gallery', true);
     } else if ('caption' in ai) {
       App.setBar(ai.caption, 'caption');
     } else if (ai.tooltip) {
@@ -558,9 +570,7 @@ class App {
     const zoom = `${Math.round(ai.scale * 100)}% - ${ai.nwidth} x ${ai.nheight} px`;
     if (ai.bar.dataset.zoom !== zoom) {
       ai.bar.dataset.zoom = zoom;
-      ai.bar.style.removeProperty('opacity');
-      clearTimeout(ai.timerBar);
-      ai.timerBar = setTimeout(() => ai.bar && ai.bar.style.setProperty('opacity', 0), 3000);
+      App.updateBar();
     }
   }
 }
