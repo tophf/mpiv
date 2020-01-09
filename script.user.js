@@ -35,6 +35,7 @@ const trustedDomains = ['greasyfork.org', 'w9p.co'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 
+const POSTMSG_PREFIX = GM_info.script.name + ':';
 const PREFIX = 'mpiv-';
 const STATUS_ATTR = `${PREFIX}status`;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
@@ -107,6 +108,36 @@ class App {
         }
       });
     }
+
+    window.addEventListener('load', () => {
+      if ($('iframe, frame'))
+        window.addEventListener('message', App.onMessageParent);
+    }, {once: true});
+  }
+
+  /** @param {MessageEvent} e */
+  static onMessageParent(e) {
+    if (typeof e.data === 'string' && e.data.startsWith(POSTMSG_PREFIX)) {
+      for (const el of $$('iframe, frame')) {
+        if (el.contentWindow === e.source) {
+          const r = el.getBoundingClientRect();
+          const w = clamp(r.width, 0, innerWidth - r.left);
+          const h = clamp(r.height, 0, innerHeight - r.top);
+          e.source.postMessage(`${POSTMSG_PREFIX}${w}:${h}`, '*');
+        }
+      }
+    }
+  }
+
+  /** @param {MessageEvent} e */
+  static onMessageChild(e) {
+    if (e.source === parent && typeof e.data === 'string' && e.data.startsWith(POSTMSG_PREFIX)) {
+      const [width, height] = e.data.slice(POSTMSG_PREFIX.length).split(':').map(parseFloat);
+      if (width && height) {
+        ai.view = {width, height};
+        window.removeEventListener('message', App.onMessageChild);
+      }
+    }
   }
 
   static activate(info, event) {
@@ -124,6 +155,10 @@ class App {
       width: view.clientWidth,
       height: view.clientHeight,
     };
+    if (window !== top) {
+      window.addEventListener('message', App.onMessageChild);
+      parent.postMessage(POSTMSG_PREFIX + 'getDimensions', '*');
+    }
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressHoverTooltip();
     App.setListeners();
