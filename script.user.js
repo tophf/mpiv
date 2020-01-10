@@ -110,10 +110,7 @@ class App {
       });
     }
 
-    window.addEventListener('load', () => {
-      if ($('iframe, frame'))
-        window.addEventListener('message', App.onMessageParent);
-    }, {once: true});
+    window.addEventListener('message', App.onMessageParent);
   }
 
   /** @param {MessageEvent} e */
