@@ -677,8 +677,8 @@ class Ruler {
       dotDomain.endsWith('.deviantart.com') && {
         e: '.dev-view-deviation img',
         s: () => [
-          ($('.dev-page-download') || 0).href,
-          ($('.dev-content-full') || 0).src,
+          $('.dev-page-download').href,
+          $('.dev-content-full').src,
         ].filter(Boolean),
       },
       dotDomain.endsWith('.deviantart.com') && {
@@ -854,10 +854,8 @@ class Ruler {
       {
         u: '||dropbox.com/s',
         r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
-        q: (text, doc) => {
-          const i = $('img.absolute-center', doc);
-          return i ? i.src.replace(/(size_mode)=\d+/, '$1=5') : false;
-        },
+        q: (text, doc) =>
+          $prop('img.absolute-center', 'src', doc).replace(/(size_mode)=\d+/, '$1=5') || false,
       },
       {
         r: /[./]ebay\.[^/]+\/itm\//,
@@ -2514,11 +2512,15 @@ class Util {
 }
 
 function $(s, n = doc) {
-  return n.querySelector(s);
+  return n.querySelector(s) || 0;
 }
 
 function $$(s, n = doc) {
   return n.querySelectorAll(s);
+}
+
+function $prop(s, prop, n = doc) {
+  return (n.querySelector(s) || 0)[prop] || '';
 }
 
 function $many(q, doc) {
