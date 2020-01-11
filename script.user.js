@@ -870,14 +870,16 @@ class Ruler {
             m.input.replace(/~~60_\d+/, '~~60_57'),
       },
       {
-        u: '||fastpic.ru/view/',
-        q: '.image',
+        e: 'a[href*="fastpic.ru"] img[src*="fastpic.ru/thumb"]',
+        s: (m, node) =>
+          node.src.replace('/thumb/', '/big/').replace(/\w+$/, '') +
+          node.closest('a').href.match(/(\w+)(\.htm|$)|$/)[1] + '?noht=1',
+        xhr: (m, node) => node.src.split('//')[0] + '//fastpic.ru',
       },
       {
-        e: 'a',
-        u: '||fastpic.ru/',
-        r: /.+?\.\w+$/,
-        s: '$0?noht=1',
+        u: '||fastpic.ru/view/',
+        q: 'img[src*="/big/"]',
+        xhr: true,
       },
       {
         u: '||facebook.com/',
@@ -1924,7 +1926,7 @@ class Popup {
     }
   }
 
-  static async render(src, pageUrl = ai.url) {
+  static async render(src, pageUrl) {
     Popup.destroy();
     ai.imageUrl = src;
     if (ai.xhr && src)
@@ -2200,8 +2202,8 @@ class Remoting {
     const response = await Remoting.gmXhr(url, {
       responseType: 'blob',
       headers: {
-        'Accept': 'image/png,image/*;q=0.8,*/*;q=0.5',
-        'Referer': pageUrl,
+        Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
+        Referer: pageUrl || typeof ai.xhr === 'function' ? ai.xhr(ai.match, ai.node, ai.rule) : url,
       },
       onprogress: Remoting.getImageProgress,
     });
