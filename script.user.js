@@ -15,7 +15,7 @@
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
-// @version     1.0.13
+// @version     1.0.14
 // @author      tophf
 
 // @original-version 2017.9.29
@@ -870,11 +870,15 @@ class Ruler {
             m.input.replace(/~~60_\d+/, '~~60_57'),
       },
       {
-        e: 'a[href*="fastpic.ru"] img[src*="fastpic.ru/thumb"]',
-        s: (m, node) =>
-          node.src.replace('/thumb/', '/big/').replace(/\w+$/, '') +
-          node.closest('a').href.match(/(\w+)(\.htm|$)|$/)[1] + '?noht=1',
-        xhr: (m, node) => node.src.split('//')[0] + '//fastpic.ru',
+        u: '||fastpic.ru/',
+        r: /(\/\/.*?)(?:big|thumb)\/([^?#]+)/,
+        s: (m, node) => {
+          const url = `https:${m[1]}big/${m[2].split('.html')[0]}`;
+          const a = node.closest('[href*="fastpic.ru"]');
+          const ext = (a ? a.href : url).match(/(\w+)(\.htm|$)|$/)[1];
+          return url.replace(/\w+$/, '') + ext + '?noht=1';
+        },
+        xhr: () => 'https://fastpic.ru',
       },
       {
         u: '||fastpic.ru/view/',
