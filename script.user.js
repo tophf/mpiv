@@ -519,6 +519,9 @@ class App {
         box-shadow: 6px 6px 30px black;
         background-color: white;
       }
+      #${PREFIX}popup.${PREFIX}zoom-max {
+        image-rendering: pixelated;
+      }
       @keyframes ${PREFIX}fadein {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -1745,7 +1748,8 @@ class Events {
     if (ai.zoom) {
       Events.drop(e);
       const i = ai.scales.indexOf(ai.scale) - dir;
-      if (i >= 0 && i < ai.scales.length)
+      const n = ai.scales.length;
+      if (i >= 0 && i < n)
         ai.scale = ai.scales[i];
       if (i === 0 && cfg.zoomOut !== 'stay') {
         if ((cfg.zoomOut === 'close' || !ai.isOverRect) &&
@@ -1756,6 +1760,8 @@ class Events {
         ai.zoom = false;
         ai.zoomed = false;
         App.updateFileInfo();
+      } else {
+        ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
       }
       if (ai.zooming)
         ai.popup.classList.add(`${PREFIX}zooming`);
