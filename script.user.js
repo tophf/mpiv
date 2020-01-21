@@ -653,8 +653,7 @@ class Ruler {
         css: '#post-preview{display:none}',
       },
       hostname.includes('amazon.') && {
-        u: '/images/I/',
-        r: /.+?\/I\/.+?\./,
+        r: /.+?images\/I\/.+?\./,
         s: m => {
           const uh = doc.getElementById('universal-hover');
           return uh ? '' : m[0] + 'jpg';
@@ -710,8 +709,7 @@ class Ruler {
       },
       dotDomain.endsWith('.flickr.com') &&
       tryCatch(() => unsafeWindow.YUI_config.flickr.api.site_key) && {
-        u: '||flickr.com/photos/',
-        r: /photos\/[^/]+\/(\d+)/,
+        r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
         s: m => `https://www.flickr.com/services/rest/?${
           new URLSearchParams({
             photo_id: m[1],
@@ -723,17 +721,6 @@ class Ruler {
         q: text => JSON.parse(text).sizes.size.pop().source,
       },
       dotDomain.endsWith('.github.com') && {
-        u: [
-          'avatars',
-          'raw.github.com',
-          '.png',
-          '.jpg',
-          '.jpeg',
-          '.bmp',
-          '.gif',
-          '.cur',
-          '.ico',
-        ],
         r: new RegExp([
           /(avatars.+?&s=)\d+/,
           /(raw\.github)(\.com\/.+?\/img\/.+)$/,
@@ -747,8 +734,7 @@ class Ruler {
       },
       isGoogleImages && {
         e: 'a',
-        u: '/imgres?imgurl=',
-        r: /imgurl=([^&]+)/,
+        r: /imgres\?imgurl=([^&]+)/,
         s: '$1',
       },
       dotDomain.endsWith('.instagram.com') && {
@@ -794,8 +780,7 @@ class Ruler {
         u: '||i.reddituploads.com/',
       },
       dotDomain.endsWith('.reddit.com') && {
-        u: '||preview.redd.it/',
-        r: /(redd\.it\/\w+\.(jpe?g|png|gif))/,
+        r: /(preview\.redd\.it\/\w+\.(jpe?g|png|gif))/,
         s: 'https://i.$1',
       },
       dotDomain.endsWith('.tumblr.com') && {
