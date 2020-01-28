@@ -565,7 +565,8 @@ class App {
   static updateTitle() {
     if (!ai.bar)
       return;
-    const zoom = `${Math.round(ai.scale * 100)}% - ${ai.nwidth} x ${ai.nheight} px`;
+    const megapixels = Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100;
+    const zoom = `${Math.round(ai.scale * 100)}% - ${ai.nwidth} x ${ai.nheight} px - ${megapixels} MP`;
     if (ai.bar.dataset.zoom !== zoom) {
       ai.bar.dataset.zoom = zoom;
       App.updateBar();
