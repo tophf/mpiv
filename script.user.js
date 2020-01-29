@@ -177,8 +177,6 @@ class App {
       ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && 1200;
       if (ai.nheight) {
         App.updateProgress();
-        clearInterval(ai.timerProgress);
-        clearTimeout(ai.timerStatus);
         return;
       }
     }
@@ -187,9 +185,7 @@ class App {
   }
 
   static deactivate({wait} = {}) {
-    clearTimeout(ai.timer);
-    clearTimeout(ai.timerStatus);
-    clearInterval(ai.timerProgress);
+    App.stopTimers();
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
@@ -218,9 +214,12 @@ class App {
       Popup.startSingle();
     } else if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
-      ai.url ?
-        Popup.startSingle() :
+      if (ai.url) {
+        App.stopTimers();
+        Popup.startSingle();
+      } else {
         App.deactivate();
+      }
     } else if (ai.node) {
       App.setStatus('error');
       App.setBar(fe.message, 'error');
@@ -301,6 +300,12 @@ class App {
     } else if (!ai.popupLoaded) {
       App.setStatus('+loading');
     }
+  }
+
+  static stopTimers() {
+    clearTimeout(ai.timer);
+    clearTimeout(ai.timerStatus);
+    clearInterval(ai.timerProgress);
   }
 
   static toggleZoom() {
@@ -394,12 +399,11 @@ class App {
   }
 
   static updateProgress() {
-    if (ai.preloadStart) {
-      const wait = ai.preloadStart + cfg.delay - Date.now();
-      if (wait > 0) {
-        ai.timer = setTimeout(App.checkProgress, wait);
-        return;
-      }
+    App.stopTimers();
+    let wait;
+    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0) {
+      ai.timer = setTimeout(App.checkProgress, wait);
+      return;
     }
     if (ai.urls && ai.urls.length && Math.max(ai.nheight, ai.nwidth) < 130) {
       App.handleError({type: 'error'});
@@ -1858,9 +1862,10 @@ class Popup {
       ai.timer = setTimeout(Popup.start, cfg.delay);
     } else if (!force) {
       // we don't want to preload everything in the path of a quickly moving mouse cursor
-      ai.timer = setTimeout(Popup.start, SETTLE_TIME, force);
+      ai.timer = setTimeout(Popup.schedule, SETTLE_TIME, true);
       ai.preloadStart = Date.now();
     } else {
+      Popup.start();
       App.setStatus('+preloading');
       setTimeout(App.setStatus, cfg.delay, '-preloading');
     }
@@ -1952,7 +1957,7 @@ class Popup {
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
-    ai.timer = setTimeout(App.checkProgress, 0, {start: true});
+    App.checkProgress({start: true});
   }
 
   static onLoad() {
