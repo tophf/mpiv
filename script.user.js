@@ -51,6 +51,22 @@ let cfg;
 /** @type mpiv.AppInfo */
 let ai = {rule: {}};
 
+const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
+const ensureArray = v => Array.isArray(v) ? v : [v];
+const safeIncludes = (a, b) => typeof a === 'string' && a.includes(b);
+const sumProps = (...props) => props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+const tryCatch = function (fn, ...args) {
+  try {
+    return fn.apply(this, args);
+  } catch (e) {}
+};
+const $ = (s, n = doc) => n.querySelector(s) || 0;
+const $$ = (s, n = doc) => n.querySelectorAll(s);
+const $create = (tag, props) => Object.assign(document.createElement(tag), props);
+const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
+const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
+const dropEvent = e => (e.preventDefault(), e.stopPropagation());
+
 class App {
 
   static init() {
@@ -105,7 +121,7 @@ class App {
             /^\s*{\s*"\w+"\s*:[\s\S]+}\s*$/.test(text) &&
             (rule = tryCatch(JSON.parse, text))) {
           setup({rule});
-          Events.drop(e);
+          dropEvent(e);
         }
       });
     }
@@ -175,10 +191,8 @@ class App {
     if (p) {
       ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && 800;
       ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && 1200;
-      if (ai.nheight) {
-        App.updateProgress();
-        return;
-      }
+      if (ai.nheight)
+        return App.updateProgress();
     }
     if (start)
       ai.timerProgress = setInterval(App.checkProgress, 150);
@@ -259,10 +273,8 @@ class App {
   }
 
   static setStatus(status) {
-    if (!status && !cfg.globalStatus) {
-      ai.node && ai.node.removeAttribute(STATUS_ATTR);
-      return;
-    }
+    if (!status && !cfg.globalStatus)
+      return ai.node && ai.node.removeAttribute(STATUS_ATTR);
     const prefix = cfg.globalStatus ? PREFIX : '';
     const action = status && /^[+-]/.test(status) && status[0];
     const name = status && `${prefix}${action ? status.slice(1) : status}`;
@@ -341,7 +353,7 @@ class App {
   static updateCaption(text, doc = document) {
     switch (typeof ai.rule.c) {
       case 'function':
-        // don't specify as a parameter's default value, instead get the html only when needed
+        // not specifying as a parameter's default value to get the html only when needed
         if (text === undefined)
           text = doc.documentElement.outerHTML;
         ai.caption = ai.rule.c(text, doc, ai.node, ai.rule);
@@ -392,20 +404,16 @@ class App {
     const r = ai.rect;
     if (r)
       ai.isOverRect =
-        cx < r.right + 2 &&
-        cx > r.left - 2 &&
-        cy < r.bottom + 2 &&
-        cy > r.top - 2;
+        cx > r.left - 2 && cx < r.right + 2 &&
+        cy > r.top - 2 && cy < r.bottom + 2;
   }
 
   static updateProgress() {
     App.stopTimers();
     let wait;
-    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0) {
-      ai.timer = setTimeout(App.checkProgress, wait);
-      return;
-    }
-    if (ai.urls && ai.urls.length && Math.max(ai.nheight, ai.nwidth) < 130) {
+    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0)
+      return (ai.timer = setTimeout(App.checkProgress, wait));
+    if ((ai.urls || 0).length && Math.max(ai.nheight, ai.nwidth) < 130) {
       App.handleError({type: 'error'});
       return;
     }
@@ -452,25 +460,11 @@ class App {
 
   static updateSpacing() {
     const s = getComputedStyle(ai.popup);
-    ai.outline =
-      (parseFloat(s['outline-offset']) || 0) +
-      (parseFloat(s['outline-width']) || 0);
-    ai.pw =
-      (parseFloat(s['padding-left']) || 0) +
-      (parseFloat(s['padding-right']) || 0);
-    ai.ph =
-      (parseFloat(s['padding-top']) || 0) +
-      (parseFloat(s['padding-bottom']) || 0);
-    ai.mbw =
-      (parseFloat(s['margin-left']) || 0) +
-      (parseFloat(s['margin-right']) || 0) +
-      (parseFloat(s['border-left-width']) || 0) +
-      (parseFloat(s['border-right-width']) || 0);
-    ai.mbh =
-      (parseFloat(s['margin-top']) || 0) +
-      (parseFloat(s['margin-bottom']) || 0) +
-      (parseFloat(s['border-top-width']) || 0) +
-      (parseFloat(s['border-bottom-width']) || 0);
+    ai.outline = sumProps(s.outlineOffset, s.outlineWidth);
+    ai.pw = sumProps(s.paddingLeft, s.paddingRight);
+    ai.ph = sumProps(s.paddingTop, s.paddingBottom);
+    ai.mbw = sumProps(s.marginLeft, s.marginRight, s.borderLeftWidth, s.borderRightWidth);
+    ai.mbh = sumProps(s.marginTop, s.marginBottom, s.borderTopWidth, s.borderBottomWidth);
   }
 
   static updateStyles() {
@@ -529,8 +523,8 @@ class App {
       @keyframes ${PREFIX}fadein {
         from { opacity: 0; }
         to { opacity: 1; }
-      }
-      ${cfg.globalStatus ? `
+      }` + (
+      cfg.globalStatus ? `
         .${PREFIX}loading:not(.${PREFIX}preloading) * {
           cursor: wait !important;
         }
@@ -563,9 +557,10 @@ class App {
         [${STATUS_ATTR}~="shift"] {
           cursor: default !important;
         }
-      `}
-      ${cfg.css.includes('{') ? cfg.css : `#${PREFIX}popup {${cfg.css}}`}
-    `));
+      `
+    ) + (/*language=none*/
+      cfg.css.includes('{') ? cfg.css : `#${PREFIX}popup {${cfg.css}}`
+    )));
     Util.addStyle('rule', ai.rule.css || '');
   }
 
@@ -1418,50 +1413,74 @@ const SimpleUrlMatcher = (() => {
   // rx for '^' symbol in simple url match
   const RX_SEP = /[^\w%._-]/g;
   const RXS_SEP = RX_SEP.source;
-
+  return match => {
+    const results = [];
+    for (const s of ensureArray(match)) {
+      const pinDomain = s.startsWith('||');
+      const pinStart = !pinDomain && s.startsWith('|');
+      const endSep = s.endsWith('^');
+      let fn;
+      let needle = s.slice(pinDomain * 2 + pinStart, -endSep || undefined);
+      if (needle.includes('^')) {
+        const plain = findLongestPart(needle);
+        const rx = new RegExp(
+          (pinStart ? '^' : '') +
+          (pinDomain ? '^(([^/:]+:)?//)?([^./]*\\.)*?' : '') +
+          needle.replace(RX_ESCAPE, '\\$&').replace(/\\\^/g, RXS_SEP) +
+          (endSep ? `(?:${RXS_SEP}|$)` : ''), 'i');
+        needle = [plain, rx];
+        fn = regexp;
+      } else if (pinStart) {
+        fn = endSep ? equals : starts;
+      } else if (pinDomain) {
+        const slashPos = needle.indexOf('/');
+        const domain = slashPos > 0 ? needle.slice(0, slashPos) : needle;
+        needle = [needle, domain, slashPos > 0, endSep];
+        fn = startsDomainPrescreen;
+      } else if (endSep) {
+        fn = ends;
+      } else {
+        fn = has;
+      }
+      results.push({fn, this: needle});
+    }
+    return results.length > 1 ?
+      {fn: checkArray, this: results} :
+      results[0];
+  };
   function checkArray(s) {
     return this.some(checkArrayItem, s);
   }
-
   function checkArrayItem(item) {
     return item.fn.call(item.this, this);
   }
-
   function equals(s) {
     return s.startsWith(this) && (
       s.length === this.length ||
       s.length === this.length + 1 && endsWithSep(s));
   }
-
   function starts(s) {
     return s.startsWith(this);
   }
-
   function ends(s) {
     return s.endsWith(this) || (
       s.length > this.length &&
       s.indexOf(this, s.length - this.length - 1) >= 0 &&
       endsWithSep(s));
   }
-
   function has(s) {
     return s.includes(this);
   }
-
   function regexp(s) {
     return s.includes(this[0]) && this[1].test(s);
   }
-
   function endsWithSep(s) {
     RX_SEP.lastIndex = s.length - 1;
     return RX_SEP.test(s);
   }
-
   function startsDomainPrescreen(url) {
-    return url.includes(this[0]) &&
-           startsDomain.call(this, url);
+    return url.includes(this[0]) && startsDomain.call(this, url);
   }
-
   function startsDomain(url) {
     const [p, gap, host] = url.split('/', 3);
     if (gap || p && !p.endsWith(':'))
@@ -1479,7 +1498,6 @@ const SimpleUrlMatcher = (() => {
     return url.lastIndexOf(needle, start) === start &&
            (!endSep || start + needle.length === url.length);
   }
-
   function findLongestPart(s) {
     const len = s.length;
     let maxLen = 0;
@@ -1495,44 +1513,6 @@ const SimpleUrlMatcher = (() => {
     }
     return maxLen < len ? s.substr(start, maxLen) : s;
   }
-
-  return {
-    compile(match) {
-      const results = [];
-      for (const s of ensureArray(match)) {
-        const pinDomain = s.startsWith('||');
-        const pinStart = !pinDomain && s.startsWith('|');
-        const endSep = s.endsWith('^');
-        let fn;
-        let needle = s.slice(pinDomain * 2 + pinStart, -endSep || undefined);
-        if (needle.includes('^')) {
-          const plain = findLongestPart(needle);
-          const rx = new RegExp(
-            (pinStart ? '^' : '') +
-            (pinDomain ? '^(([^/:]+:)?//)?([^./]*\\.)*?' : '') +
-            needle.replace(RX_ESCAPE, '\\$&').replace(/\\\^/g, RXS_SEP) +
-            (endSep ? `(?:${RXS_SEP}|$)` : ''), 'i');
-          needle = [plain, rx];
-          fn = regexp;
-        } else if (pinStart) {
-          fn = endSep ? equals : starts;
-        } else if (pinDomain) {
-          const slashPos = needle.indexOf('/');
-          const domain = slashPos > 0 ? needle.slice(0, slashPos) : needle;
-          needle = [needle, domain, slashPos > 0, endSep];
-          fn = startsDomainPrescreen;
-        } else if (endSep) {
-          fn = ends;
-        } else {
-          fn = has;
-        }
-        results.push({fn, this: needle});
-      }
-      return results.length > 1 ?
-        {fn: checkArray, this: results} :
-        results[0];
-    },
-  };
 })();
 
 class RuleMatcher {
@@ -1572,9 +1552,7 @@ class RuleMatcher {
       if (rule.s === '')
         return {};
       const hasS = 's' in rule && rule.s !== 'gallery';
-      urls = hasS ?
-        Ruler.runS(node, rule, m) :
-        [m.input];
+      urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
@@ -1589,7 +1567,7 @@ class RuleMatcher {
     let {r, u} = rule;
     let m;
     if (u) {
-      u = rule._u || (rule._u = SimpleUrlMatcher.compile(u));
+      u = rule._u || (rule._u = SimpleUrlMatcher(u));
       m = u.fn.call(u.this, url) && (r || RuleMatcher.makeDummyMatch(url));
     }
     return (m || !u) && r ? r.exec(url) : m;
@@ -1634,11 +1612,6 @@ class RuleMatcher {
 
 class Events {
 
-  static drop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
   static onMouseOver(e) {
     if (!App.enabled || e.shiftKey || ai.zoom)
       return;
@@ -1660,12 +1633,10 @@ class Events {
     } else {
       if (node.tagName === 'IMG') {
         img = node;
-        if (!img.src.startsWith('data:'))
-          url = Util.rel2abs(img.src, location.href);
+        url = !img.src.startsWith('data:') && Util.rel2abs(img.src, location.href);
       }
       info = RuleMatcher.find(url, node);
-      if (!info)
-        a = node.closest('a');
+      a = !info && node.closest('a');
     }
 
     if (!info && a)
@@ -1710,14 +1681,10 @@ class Events {
 
   static onMouseMove(e) {
     App.updateMouse(e);
-    if (e.shiftKey) {
-      ai.lazyUnload = true;
-      return;
-    }
-    if (!ai.zoomed && !ai.isOverRect) {
-      App.deactivate();
-      return;
-    }
+    if (e.shiftKey)
+      return (ai.lazyUnload = true);
+    if (!ai.zoomed && !ai.isOverRect)
+      return App.deactivate();
     if (ai.zoom) {
       Popup.move();
       const {height: h, width: w} = ai.view;
@@ -1742,17 +1709,15 @@ class Events {
   static onMouseScroll(e) {
     const dir = (e.deltaY || -e.wheelDelta) > 0 ? 1 : -1;
     if (ai.zoom) {
-      Events.drop(e);
+      dropEvent(e);
       const i = ai.scales.indexOf(ai.scale) - dir;
       const n = ai.scales.length;
       if (i >= 0 && i < n)
         ai.scale = ai.scales[i];
       if (i === 0 && cfg.zoomOut !== 'stay') {
         if ((cfg.zoomOut === 'close' || !ai.isOverRect) &&
-            (!ai.gItems || ai.gItems.length < 2)) {
-          App.deactivate({wait: true});
-          return;
-        }
+            (!ai.gItems || ai.gItems.length < 2))
+          return App.deactivate({wait: true});
         ai.zoom = false;
         ai.zoomed = false;
         App.updateFileInfo();
@@ -1764,10 +1729,10 @@ class Events {
       Popup.move();
       App.updateTitle();
     } else if (ai.gItems && ai.gItems.length > 1 && ai.popup) {
-      Events.drop(e);
+      dropEvent(e);
       Gallery.next(dir);
     } else if (cfg.zoom === 'wheel' && dir < 0 && ai.popup) {
-      Events.drop(e);
+      dropEvent(e);
       App.toggleZoom();
     } else {
       App.deactivate();
@@ -1809,16 +1774,16 @@ class Events {
         break;
       case 'ArrowRight':
       case 'KeyJ':
-        Events.drop(e);
+        dropEvent(e);
         Gallery.next(1);
         break;
       case 'ArrowLeft':
       case 'KeyK':
-        Events.drop(e);
+        dropEvent(e);
         Gallery.next(-1);
         break;
       case 'KeyD': {
-        Events.drop(e);
+        dropEvent(e);
         Remoting.saveFile();
         break;
       }
@@ -1840,7 +1805,7 @@ class Events {
     if (e.shiftKey)
       return;
     if (cfg.zoom === 'context' && ai.popup && App.toggleZoom()) {
-      Events.drop(e);
+      dropEvent(e);
       return;
     }
     if (!ai.popup && (
@@ -1848,7 +1813,7 @@ class Events {
       (cfg.start === 'auto' && ai.rule.manual)
     )) {
       Popup.start();
-      Events.drop(e);
+      dropEvent(e);
     } else {
       setTimeout(App.deactivate, SETTLE_TIME, {wait: true});
     }
@@ -2175,21 +2140,22 @@ class Remoting {
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     return new Promise((resolve, reject) => {
-      opts.url = url;
-      if (!opts.method)
-        opts.method = 'GET';
-      opts.onload = opts.onerror = e => {
-        ai.req = null;
-        e.status < 400 && !e.error ?
-          resolve(e) :
-          reject(`Server error ${e.status} ${e.error}\nURL: ${url}`);
-      };
-      opts.timeout = opts.timeout || 10e3;
-      opts.ontimeout = () => {
-        ai.req = null;
-        reject(`Timeout fetching ${url}`);
-      };
-      ai.req = GM_xmlhttpRequest(opts);
+      ai.req = GM_xmlhttpRequest({
+        url,
+        method: 'GET',
+        timeout: 10e3,
+        ...opts,
+        ontimeout() {
+          ai.req = null;
+          reject(`Timeout fetching ${url}`);
+        },
+        onloadend(e) {
+          ai.req = null;
+          e.status < 400 && !e.error ?
+            resolve(e) :
+            reject(`Server error ${e.status} ${e.error}\nURL: ${url}`);
+        },
+      });
     });
   }
 
@@ -2474,21 +2440,15 @@ class Util {
   }
 
   static suppressHoverTooltip() {
-    for (const n of [
+    for (const node of [
       ai.node.parentNode,
       ai.node,
       ai.node.firstElementChild,
     ]) {
-      if (n &&
-          n.title &&
-          n.title !== n.textContent &&
-          !doc.title.includes(n.title) &&
-          !/^http\S+$/.test(n.title)) {
-        ai.tooltip = {
-          node: n,
-          text: n.title,
-        };
-        n.title = '';
+      const t = (node || 0).title;
+      if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
+        ai.tooltip = {node, text: t};
+        node.title = '';
         break;
       }
     }
@@ -2523,48 +2483,6 @@ class Util {
       </body>
     `.replace(/[\r\n]+\s*/g, '').replace(/#/g, '%23');
   }
-}
-
-function $(s, n = doc) {
-  return n.querySelector(s) || 0;
-}
-
-function $$(s, n = doc) {
-  return n.querySelectorAll(s);
-}
-
-function $prop(s, prop, n = doc) {
-  return (n.querySelector(s) || 0)[prop] || '';
-}
-
-function $many(q, doc) {
-  for (const selector of q ? ensureArray(q) : []) {
-    const el = $(selector, doc);
-    if (el)
-      return el;
-  }
-}
-
-function $create(tag, props) {
-  return Object.assign(document.createElement(tag), props);
-}
-
-function safeIncludes(a, b) {
-  return typeof a === 'string' && a.includes(b);
-}
-
-function clamp(v, min, max) {
-  return v < min ? min : v > max ? max : v;
-}
-
-function ensureArray(v) {
-  return Array.isArray(v) ? v : [v];
-}
-
-function tryCatch(fn, ...args) {
-  try {
-    return fn.apply(this, args);
-  } catch (e) {}
 }
 
 function setup({rule} = {}) {
@@ -2629,7 +2547,7 @@ function setup({rule} = {}) {
   }
 
   function exportSettings(e) {
-    Events.drop(e);
+    dropEvent(e);
     const txt = $create('textarea', {
       style: 'opacity:0; position:absolute',
       value: JSON.stringify(collectConfig(), null, '  '),
@@ -2645,7 +2563,7 @@ function setup({rule} = {}) {
   }
 
   function importSettings(e) {
-    Events.drop(e);
+    dropEvent(e);
     const s = prompt('Paste settings:');
     if (s)
       init(new Config({data: s}));
@@ -3031,7 +2949,7 @@ function setup({rule} = {}) {
 }
 
 async function setupRuleInstaller(e) {
-  Events.drop(e);
+  dropEvent(e);
   const parent = this.parentElement;
   parent.children.installLoading.hidden = false;
   this.remove();
