@@ -1536,14 +1536,16 @@ class RuleMatcher {
     const tn = node.tagName;
     let m, html, urls;
     for (const rule of Ruler.rules) {
-      if (rule.e && !node.matches(rule.e) || rule === skipRule)
+      const {e} = rule;
+      if (e && !node.matches(e) || rule === skipRule)
         continue;
-      if (rule.html && rule.r && !noHtml && (tn === 'A' || tn === 'IMG' || rule.e))
-        m = rule.r.exec(html || (html = node.outerHTML));
-      else if (url)
-        m = (rule.r || rule.u) ?
-          RuleMatcher.makeUrlMatch(url, node, rule) :
-          RuleMatcher.makeDummyMatch(url);
+      const {r, u} = rule;
+      if (r && !noHtml && rule.html && (tn === 'A' || tn === 'IMG' || e))
+        m = r.exec(html || (html = node.outerHTML));
+      else if (r || u)
+        m = url && RuleMatcher.makeUrlMatch(url, node, rule);
+      else
+        m = url ? RuleMatcher.makeDummyMatch(url) : [];
       if (!m ||
           // a rule with follow:true for the currently hovered IMG produced a URL,
           // but we'll only allow it to match rules without 's' in the nested find call
