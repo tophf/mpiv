@@ -2462,14 +2462,14 @@ class Util {
         body {
           margin: 0;
           padding: 0;
-          background: #222
+          background: #222;
         }
         .fit {
           overflow: hidden
         }
         .fit > img {
           max-width: 100vw;
-          max-height: 100vh
+          max-height: 100vh;
         }
         body > img {
           margin: auto;
@@ -2477,13 +2477,13 @@ class Util {
           left: 0;
           right: 0;
           top: 0;
-          bottom: 0
+          bottom: 0;
         }
       </style>
-      <body class="fit">
+      <body class=fit>
         <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
       </body>
-    `.replace(/[\r\n]+\s*/g, '').replace(/#/g, '%23');
+    `.replace(/\n\s*/g, '').replace(/\x20?([:>])\x20/g, '$1').replace(/#/g, '%23');
   }
 }
 
@@ -2640,255 +2640,239 @@ function setup({rule} = {}) {
     });
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
-      <style>
-        :host {
-          all: initial !important;
-          position: fixed !important;
-          z-index: 2147483647 !important;
-          top: 20px !important;
-          right: 20px !important;
-          padding: 20px 30px !important;
-          color: #000 !important;
-          background: #eee !important;
-          box-shadow: 5px 5px 25px 2px #000 !important;
-          width: 500px !important;
-          border: 1px solid black !important;
-          display: flex !important;
-          flex-direction: column !important;
-        }
-        main {
-          font: 12px/15px sans-serif;
-        }
-        ul {
-          max-height: calc(100vh - 200px);
-          margin: 10px 0 15px 0;
-          padding: 0;
-          list-style: none;
-        }
-        li {
-          margin: 0;
-          padding: .25em 0;
-        }
-        li.options {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-        }
-        label {
-          display: inline-flex;
-          align-items: center;
-        }
-        label:not(:last-child) {
-          margin-right: 1em;
-        }
-        label > :not(span) {
-          margin-right: .25em;
-        }
-        label > :not(span):not(:first-child) {
-          margin-left: .5em;
-        }
-        input:first-child {
-          margin-left: 0;
-        }
-        input, select {
-          min-height: 1.6em;
-          box-sizing: border-box;
-        }
-        textarea {
-          flex: 1;
-          resize: vertical;
-          margin: 1px 0;
-          font: 11px/1.25 Consolas, monospace;
-        }
-        textarea:invalid {
-          background-color: #f002;
-          border-color: #800;
-        }
-        code {
-          font-weight: bold;
-        }
-        a {
-          text-decoration: none;
-        }
-        a:hover {
-          text-decoration: underline;
-        }
-        button {
-          padding: .2em 1em;
-          margin: 0 1em;
-        }
-        .column {
-          display: flex;
-          flex-direction: column;
-        }
-        .highlight {
-          animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
-          animation-fill-mode: both;
-        }
-        #rules textarea {
-          word-break: break-all;
-        }
-        #x {
-          position: absolute;
-          top: 0;
-          right: 0;
-          padding: 4px 8px;
-          cursor: pointer;
-          user-select: none;
-        }
-        #x:hover {
-          background-color: #8884;
-        }
-        @keyframes fade-in {
-          from { background-color: deepskyblue }
-          to {}
-        }
-        @media (prefers-color-scheme: dark) {
-          :host {
-            color: #aaa !important;
-            background: #333 !important;
-          }
-          a {
-            color: deepskyblue;
-          }
-          textarea, input, select {
-            background: #111;
-            color: #BBB;
-            border-color: #555;
-          }
-          input[type="checkbox"] {
-            filter: invert(1);
-          }
-        }
-      </style>
-      <main>
-        <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
-        <div id="x">x</div>
-        <ul class="column">
-          <li class="options">
-            <label>
-              <span>Popup:</span>
-              <select id="start">
-                <option value="auto">automatically
-                <option value="context">right click or ctrl
-                <option value="ctrl">ctrl
-              </select>
-            </label>
-            <label>
-              <span>after</span>
-              <input id="delay" type="number" min="0" max="10000" step="50" style="width: 4em">
-              <span>ms</span>
-            </label>
-            <label>
-              <input type="checkbox" id="preload">
-              <span>Start preloading immediately</span>
-            </label>
-          </li>
-          <li class="options">
-            <label>
-              <span>Zoom:</span>
-              <select id="zoom">
-                <option value="context">right click or shift
-                <option value="wheel">wheel up or shift
-                <option value="shift">shift
-                <option value="auto">automatically
-              </select>
-            </label>
-            <label>
-              <span>When zoomed out completely</span>
-              <select id="zoomOut">
-                <option value="stay">stay in zoom mode
-                <option value="auto">stay if still hovered
-                <option value="close">close popup
-              </select>
-            </label>
-          </li>
-          <li class="options">
-            <label>
-              <span>Only show popup over scaled-down image when natural size is</span>
-              <input id="scale" type="number" min="1" max="100" step=".05" style="width: 4em;">
-              <span>times larger</span>
-            </label>
-          </li>
-          <li class="options">
-            <label>
-              <span>Custom scale factors:</span>
-              <input id="scales" style="width: 18em"
-                     placeholder="${Config.DEFAULTS.scales.join(' ')}">
-              <span title="${`
-                0 = fit to window
-                0! = same as 0 but also removes smaller values
-                * after value marks default zoom factor, example 1*
-                Values smaller than non-zoomed size are ignored.
-              `.trim().replace(/\n\s+/g, '\n')}" style="cursor:help">(?)</span>
-            </label>
-          </li>
-          <li class="options">
-            <label><input type="checkbox" id="center"><span>Always centered</span></label>
-            <label><input type="checkbox" id="imgtab"><span>Run in image tabs</span></label>
-            <label title="Disable only if you spoof the HTTP headers yourself">
-              <input type="checkbox" id="xhr">
-              <span>Anti-hotlinking workaround</span>
-            </label>
-            <label>
-              <input type="checkbox" id="globalStatus">
-              <span>Expose status on &lt;html&gt; node (note: may cause noticeable slowdown)</small>
-            </label>
-          </li>
-          <li>
-            <div class="column">
-              <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
-              <textarea id="css" spellcheck="false"></textarea>
-            </div>
-          </li>
-          <li style="display: flex; justify-content: space-between;">
-            <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
-            <div style="white-space: nowrap">
-              To disable, put any symbol except <code>a..z 0..9 - .</code><br>
-              in "d" value, for example <code>"d": "!foo.com"</code>
-            </div>
-            <div>
-              <input id="search" type="search" placeholder="Search"
-                     style="width: 10em; margin-left: 1em">
-            </div>
-          </li>
-          <li style="
-            overflow-y: auto;
-            margin-left: -3px;
-            margin-right: -3px;
-            padding-left: 3px;
-            padding-right: 3px;
-          ">
-            <div id="rules" class="column">
-              <textarea rows="1" spellcheck="false"></textarea>
-            </div>
-          </li>
-          <li>
-            <div hidden id="installLoading">
-              Loading...
-            </div>
-            <div hidden id="installHint">
-              Double-click the rule (or select and press Enter) to add it. Click OK when done.
-            </div>
-            <a href="${MPIV_BASE_URL}more_host_rules.html" id="install">
-              Install rule from repository...</a>
-          </li>
-        </ul>
-        <div style="text-align:center">
-          <button id="ok" accesskey="s">Save</button>
-          <button id="apply" accesskey="a">Apply</button>
-          <button id="import" style="margin-right: 0">Import</button>
-          <button id="export" style="margin-left: 0">Export</button>
-          <button id="cancel">Cancel</button>
-          <div id="exportNotification" hidden style="
-            color: green;
-            position: absolute;
-            bottom: 2px;
-            left: 0;
-            right: 0;
-            font-weight: bold;">Copied to clipboard.</div>
-        </div>
-      </main>
+<style>
+  :host {
+    all: initial !important;
+    position: fixed !important;
+    z-index: 2147483647 !important;
+    top: 20px !important;
+    right: 20px !important;
+    padding: 20px 30px !important;
+    color: #000 !important;
+    background: #eee !important;
+    box-shadow: 5px 5px 25px 2px #000 !important;
+    width: 500px !important;
+    border: 1px solid black !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  main {
+    font: 12px/15px sans-serif;
+  }
+  ul {
+    max-height: calc(100vh - 200px);
+    margin: 10px 0 15px 0;
+    padding: 0;
+    list-style: none;
+  }
+  li {
+    margin: 0;
+    padding: .25em 0;
+  }
+  li.options {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  label {
+    display: inline-flex;
+    align-items: center;
+  }
+  label:not(:last-child) {
+    margin-right: 1em;
+  }
+  label > :not(span) {
+    margin-right: .25em;
+  }
+  label > :not(span):not(:first-child) {
+    margin-left: .5em;
+  }
+  input:first-child {
+    margin-left: 0;
+  }
+  input, select {
+    min-height: 1.6em;
+    box-sizing: border-box;
+  }
+  textarea {
+    flex: 1;
+    resize: vertical;
+    margin: 1px 0;
+    font: 11px/1.25 Consolas, monospace;
+  }
+  textarea:invalid {
+    background-color: #f002;
+    border-color: #800;
+  }
+  code {
+    font-weight: bold;
+  }
+  a {
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  button {
+    padding: .2em 1em;
+    margin: 0 1em;
+  }
+  .column {
+    display: flex;
+    flex-direction: column;
+  }
+  .highlight {
+    animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
+    animation-fill-mode: both;
+  }
+  #rules textarea {
+    word-break: break-all;
+  }
+  #x {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 4px 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  #x:hover {
+    background-color: #8884;
+  }
+  @keyframes fade-in {
+    from { background-color: deepskyblue }
+    to {}
+  }
+  @media (prefers-color-scheme: dark) {
+    :host {
+      color: #aaa !important;
+      background: #333 !important;
+    }
+    a {
+      color: deepskyblue;
+    }
+    textarea, input, select {
+      background: #111;
+      color: #BBB;
+      border-color: #555;
+    }
+    input[type="checkbox"] {
+      filter: invert(1);
+    }
+  }
+</style>
+<main>
+  <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
+  <div id=x>x</div>
+  <ul class=column>
+    <li class=options>
+      <label>
+        <span>Popup:</span>
+        <select id=start>
+          <option value=auto>automatically
+          <option value=context>right click or ctrl
+          <option value=ctrl>ctrl
+        </select>
+      </label>
+      <label>
+        <span>after</span>
+        <input id=delay type=number min=0 max=10000 step=50 style="width: 4em">
+        <span>ms</span>
+      </label>
+      <label>
+        <input type=checkbox id=preload>
+        <span>Start preloading immediately</span>
+      </label>
+    </li>
+    <li class=options>
+      <label>
+        <span>Zoom:</span>
+        <select id=zoom>
+          <option value=context>right click or shift
+          <option value=wheel>wheel up or shift
+          <option value=shift>shift
+          <option value=auto>automatically
+        </select>
+      </label>
+      <label>
+        <span>When zoomed out completely</span>
+        <select id=zoomOut>
+          <option value=stay>stay in zoom mode
+          <option value=auto>stay if still hovered
+          <option value=close>close popup
+        </select>
+      </label>
+    </li>
+    <li class=options>
+      <label>
+        <span>Only show popup over scaled-down image when natural size is</span>
+        <input id=scale type=number min=1 max=100 step=.05 style="width: 4em;">
+        <span>times larger</span>
+      </label>
+    </li>
+    <li class=options>
+      <label>
+        <span>Custom scale factors:</span>
+        <input id=scales style="width: 18em" placeholder="${Config.DEFAULTS.scales.join(' ')}">
+        <span title="${`
+          0 = fit to window
+          0! = same as 0 but also removes smaller values
+          * after value marks default zoom factor, for example: 1*
+          Values smaller than non-zoomed size are ignored.
+        `.trim().replace(/\n\s+/g, '\n')}" style="cursor:help">(?)</span>
+      </label>
+    </li>
+    <li class=options>
+      <label><input type=checkbox id=center><span>Always centered</span></label>
+      <label><input type=checkbox id=imgtab><span>Run in image tabs</span></label>
+      <label title="Disable only if you spoof the HTTP headers yourself">
+        <input type=checkbox id=xhr>
+        <span>Anti-hotlinking workaround</span>
+      </label>
+      <label>
+        <input type=checkbox id=globalStatus>
+        <span>Expose status on &lt;html&gt; node (note: may cause noticeable slowdown)</small>
+      </label>
+    </li>
+    <li>
+      <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
+      <div class=column>
+        <textarea id=css spellcheck=false></textarea>
+      </div>
+    </li>
+    <li style="display: flex; justify-content: space-between;">
+      <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
+      <div style="white-space: nowrap">
+        To disable, put any symbol except <code>a..z 0..9 - .</code><br>
+        in "d" value, for example <code>"d": "!foo.com"</code>
+      </div>
+      <div>
+        <input id=search type=search placeholder=Search style="width: 10em; margin-left: 1em">
+      </div>
+    </li>
+    <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto;
+               padding-left: 3px; padding-right: 3px; ">
+      <div id="rules" class="column">
+        <textarea rows="1" spellcheck="false"></textarea>
+      </div>
+    </li>
+    <li>
+      <div hidden id=installLoading>Loading...</div>
+      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it.
+                                 Click OK when done.</div>
+      <a href="${MPIV_BASE_URL}more_host_rules.html" id=install>Install rule from repository...</a>
+    </li>
+  </ul>
+  <div style="text-align:center">
+    <button id=ok accesskey=s>Save</button>
+    <button id=apply accesskey=a>Apply</button>
+    <button id=import style="margin-right: 0">Import</button>
+    <button id=export style="margin-left: 0">Export</button>
+    <button id=cancel>Cancel</button>
+    <div id=exportNotification hidden style="color: green; font-weight: bold;
+      position: absolute; bottom: 2px; left: 0; right: 0;">Copied to clipboard.</div>
+  </div>
+</main>
     `;
     // rules
     const rules = UI.rules;
