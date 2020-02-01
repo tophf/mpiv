@@ -2183,7 +2183,7 @@ class Remoting {
       responseType: 'blob',
       headers: {
         Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
-        Referer: pageUrl || typeof ai.xhr === 'function' ? ai.xhr(ai.match, ai.node, ai.rule) : url,
+        Referer: pageUrl || (typeof ai.xhr === 'function' ? ai.xhr() : url),
       },
       onprogress: Remoting.getImageProgress,
     });
