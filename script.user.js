@@ -2147,17 +2147,19 @@ class Remoting {
         method: 'GET',
         timeout: 10e3,
         ...opts,
+        onload: done,
+        onerror: done,
         ontimeout() {
           ai.req = null;
           reject(`Timeout fetching ${url}`);
         },
-        onloadend(e) {
-          ai.req = null;
-          e.status < 400 && !e.error ?
-            resolve(e) :
-            reject(`Server error ${e.status} ${e.error}\nURL: ${url}`);
-        },
       });
+      function done(r) {
+        ai.req = null;
+        r.status < 400 && !r.error ?
+          resolve(r) :
+          reject(`Server error ${r.status} ${r.error}\nURL: ${url}`);
+      }
     });
   }
 
