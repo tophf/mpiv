@@ -2853,6 +2853,7 @@ function setup({rule} = {}) {
     </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
+      e.g. <code>#mpiv-popup.mpiv-show { animation: none }</code>
       <div class=column>
         <textarea id=css spellcheck=false></textarea>
       </div>
