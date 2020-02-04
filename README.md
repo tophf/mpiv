@@ -23,6 +23,8 @@ Action | Trigger
 &nbsp; |
 **change settings** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
 
+![config UI screenshot](https://i.imgur.com/RKzEHiA.png)
+
 ### Technical notes
 
 * Ancient browsers aren't supported because the code was refactored to the common JS norms and ES2015+ syntax
