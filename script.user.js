@@ -743,6 +743,21 @@ class Ruler {
         r: /imgres\?imgurl=([^&]+)/,
         s: '$1',
       },
+      isGoogleImages && {
+        e: '[data-tbnid] a',
+        s: (m, node, rule) => {
+          const id = node.closest('[data-tbnid]').dataset.tbnid;
+          for (const {text} of $$('script', doc)) {
+            let i = text.indexOf(id);
+            if (i < 0) continue;
+            i = text.indexOf('[', i + id.length + 9) + 2;
+            const url = text.slice(i, text.indexOf('"', i + 1));
+            if (!url.startsWith('http')) continue;
+            rule.xhr = !url.startsWith(location.protocol);
+            return url;
+          }
+        },
+      },
       dotDomain.endsWith('.instagram.com') && {
         e: [
           'a[href*="/p/"]',
