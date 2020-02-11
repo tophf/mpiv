@@ -15,7 +15,7 @@
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
-// @version     1.0.16
+// @version     1.0.17
 // @author      tophf
 
 // @original-version 2017.9.29
@@ -988,7 +988,7 @@ class Ruler {
           node.matches('.g-hovercard *, a[href*="profile_redirector"] > img') ?
             '' :
             m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0')
-              .replace(/=[-\w]*\d+([&#].*|$)/, ''),
+              .replace(/=[-\w]+([&#].*|$)/, ''),
       },
       {
         u: '||gravatar.com/',
