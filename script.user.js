@@ -1375,7 +1375,7 @@ class Ruler {
       }
     } else {
       const el = $many(ai.rule.q, doc);
-      url = el && Remoting.findFileUrl(el, docUrl);
+      url = el && Remoting.findImageUrl(el, docUrl);
     }
     return url;
   }
@@ -1384,7 +1384,7 @@ class Ruler {
     let urls = [];
     for (const s of ensureArray(rule.s))
       urls.push(
-        typeof s === 'string' ? Util.maybeDecodeURL(Ruler.substituteSingle(s, m)) :
+        typeof s === 'string' ? Util.maybeDecodeUrl(Ruler.substituteSingle(s, m)) :
           typeof s === 'function' ? s(m, node, rule) :
             s);
     if (rule.q && urls.length > 1) {
@@ -1395,7 +1395,7 @@ class Ruler {
       urls = urls[0];
     // `false` returned by "s" property means "skip this rule"
     // any other falsy value (like say "") means "stop all rules"
-    return urls[0] === false ? {skipRule: true} : urls.map(Util.maybeDecodeURL);
+    return urls[0] === false ? {skipRule: true} : urls.map(Util.maybeDecodeUrl);
   }
 
   static substituteSingle(s, m) {
@@ -2126,7 +2126,7 @@ class Gallery {
       const item = {};
       try {
         const img = qEntry ? $(qImage, entry) : entry;
-        item.url = fix(Remoting.findFileUrl(img, docUrl), true);
+        item.url = fix(Remoting.findImageUrl(img, docUrl), true);
         item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(' - ');
       } catch (e) {}
       return item.url && item;
@@ -2297,16 +2297,17 @@ class Remoting {
     }
   }
 
-  static findFileUrl(n, url) {
-    const base = $('base[href]', n.ownerDocument);
+  static findImageUrl(n, url) {
+    let html;
     const path =
       n.getAttribute('src') ||
       n.getAttribute('data-m4v') ||
       n.getAttribute('href') ||
       n.getAttribute('content') ||
-      /https?:\/\/[./a-z0-9_+%-]+\.(jpe?g|gif|png|svg|webm|mp4)/i.exec(n.outerHTML) &&
-        RegExp.lastMatch;
-    return path ? Util.rel2abs(path.trim(), base ? base.getAttribute('href') : url) : false;
+      (html = n.outerHTML).includes('http') &&
+      html.match(/https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i)[0];
+    return !!path && Util.rel2abs(Util.decodeHtmlEntities(path),
+      $prop('base[href]', 'href', n.ownerDocument) || url);
   }
 }
 
@@ -2323,6 +2324,14 @@ class Util {
     if (el.parentElement !== doc.head)
       doc.head.appendChild(el);
     return el;
+  }
+
+  static decodeHtmlEntities(s) {
+    return s.replace(/&quot;/g, '"')
+            .replace(/&apos;/g, '\'')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&');
   }
 
   static deepEqual(a, b) {
@@ -2402,7 +2411,7 @@ class Util {
   }
 
   // decode only if the main part of the URL is encoded to preserve the encoded parameters
-  static maybeDecodeURL(url) {
+  static maybeDecodeUrl(url) {
     if (!url)
       return url;
     const iPct = url.indexOf('%');
