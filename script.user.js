@@ -31,7 +31,7 @@
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
-const trustedDomains = ['greasyfork.org', 'w9p.co'];
+const installableSites = ['greasyfork.org', 'w9p.co', 'github.com'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 
@@ -112,8 +112,9 @@ class App {
     if (isGoogleDomain && doc.getElementById('main'))
       doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, PASSIVE);
 
-    if (trustedDomains.includes(hostname)) {
+    if (installableSites.includes(hostname)) {
       doc.addEventListener('click', e => {
+        if (hostname === 'github.com' && !location.pathname.startsWith('/tophf/mpiv/')) return;
         const el = e.target.closest('blockquote, code, pre');
         const text = el && el.textContent.trim();
         let rule;
