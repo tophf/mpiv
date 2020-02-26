@@ -792,7 +792,7 @@ class Ruler {
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
       }, {
-        e: '[data-url] img[src*="thumb"]',
+        e: '[data-url*="i.redd.it"] img[src*="thumb"]',
         s: (m, node) => $propUp(node, 'data-url'),
       }, {
         r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
@@ -2379,6 +2379,8 @@ class Util {
     ];
     if (rule.u)
       m.push(['Url simple match: %o', rule.u]);
+    if (rule.e)
+      m.push(['Element match: %o', rule.e]);
     if (rule.r)
       m.push(['RegExp match: %o', rule.r]);
     if (ai.url)
