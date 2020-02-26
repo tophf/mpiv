@@ -563,7 +563,7 @@ class App {
   static updateTitle() {
     if (!ai.bar)
       return;
-    const zoom = `${
+    const zoom = ai.nwidth && `${
       Math.round(ai.scale * 100)
     }%, ${
       ai.nwidth
@@ -572,8 +572,9 @@ class App {
     } px, ${
       Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100
     } MP`.replace(/\x20/g, '\xA0');
-    if (ai.bar.dataset.zoom !== zoom) {
-      ai.bar.dataset.zoom = zoom;
+    if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
+      if (zoom) ai.bar.dataset.zoom = zoom;
+      else delete ai.bar.dataset.zoom;
       App.updateBar();
     }
   }
