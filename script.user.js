@@ -65,6 +65,8 @@ const $$ = (s, n = doc) => n.querySelectorAll(s);
 const $create = (tag, props) => Object.assign(document.createElement(tag), props);
 const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
 const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
+const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
+                             (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 
 class App {
@@ -367,16 +369,9 @@ class App {
           el.textContent;
         break;
       }
-      default: {
-        ai.caption = (ai.tooltip || 0).text || ai.node.alt || '';
-        if (ai.caption)
-          return;
-        const el = ai.node.closest('a[title], img[title], video[title]');
-        if (el && (ai.caption = el.title || ''))
-          return;
-        const url = ai.node.src || (ai.node.closest('[href]') || 0).href;
-        ai.caption = url ? Remoting.getFileName(url) : '';
-      }
+      default:
+        ai.caption = (ai.tooltip || 0).text || ai.node.alt || $propUp(ai.node, 'title') ||
+                     Remoting.getFileName(ai.node.src || $propUp(ai.node, 'href'));
     }
   }
 
@@ -675,14 +670,10 @@ class Ruler {
       },
       dotDomain.endsWith('.deviantart.com') && {
         e: '[data-super-full-img] *, img[src*="/th/"]',
-        s: (m, node) => {
-          let el = node.closest('[data-super-full-img]');
-          if (el)
-            return el.dataset.superFullImg;
-          el = node.dataset.embedId && node.nextElementSibling;
-          if (el && el.dataset.embedId)
-            return el.src;
-        },
+        s: (m, node) =>
+          $propUp(node, 'data-super-full-img') ||
+          (node = node.dataset.embedId && node.nextElementSibling) &&
+          node.dataset.embedId && node.src,
       },
       dotDomain.endsWith('.deviantart.com') && {
         e: '.dev-view-deviation img',
@@ -747,7 +738,7 @@ class Ruler {
       isGoogleImages && {
         e: '[data-tbnid] a',
         s: (m, node, rule) => {
-          const id = node.closest('[data-tbnid]').dataset.tbnid;
+          const id = $propUp(node, 'data-tbnid');
           for (const {text} of $$('script', doc)) {
             let i = text.indexOf(id);
             if (i < 0) continue;
@@ -798,13 +789,15 @@ class Ruler {
           }
         },
       },
-      dotDomain.endsWith('.reddit.com') && {
+      ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
-      },
-      dotDomain.endsWith('.reddit.com') && {
-        r: /(preview\.redd\.it\/\w+\.(jpe?g|png|gif))/,
-        s: 'https://i.$1',
-      },
+      }, {
+        e: '[data-url] img[src*="thumb"]',
+        s: (m, node) => $propUp(node, 'data-url'),
+      }, {
+        r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
+        s: 'https://i$1',
+      }],
       dotDomain.endsWith('.tumblr.com') && {
         e: 'div.photo_stage_img, div.photo_stage > canvas',
         s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
@@ -2946,7 +2939,7 @@ function setup({rule} = {}) {
           this.value !== 'auto';
     };
     UI.start.onchange();
-    UI.xhr.onclick = ({target: el}) => el.checked || confirm(el.closest('[title]').title);
+    UI.xhr.onclick = ({target: el}) => el.checked || confirm($propUp(el, 'title'));
     UI.zoom.value = config.zoom;
     UI.zoomOut.value = config.zoomOut;
     for (const el of $$('[type="checkbox"]', root))
