@@ -797,7 +797,7 @@ class Ruler {
       }, {
         r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
         s: 'https://i$1',
-      }],
+      }] || [],
       dotDomain.endsWith('.tumblr.com') && {
         e: 'div.photo_stage_img, div.photo_stage > canvas',
         s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
