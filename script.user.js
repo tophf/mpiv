@@ -2751,6 +2751,8 @@ function setup({rule} = {}) {
   }
   input[type="number"] {
     width: 4em;
+  }
+  input:not([type="checkbox"])  {
     padding: 0 .25em;
   }
   textarea {
