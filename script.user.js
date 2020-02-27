@@ -295,13 +295,13 @@ class App {
     clearInterval(ai.timerProgress);
   }
 
-  static activateZoom() {
+  static activateZoom({keepScale} = {}) {
     const p = ai.popup;
     if (!p || !ai.scales || ai.scales.length < 2)
       return;
     ai.zoom = !ai.zoom;
     ai.zoomed = true;
-    ai.scale = ai.zoom && Util.scaleNextToZoom() || ai.scales[0];
+    ai.scale = ai.zoom && Util.scaleNextToZoom(keepScale) || ai.scales[0];
     if (ai.zooming)
       p.classList.add(`${PREFIX}zooming`);
     Popup.move();
@@ -384,7 +384,7 @@ class App {
     App.updateSpacing();
     App.updateScales();
     if (!(cfg.imgtab && App.isImageTab || cfg.zoom === 'auto') ||
-        App.activateZoom() === undefined)
+        App.activateZoom({keepScale: true}) === undefined)
       Popup.move();
     App.updateTitle();
     if (!ai.bar)
@@ -1940,8 +1940,7 @@ class Popup {
   static onLoad() {
     this.setAttribute('loaded', '');
     ai.popupLoaded = true;
-    if (!ai.bar)
-      App.updateFileInfo();
+    App.checkProgress();
   }
 
   static onZoom() {
@@ -2468,9 +2467,9 @@ class Util {
     return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > .01);
   }
 
-  static scaleNextToZoom() {
+  static scaleNextToZoom(keepScale) {
     const z = ai.scaleZoom;
-    return z !== ai.scale ? z :
+    return keepScale || z !== ai.scale ? z :
       z >= 1 ? ai.scales.find(x => x > z) :
         1;
   }
