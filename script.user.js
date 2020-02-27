@@ -2974,9 +2974,7 @@ function setup({rule} = {}) {
       if (!cssApp.hidden) {
         if (!cssApp.value) {
           App.updateStyles();
-          const css = App.globalStyle;
-          const indent = css.match(/\n(\s*)\S/)[1];
-          cssApp.value = css.trim().replace(new RegExp(indent, 'g'), '');
+          cssApp.value = App.globalStyle.trim();
           cssApp.setSelectionRange(0, 0);
         }
         cssApp.focus();
