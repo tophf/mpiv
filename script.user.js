@@ -312,15 +312,9 @@ class App {
   }
 
   static updateBar() {
-    if (ai.timerBar)
-      return;
     clearTimeout(ai.timerBar);
     ai.bar.style.removeProperty('opacity');
-    ai.timerBar = setTimeout(() => {
-      ai.timerBar = 0;
-      if (ai.bar)
-        ai.bar.style.setProperty('opacity', 0);
-    }, 3000);
+    ai.timerBar = setTimeout(() => ai.bar && ai.bar.style.setProperty('opacity', 0), 3000);
   }
 
   static updateCaption(text, doc = document) {
