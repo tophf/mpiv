@@ -123,6 +123,8 @@ declare namespace mpiv {
     req: { abort: VoidFunction }
     scale: number
     scales: number[]
+    // scale factor to use when zoom is enabled
+    scaleZoom: number
     timer: number
     timerBar: number
     timerProgress: number
@@ -132,8 +134,6 @@ declare namespace mpiv {
     zoom: boolean
     zoomed: boolean
     zooming: boolean
-    // scale factor to use at first appearance
-    scale0: number
   };
 
   type GalleryItem = {

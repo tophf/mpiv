@@ -68,6 +68,7 @@ const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
 const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
                              (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
+const compareNumbers = (a, b) => a - b;
 
 class App {
 
@@ -293,14 +294,13 @@ class App {
     clearInterval(ai.timerProgress);
   }
 
-  static toggleZoom() {
+  static activateZoom() {
     const p = ai.popup;
     if (!p || !ai.scales || ai.scales.length < 2)
       return;
     ai.zoom = !ai.zoom;
     ai.zoomed = true;
-    const z = ai.scales.indexOf(ai.scale0);
-    ai.scale = ai.scales[ai.zoom ? (z > 0 ? z : 1) : 0];
+    ai.scale = ai.zoom && Util.scaleNextToZoom() || ai.scales[0];
     if (ai.zooming)
       p.classList.add(`${PREFIX}zooming`);
     Popup.move();
@@ -382,44 +382,37 @@ class App {
     ai.popup.className = `${PREFIX}show`;
     App.updateSpacing();
     App.updateScales();
+    if (!(cfg.imgtab && App.isImageTab || cfg.zoom === 'auto') ||
+        App.activateZoom() === undefined)
+      Popup.move();
     App.updateTitle();
-    Popup.move();
     if (!ai.bar)
       App.updateFileInfo();
     ai.large = ai.nwidth > ai.popup.clientWidth + ai.mbw ||
                ai.nheight > ai.popup.clientHeight + ai.mbh;
     if (ai.large)
       App.setStatus('large');
-    if (cfg.imgtab && App.isImageTab || cfg.zoom === 'auto')
-      App.toggleZoom();
   }
 
   static updateScales() {
-    const scales = cfg.scales.length ? cfg.scales : Config.DEFAULTS.scales.slice();
     const fit = Math.min(
       (ai.view.width - ai.mbw - ai.outline * 2) / ai.nwidth,
       (ai.view.height - ai.mbh - ai.outline * 2) / ai.nheight);
-    const isFirst = !ai.scales;
     const isCustom = !cfg.fit;
-    let cutoff = ai.scale =
-      isFirst && cfg.fit === 'all' && fit ||
-      isFirst && cfg.fit === 'no' && 1 ||
-      Math.min(1, fit);
-    ai.scales = [];
-    for (let i = scales.length; i--;) {
-      const scale = scales[i];
+    const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
+    const dst = isCustom ? [] : [fit];
+    let cutoff = Math.min(1, fit);
+    ai.scaleZoom = cfg.fit === 'all' && fit || cfg.fit === 'no' && 1 || cutoff;
+    ai.scale = cfg.zoom === 'auto' ? ai.scaleZoom : cutoff;
+    for (const scale of src) {
       const val = parseFloat(scale) || fit;
-      const option = typeof scale === 'string' && scale.slice(-1);
-      if (option === '!' && isCustom)
-        cutoff = val;
-      if (option === '*' && isCustom)
-        ai.scale0 = val;
-      if (val !== ai.scale)
-        ai.scales.push(val);
+      dst.push(val);
+      if (isCustom && typeof scale === 'string') {
+        if (scale.includes('!')) cutoff = val;
+        if (scale.includes('*')) ai.scaleZoom = val;
+      }
     }
-    if (!isCustom && isFirst) ai.scale0 = ai.scale;
-    ai.scales = ai.scales.filter(x => x >= cutoff).sort((a, b) => a - b);
-    ai.scales.unshift(ai.scale);
+    ai.scales = dst.sort(compareNumbers).filter(Util.scaleCut, cutoff);
   }
 
   static updateSpacing() {
@@ -583,6 +576,7 @@ class Config {
       App.globalStyle = '';
     }
     if (!Array.isArray(c.scales)) c.scales = [];
+    c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
     c.fit = ['all', 'large', 'no'].includes(c.fit) ? c.fit :
       !c.scales.length || `${c.scales}` === `${Config.DEFAULTS.scales}` ? 'large' :
         '';
@@ -614,7 +608,7 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
   imgtab: false,
   preload: false,
   scale: 1.25,
-  scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16],
+  scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
   start: 'auto',
   version: 6,
   xhr: true,
@@ -1732,11 +1726,10 @@ class Events {
       const n = ai.scales.length;
       if (i >= 0 && i < n)
         ai.scale = ai.scales[i];
-      if (i === 0 && cfg.zoomOut !== 'stay') {
-        if ((cfg.zoomOut === 'close' || !ai.isOverRect) &&
-            (!ai.gItems || ai.gItems.length < 2))
+      if (i <= 0 && cfg.zoomOut !== 'stay') {
+        if ((cfg.zoomOut === 'close' || !ai.isOverRect) && (!ai.gItems || ai.gItems.length < 2))
           return App.deactivate({wait: true});
-        ai.zoom = false;
+        ai.zoom = cfg.zoomOut === 'auto';
         ai.zoomed = false;
         App.updateFileInfo();
       } else {
@@ -1751,7 +1744,7 @@ class Events {
       Gallery.next(dir);
     } else if (cfg.zoom === 'wheel' && dir < 0 && ai.popup) {
       dropEvent(e);
-      App.toggleZoom();
+      App.activateZoom();
     } else {
       App.deactivate();
     }
@@ -1782,7 +1775,7 @@ class Events {
           return;
         }
         ai.popup && (ai.zoomed || ai.isOverRect !== false) ?
-          App.toggleZoom() :
+          App.activateZoom() :
           App.deactivate({wait: true});
         break;
       case 'Control':
@@ -1822,7 +1815,7 @@ class Events {
   static onContext(e) {
     if (e.shiftKey)
       return;
-    if (cfg.zoom === 'context' && ai.popup && App.toggleZoom()) {
+    if (cfg.zoom === 'context' && ai.popup && App.activateZoom()) {
       dropEvent(e);
       return;
     }
@@ -2470,6 +2463,17 @@ class Util {
     return abs.substr(0, abs.lastIndexOf('/')) + '/' + rel;
   }
 
+  static scaleCut(scale, i, arr) {
+    return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > .01);
+  }
+
+  static scaleNextToZoom() {
+    const z = ai.scaleZoom;
+    return z !== ai.scale ? z :
+      z >= 1 ? ai.scales.find(x => x > z) :
+        1;
+  }
+
   static suppressHoverTooltip() {
     for (const node of [
       ai.node.parentNode,
@@ -2827,26 +2831,26 @@ function setup({rule} = {}) {
   <div id=x>x</div>
   <ul class=column>
     <li class=options>
-      <label>Popup:
+      <label>Popup shows on
         <select id=start>
           <option value=auto>automatically
-          <option value=context>right click or ctrl
-          <option value=ctrl>ctrl
+          <option value=context>Right click / Ctrl
+          <option value=ctrl>Ctrl
         </select>
       </label>
       <label>after, ms <input id=delay type=number min=0 max=10000 step=50 title=milliseconds></label>
       <label title="Activate only if the full version of the hovered image is that many times larger">
         if larger <input id=scale type=number min=1 max=100 step=.05>
       </label>
-      <label>Zoom via:
+      <label>Zoom activates on
         <select id=zoom>
-          <option value=context>right click or shift
-          <option value=wheel>wheel up or shift
-          <option value=shift>shift
+          <option value=context>Right click / Shift
+          <option value=wheel>Wheel up / Shift
+          <option value=shift>Shift
           <option value=auto>automatically
         </select>
       </label>
-      <label>First zoom mode:
+      <label>...and zooms to
         <select id=fit>
           <option value=all>fit to window
           <option value=large>fit if larger
@@ -2867,7 +2871,7 @@ function setup({rule} = {}) {
         0 = fit to window,
         0! = same as 0 but also removes smaller values,
         * after a value marks the default zoom factor, for example: 1*
-        The popup image won't shrink below the size of the hovered image.
+        The popup won't shrink below the image's natural size or window size for bigger mages.
         ${scalesHint}
       `)}">
       Custom scale factors: <input id=scales placeholder="${scalesHint}">
