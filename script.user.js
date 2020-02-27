@@ -1947,13 +1947,15 @@ class Popup {
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
+    await 0;
     App.checkProgress({start: true});
   }
 
   static onLoad() {
     this.setAttribute('loaded', '');
     ai.popupLoaded = true;
-    App.checkProgress();
+    if (!ai.bar)
+      App.updateFileInfo();
   }
 
   static onZoom() {
