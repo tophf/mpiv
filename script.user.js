@@ -428,8 +428,8 @@ class App {
   static updateStyles() {
     let cssApp = App.globalStyle;
     if (!cssApp) {
-      cssApp = App.globalStyle = /*language=CSS*/ (`
-#\\mpiv-bar {
+      cssApp = App.globalStyle = /*language=CSS*/ (String.raw`
+#\mpiv-bar {
   position: fixed;
   z-index: 2147483647;
   left: 0;
@@ -446,17 +446,17 @@ class App {
   padding: 4px 10px;
   text-shadow: .5px .5px 2px #000;
 }
-#\\mpiv-bar.\\mpiv-show {
+#\mpiv-bar.\mpiv-show {
   opacity: 1;
 }
-#\\mpiv-bar[data-zoom]::after {
+#\mpiv-bar[data-zoom]::after {
   content: " (" attr(data-zoom) ")";
   opacity: .8;
 }
-#\\mpiv-popup.\\mpiv-show {
+#\mpiv-popup.\mpiv-show {
   display: inline;
 }
-#\\mpiv-popup {
+#\mpiv-popup {
   display: none;
   border: none;
   box-sizing: content-box;
@@ -467,54 +467,54 @@ class App {
   max-height: none;
   will-change: display, width, height, left, top;
   cursor: none;
-  animation: .2s \\mpiv-fadein both;
+  animation: .2s \mpiv-fadein both;
 }
-#\\mpiv-popup.\\mpiv-show {
+#\mpiv-popup.\mpiv-show {
   box-shadow: 6px 6px 30px transparent;
   transition: box-shadow .25s, background-color .25s;
 }
-#\\mpiv-popup.\\mpiv-show[loaded] {
+#\mpiv-popup.\mpiv-show[loaded] {
   box-shadow: 6px 6px 30px black;
   background-color: white;
 }
-#\\mpiv-popup.\\mpiv-zoom-max {
+#\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
 }
-@keyframes \\mpiv-fadein {
+@keyframes \mpiv-fadein {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-` + (cfg.globalStatus ? `
-.\\mpiv-loading:not(.\\mpiv-preloading) * {
+` + (cfg.globalStatus ? String.raw`
+.\mpiv-loading:not(.\mpiv-preloading) * {
   cursor: wait !important;
 }
-.\\mpiv-edge #\\mpiv-popup {
+.\mpiv-edge #\mpiv-popup {
   cursor: default;
 }
-.\\mpiv-error * {
+.\mpiv-error * {
   cursor: not-allowed !important;
 }
-.\\mpiv-ready *, .\\mpiv-large * {
+.\mpiv-ready *, .\mpiv-large * {
   cursor: zoom-in !important;
 }
-.\\mpiv-shift * {
+.\mpiv-shift * {
   cursor: default !important;
 }
-` : `
-[\\mpiv-status~="loading"]:not([\\mpiv-status~="preloading"]) {
+` : String.raw`
+[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]) {
   cursor: wait !important;
 }
-#\\mpiv-popup[\\mpiv-status~="edge"] {
+#\mpiv-popup[\mpiv-status~="edge"] {
   cursor: default !important;
 }
-[\\mpiv-status~="error"] {
+[\mpiv-status~="error"] {
   cursor: not-allowed !important;
 }
-[\\mpiv-status~="ready"],
-[\\mpiv-status~="large"] {
+[\mpiv-status~="ready"],
+[\mpiv-status~="large"] {
   cursor: zoom-in !important;
 }
-[\\mpiv-status~="shift"] {
+[\mpiv-status~="shift"] {
   cursor: default !important;
 }
 `)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
@@ -2967,7 +2967,7 @@ function setup({rule} = {}) {
     UI.fit.value = config.fit;
     UI.import.onclick = importSettings;
     UI.install.onclick = setupRuleInstaller;
-    const {cssApp} = UI;
+    const {/** @type {HTMLTextAreaElement} */ cssApp} = UI;
     UI.reveal.onclick = e => {
       e.preventDefault();
       cssApp.hidden = !cssApp.hidden;
@@ -2977,6 +2977,7 @@ function setup({rule} = {}) {
           const css = App.globalStyle;
           const indent = css.match(/\n(\s*)\S/)[1];
           cssApp.value = css.trim().replace(new RegExp(indent, 'g'), '');
+          cssApp.setSelectionRange(0, 0);
         }
         cssApp.focus();
       }
