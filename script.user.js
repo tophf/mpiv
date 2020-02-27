@@ -72,36 +72,6 @@ const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 class App {
 
   static init() {
-    /** @type mpiv.Config */
-    Config.DEFAULTS = Object.assign(Object.create(null), {
-      center: false,
-      css: '',
-      delay: 500,
-      globalStatus: false,
-      // prefer ' inside rules because " will be displayed as \"
-      // example: "img[src*='icon']"
-      hosts: [{
-        name: 'No popup for YouTube thumbnails',
-        d: 'www.youtube.com',
-        e: 'ytd-rich-item-renderer *, ytd-thumbnail *',
-        s: '',
-      }, {
-        name: 'No popup for SVG/PNG icons',
-        d: '',
-        e: "img[src*='icon']",
-        r: '//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)',
-        s: '',
-      }],
-      imgtab: false,
-      preload: false,
-      scale: 1.25,
-      scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16],
-      start: 'auto',
-      version: 6,
-      xhr: true,
-      zoom: 'context',
-      zoomOut: 'auto',
-    });
     cfg = new Config({save: true});
     App.isImageTab = doc.images.length === 1 &&
                      doc.images[0].parentNode === doc.body &&
@@ -329,7 +299,7 @@ class App {
       return;
     ai.zoom = !ai.zoom;
     ai.zoomed = true;
-    const z = ai.scales.indexOf(ai.zscale);
+    const z = ai.scales.indexOf(ai.scale0);
     ai.scale = ai.scales[ai.zoom ? (z > 0 ? z : 1) : 0];
     if (ai.zooming)
       p.classList.add(`${PREFIX}zooming`);
@@ -435,22 +405,26 @@ class App {
     const fit = Math.min(
       (ai.view.width - ai.mbw - ai.outline * 2) / ai.nwidth,
       (ai.view.height - ai.mbh - ai.outline * 2) / ai.nheight);
-    let cutoff = ai.scale = Math.min(1, fit);
+    const isFirst = !ai.scales;
+    const isCustom = !cfg.fit;
+    let cutoff = ai.scale =
+      isFirst && cfg.fit === 'all' && fit ||
+      isFirst && cfg.fit === 'no' && 1 ||
+      Math.min(1, fit);
     ai.scales = [];
     for (let i = scales.length; i--;) {
       const scale = scales[i];
       const val = parseFloat(scale) || fit;
       const option = typeof scale === 'string' && scale.slice(-1);
-      if (option === '!')
+      if (option === '!' && isCustom)
         cutoff = val;
-      if (option === '*')
-        ai.zscale = val;
+      if (option === '*' && isCustom)
+        ai.scale0 = val;
       if (val !== ai.scale)
         ai.scales.push(val);
     }
-    ai.scales = ai.scales
-      .filter(x => x >= cutoff)
-      .sort((a, b) => a - b);
+    if (!isCustom && isFirst) ai.scale0 = ai.scale;
+    ai.scales = ai.scales.filter(x => x >= cutoff).sort((a, b) => a - b);
     ai.scales.unshift(ai.scale);
   }
 
@@ -464,99 +438,101 @@ class App {
   }
 
   static updateStyles() {
-    Util.addStyle('global', /*language=CSS*/ App.globalStyle || (App.globalStyle = `
-      #${PREFIX}bar {
-        position: fixed;
-        z-index: 2147483647;
-        left: 0;
-        right: 0;
-        top: 0;
-        opacity: 0;
-        transition: opacity 1s ease .25s;
-        text-align: center;
-        font-family: sans-serif;
-        font-size: 15px;
-        font-weight: bold;
-        background: #0005;
-        color: white;
-        padding: 4px 10px;
-        text-shadow: .5px .5px 2px #000;
-      }
-      #${PREFIX}bar.${PREFIX}show {
-        opacity: 1;
-      }
-      #${PREFIX}bar[data-zoom]::after {
-        content: " (" attr(data-zoom) ")";
-        opacity: .8;
-      }
-      #${PREFIX}popup.${PREFIX}show {
-        display: inline;
-      }
-      #${PREFIX}popup {
-        display: none;
-        border: none;
-        box-sizing: content-box;
-        position: fixed;
-        z-index: 2147483647;
-        margin: 0;
-        max-width: none;
-        max-height: none;
-        will-change: display, width, height, left, top;
-        cursor: none;
-        animation: .2s ${PREFIX}fadein both;
-      }
-      #${PREFIX}popup.${PREFIX}show {
-        box-shadow: 6px 6px 30px transparent;
-        transition: box-shadow .25s, background-color .25s;
-      }
-      #${PREFIX}popup.${PREFIX}show[loaded] {
-        box-shadow: 6px 6px 30px black;
-        background-color: white;
-      }
-      #${PREFIX}popup.${PREFIX}zoom-max {
-        image-rendering: pixelated;
-      }
-      @keyframes ${PREFIX}fadein {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }` + (
-      cfg.globalStatus ? `
-        .${PREFIX}loading:not(.${PREFIX}preloading) * {
-          cursor: wait !important;
-        }
-        .${PREFIX}edge #${PREFIX}popup {
-          cursor: default;
-        }
-        .${PREFIX}error * {
-          cursor: not-allowed !important;
-        }
-        .${PREFIX}ready *, .${PREFIX}large * {
-          cursor: zoom-in !important;
-        }
-        .${PREFIX}shift * {
-          cursor: default !important;
-        }
-      ` : `
-        [${STATUS_ATTR}~="loading"]:not([${STATUS_ATTR}~="preloading"]) {
-          cursor: wait !important;
-        }
-        #${PREFIX}popup[${STATUS_ATTR}~="edge"] {
-          cursor: default !important;
-        }
-        [${STATUS_ATTR}~="error"] {
-          cursor: not-allowed !important;
-        }
-        [${STATUS_ATTR}~="ready"],
-        [${STATUS_ATTR}~="large"] {
-          cursor: zoom-in !important;
-        }
-        [${STATUS_ATTR}~="shift"] {
-          cursor: default !important;
-        }
-      `
-    ) + (/*language=none*/
-      cfg.css.includes('{') ? cfg.css : `#${PREFIX}popup {${cfg.css}}`
-    )));
+    let cssApp = App.globalStyle;
+    if (!cssApp) {
+      cssApp = App.globalStyle = /*language=CSS*/ (`
+#\\mpiv-bar {
+  position: fixed;
+  z-index: 2147483647;
+  left: 0;
+  right: 0;
+  top: 0;
+  opacity: 0;
+  transition: opacity 1s ease .25s;
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 15px;
+  font-weight: bold;
+  background: #0005;
+  color: white;
+  padding: 4px 10px;
+  text-shadow: .5px .5px 2px #000;
+}
+#\\mpiv-bar.\\mpiv-show {
+  opacity: 1;
+}
+#\\mpiv-bar[data-zoom]::after {
+  content: " (" attr(data-zoom) ")";
+  opacity: .8;
+}
+#\\mpiv-popup.\\mpiv-show {
+  display: inline;
+}
+#\\mpiv-popup {
+  display: none;
+  border: none;
+  box-sizing: content-box;
+  position: fixed;
+  z-index: 2147483647;
+  margin: 0;
+  max-width: none;
+  max-height: none;
+  will-change: display, width, height, left, top;
+  cursor: none;
+  animation: .2s \\mpiv-fadein both;
+}
+#\\mpiv-popup.\\mpiv-show {
+  box-shadow: 6px 6px 30px transparent;
+  transition: box-shadow .25s, background-color .25s;
+}
+#\\mpiv-popup.\\mpiv-show[loaded] {
+  box-shadow: 6px 6px 30px black;
+  background-color: white;
+}
+#\\mpiv-popup.\\mpiv-zoom-max {
+  image-rendering: pixelated;
+}
+@keyframes \\mpiv-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+` + (cfg.globalStatus ? `
+.\\mpiv-loading:not(.\\mpiv-preloading) * {
+  cursor: wait !important;
+}
+.\\mpiv-edge #\\mpiv-popup {
+  cursor: default;
+}
+.\\mpiv-error * {
+  cursor: not-allowed !important;
+}
+.\\mpiv-ready *, .\\mpiv-large * {
+  cursor: zoom-in !important;
+}
+.\\mpiv-shift * {
+  cursor: default !important;
+}
+` : `
+[\\mpiv-status~="loading"]:not([\\mpiv-status~="preloading"]) {
+  cursor: wait !important;
+}
+#\\mpiv-popup[\\mpiv-status~="edge"] {
+  cursor: default !important;
+}
+[\\mpiv-status~="error"] {
+  cursor: not-allowed !important;
+}
+[\\mpiv-status~="ready"],
+[\\mpiv-status~="large"] {
+  cursor: zoom-in !important;
+}
+[\\mpiv-status~="shift"] {
+  cursor: default !important;
+}
+`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
+    }
+    const {css} = cfg;
+    Util.addStyle('global', cssApp + (css.includes('{') ? css : `#${PREFIX}-popup {${css}}`));
     Util.addStyle('rule', ai.rule.css || '');
   }
 
@@ -612,9 +588,45 @@ class Config {
     )) {
       App.globalStyle = '';
     }
+    if (!Array.isArray(c.scales)) c.scales = [];
+    c.fit = ['all', 'large', 'no'].includes(c.fit) ? c.fit :
+      !c.scales.length || `${c.scales}` === `${Config.DEFAULTS.scales}` ? 'large' :
+        '';
     Object.assign(this, c);
   }
 }
+
+/** @type mpiv.Config */
+Config.DEFAULTS = Object.assign(Object.create(null), {
+  center: false,
+  css: '',
+  delay: 500,
+  fit: '',
+  globalStatus: false,
+  // prefer ' inside rules because " will be displayed as \"
+  // example: "img[src*='icon']"
+  hosts: [{
+    name: 'No popup for YouTube thumbnails',
+    d: 'www.youtube.com',
+    e: 'ytd-rich-item-renderer *, ytd-thumbnail *',
+    s: '',
+  }, {
+    name: 'No popup for SVG/PNG icons',
+    d: '',
+    e: "img[src*='icon']",
+    r: '//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)',
+    s: '',
+  }],
+  imgtab: false,
+  preload: false,
+  scale: 1.25,
+  scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 8, 16],
+  start: 'auto',
+  version: 6,
+  xhr: true,
+  zoom: 'context',
+  zoomOut: 'auto',
+});
 
 class Ruler {
 /*
@@ -2532,8 +2544,10 @@ function setup({rule} = {}) {
     if (event && this.id !== 'x') {
       cfg = collectConfig({save: true, clone: this.id === 'apply'});
       Ruler.init();
-      if (this.id === 'apply')
+      if (this.id === 'apply') {
+        renderCustomScales(cfg);
         return;
+      }
     }
     const el = doc.getElementById(SETUP_ID);
     el && el.remove();
@@ -2545,6 +2559,7 @@ function setup({rule} = {}) {
     let data = {
       css: UI.css.value.trim(),
       delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
+      fit: UI.fit.value || '',
       hosts: collectRules(),
       scale: !isNaN(scale) ? Math.max(1, scale) : undefined,
       scales: UI.scales.value
@@ -2653,6 +2668,10 @@ function setup({rule} = {}) {
     el.focus();
   }
 
+  function renderCustomScales(config) {
+    UI.scales.value = config.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
+  }
+
   function init(config) {
     closeSetup();
     div = $create('div', {
@@ -2661,6 +2680,8 @@ function setup({rule} = {}) {
       // which may happen since it sees only the outer <div> in the event |target|
       contentEditable: true,
     });
+    const scalesHint = 'Leave it empty and click Apply or Save to restore the default values.';
+    const trimLeft = s => s.trim().replace(/\n\s+/g, '\n');
     root = div.attachShadow({mode: 'open'});
     root.innerHTML = `
 <style>
@@ -2695,27 +2716,36 @@ function setup({rule} = {}) {
   li.options {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+  }
+  li.row {
     flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  li.row label {
+    flex-direction: row;
+    align-items: center;
+  }
+  li.row input {
+    margin-right: .25em;
   }
   label {
     display: inline-flex;
-    align-items: center;
+    flex-direction: column;
   }
   label:not(:last-child) {
     margin-right: 1em;
   }
-  label > :not(span) {
-    margin-right: .25em;
-  }
-  label > :not(span):not(:first-child) {
-    margin-left: .5em;
-  }
-  input:first-child {
-    margin-left: 0;
-  }
   input, select {
     min-height: 1.6em;
     box-sizing: border-box;
+  }
+  input[type="checkbox"] {
+    margin-left: 0;
+  }
+  input[type="number"] {
+    width: 4em;
+    padding: 0 .25em;
   }
   textarea {
     flex: 1;
@@ -2762,6 +2792,17 @@ function setup({rule} = {}) {
   #x:hover {
     background-color: #8884;
   }
+  #cssApp {
+    color: seagreen;
+  }
+  #exportNotification {
+    color: green;
+    font-weight: bold;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 2px;
+  }
   @keyframes fade-in {
     from { background-color: deepskyblue }
     to {}
@@ -2777,10 +2818,13 @@ function setup({rule} = {}) {
     textarea, input, select {
       background: #111;
       color: #BBB;
-      border-color: #555;
+      border: 1px solid #555;
     }
     input[type="checkbox"] {
       filter: invert(1);
+    }
+    #cssApp {
+      color: darkseagreen;
     }
   }
 </style>
@@ -2789,27 +2833,18 @@ function setup({rule} = {}) {
   <div id=x>x</div>
   <ul class=column>
     <li class=options>
-      <label>
-        <span>Popup:</span>
+      <label>Popup:
         <select id=start>
           <option value=auto>automatically
           <option value=context>right click or ctrl
           <option value=ctrl>ctrl
         </select>
       </label>
-      <label>
-        <span>after</span>
-        <input id=delay type=number min=0 max=10000 step=50 style="width: 4em">
-        <span>ms</span>
+      <label>after, ms <input id=delay type=number min=0 max=10000 step=50 title=milliseconds></label>
+      <label title="Activate only if the full version of the hovered image is that many times larger">
+        if larger <input id=scale type=number min=1 max=100 step=.05>
       </label>
-      <label>
-        <input type=checkbox id=preload>
-        <span>Start preloading immediately</span>
-      </label>
-    </li>
-    <li class=options>
-      <label>
-        <span>Zoom:</span>
+      <label>Zoom via:
         <select id=zoom>
           <option value=context>right click or shift
           <option value=wheel>wheel up or shift
@@ -2817,51 +2852,53 @@ function setup({rule} = {}) {
           <option value=auto>automatically
         </select>
       </label>
-      <label>
-        <span>When zoomed out completely</span>
+      <label>First zoom mode:
+        <select id=fit>
+          <option value=all>fit to window
+          <option value=large>fit if larger
+          <option value=no>100%
+          <option value="" title="Use custom scale factors">custom
+        </select>
+      </label>
+    </li>
+    <li class=options>
+      <label>When fully zoomed out:
         <select id=zoomOut>
           <option value=stay>stay in zoom mode
           <option value=auto>stay if still hovered
           <option value=close>close popup
         </select>
       </label>
-    </li>
-    <li class=options>
-      <label>
-        <span>Only show popup over scaled-down image when natural size is</span>
-        <input id=scale type=number min=1 max=100 step=.05 style="width: 4em;">
-        <span>times larger</span>
+      <label style="flex: 1" title="${trimLeft(`
+        0 = fit to window,
+        0! = same as 0 but also removes smaller values,
+        * after a value marks the default zoom factor, for example: 1*
+        The popup image won't shrink below the size of the hovered image.
+        ${scalesHint}
+      `)}">
+      Custom scale factors: <input id=scales placeholder="${scalesHint}">
       </label>
     </li>
-    <li class=options>
-      <label>
-        <span>Custom scale factors:</span>
-        <input id=scales style="width: 18em" placeholder="${Config.DEFAULTS.scales.join(' ')}">
-        <span title="${`
-          0 = fit to window
-          0! = same as 0 but also removes smaller values
-          * after value marks default zoom factor, for example: 1*
-          Values smaller than non-zoomed size are ignored.
-        `.trim().replace(/\n\s+/g, '\n')}" style="cursor:help">(?)</span>
-      </label>
-    </li>
-    <li class=options>
-      <label><input type=checkbox id=center><span>Always centered</span></label>
-      <label><input type=checkbox id=imgtab><span>Run in image tabs</span></label>
+    <li class="options row">
+      <label><input type=checkbox id=center>Always centered</label>
       <label title="Disable only if you spoof the HTTP headers yourself">
-        <input type=checkbox id=xhr>
-        <span>Anti-hotlinking workaround</span>
+        <input type=checkbox id=xhr>Anti-hotlinking workaround
       </label>
-      <label>
-        <input type=checkbox id=globalStatus>
-        <span>Expose status on &lt;html&gt; node (note: may cause noticeable slowdown)</small>
+      <label><input type=checkbox id=preload>Start preloading immediately</label>
+      <label><input type=checkbox id=imgtab>Run in image tabs</label>
+      <label title="Don't enable unless you explicitly use it in your custom CSS">
+        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt; node (may cause slowdowns)
       </label>
     </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
       e.g. <code>#mpiv-popup.mpiv-show { animation: none }</code>
+      <a href="#" id=reveal style="float: right"
+         title="You can copy parts of it to override them in your custom CSS">
+         View the built-in CSS</a>
       <div class=column>
         <textarea id=css spellcheck=false></textarea>
+        <textarea id=cssApp spellcheck=false hidden readonly rows=30></textarea>
       </div>
     </li>
     <li style="display: flex; justify-content: space-between;">
@@ -2874,16 +2911,14 @@ function setup({rule} = {}) {
         <input id=search type=search placeholder=Search style="width: 10em; margin-left: 1em">
       </div>
     </li>
-    <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto;
-               padding-left: 3px; padding-right: 3px; ">
-      <div id="rules" class="column">
-        <textarea rows="1" spellcheck="false"></textarea>
+    <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
+      <div id=rules class=column>
+        <textarea rows=1 spellcheck=false></textarea>
       </div>
     </li>
     <li>
       <div hidden id=installLoading>Loading...</div>
-      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it.
-                                 Click OK when done.</div>
+      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it. Click OK when done.</div>
       <a href="${MPIV_BASE_URL}more_host_rules.html" id=install>Install rule from repository...</a>
     </li>
   </ul>
@@ -2893,8 +2928,7 @@ function setup({rule} = {}) {
     <button id=import style="margin-right: 0">Import</button>
     <button id=export style="margin-left: 0">Export</button>
     <button id=cancel>Cancel</button>
-    <div id=exportNotification hidden style="color: green; font-weight: bold;
-      position: absolute; bottom: 2px; left: 0; right: 0;">Copied to clipboard.</div>
+    <div id=exportNotification hidden>Copied to clipboard.</div>
   </div>
 </main>
     `;
@@ -2931,10 +2965,24 @@ function setup({rule} = {}) {
     UI.css.value = config.css;
     UI.delay.value = config.delay;
     UI.export.onclick = exportSettings;
+    UI.fit.value = config.fit;
     UI.import.onclick = importSettings;
     UI.install.onclick = setupRuleInstaller;
+    const {cssApp} = UI;
+    UI.reveal.onclick = e => {
+      e.preventDefault();
+      cssApp.hidden = !cssApp.hidden;
+      if (!cssApp.hidden) {
+        if (!cssApp.value) {
+          App.updateStyles();
+          const css = App.globalStyle;
+          const indent = css.match(/\n(\s*)\S/)[1];
+          cssApp.value = css.trim().replace(new RegExp(indent, 'g'), '');
+        }
+        cssApp.focus();
+      }
+    };
     UI.scale.value = config.scale;
-    UI.scales.value = config.scales.join(' ');
     UI.start.value = config.start;
     UI.start.onchange = function () {
       UI.delay.closest('label').hidden =
@@ -2951,6 +2999,7 @@ function setup({rule} = {}) {
       el.target = '_blank';
       el.rel = 'noreferrer noopener external';
     }
+    renderCustomScales(config);
     doc.body.appendChild(div);
     requestAnimationFrame(() => {
       UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, div.clientHeight / 4) + 'px';

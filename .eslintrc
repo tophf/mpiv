@@ -62,6 +62,7 @@ rules:
     code: 100,
     ignoreComments: true,
     ignoreRegExpLiterals: true,
+    ignoreTemplateLiterals: true,
     ignorePattern: "\\burl\\(\\s*[\"']?data:"
   }]
   max-lines: [0]

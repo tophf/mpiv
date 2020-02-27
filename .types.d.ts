@@ -10,6 +10,7 @@ declare namespace mpiv {
     center: boolean
     css: string
     delay: number
+    fit:   'all' | 'large' | 'no' | ''
     globalStatus: boolean
     hosts: HostRule[]
     imgtab: boolean
@@ -131,7 +132,8 @@ declare namespace mpiv {
     zoom: boolean
     zoomed: boolean
     zooming: boolean
-    zscale: number
+    // scale factor to use at first appearance
+    scale0: number
   };
 
   type GalleryItem = {
