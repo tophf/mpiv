@@ -2329,14 +2329,6 @@ class Util {
     return el;
   }
 
-  static findScaleIndex(dir) {
-    const i = ai.scales.indexOf(ai.scale);
-    if (i >= 0) return i + dir;
-    for (let len = ai.scales.length, i = dir > 0 ? 0 : len - 1; i >= 0 && i < len; i += dir)
-      if (Math.sign(ai.scales[i] - ai.scale) === dir)
-        return i;
-    return -1;
-  }
   static decodeHtmlEntities(s) {
     return s.replace(/&quot;/g, '"')
             .replace(/&apos;/g, '\'')
@@ -2344,7 +2336,6 @@ class Util {
             .replace(/&gt;/g, '>')
             .replace(/&amp;/g, '&');
   }
-
   static deepEqual(a, b) {
     if (typeof a !== typeof b)
       return false;
@@ -2362,7 +2353,7 @@ class Util {
   static findScale(url, parent) {
     const imgs = $$('img, video', parent);
     for (let i = imgs.length, img; (img = imgs[--i]);) {
-      if ((img.src || img.currentSrc) !== url)
+      if ((img.currentSrc || img.src) !== url || img.sizes)
         continue;
       const scaleX = (img.naturalWidth || img.videoWidth) / img.offsetWidth;
       const scaleY = (img.naturalHeight || img.videoHeight) / img.offsetHeight;
@@ -2370,6 +2361,15 @@ class Util {
       if (isFinite(s))
         return s;
     }
+  }
+
+  static findScaleIndex(dir) {
+    const i = ai.scales.indexOf(ai.scale);
+    if (i >= 0) return i + dir;
+    for (let len = ai.scales.length, i = dir > 0 ? 0 : len - 1; i >= 0 && i < len; i += dir)
+      if (Math.sign(ai.scales[i] - ai.scale) === dir)
+        return i;
+    return -1;
   }
 
   static forceLayout(node) {
