@@ -290,6 +290,7 @@ class App {
 
   static stopTimers() {
     clearTimeout(ai.timer);
+    clearTimeout(ai.timerBar);
     clearTimeout(ai.timerStatus);
     clearInterval(ai.timerProgress);
   }
