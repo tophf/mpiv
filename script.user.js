@@ -432,9 +432,9 @@ class App {
 #\mpiv-bar {
   position: fixed;
   z-index: 2147483647;
+  top: 0;
   left: 0;
   right: 0;
-  top: 0;
   opacity: 0;
   transition: opacity 1s ease .25s;
   text-align: center;
@@ -458,14 +458,18 @@ class App {
 }
 #\mpiv-popup {
   display: none;
-  border: none;
-  box-sizing: content-box;
-  position: fixed;
-  z-index: 2147483647;
-  margin: 0;
-  max-width: none;
-  max-height: none;
-  will-change: display, width, height, left, top;
+  border: none !important;
+  box-sizing: content-box !important;
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  margin: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  transform-origin: top left !important;
+  max-width: none !important;
+  max-height: none !important;
   cursor: none;
   animation: .2s \mpiv-fadein both;
 }
@@ -1720,10 +1724,10 @@ class Events {
   }
 
   static onMouseScroll(e) {
-    const dir = (e.deltaY || -e.wheelDelta) > 0 ? 1 : -1;
+    const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
     if (ai.zoom) {
       dropEvent(e);
-      const i = ai.scales.indexOf(ai.scale) - dir;
+      const i = Util.findScaleIndex(dir);
       const n = ai.scales.length;
       if (i >= 0 && i < n)
         ai.scale = ai.scales[i];
@@ -1743,7 +1747,7 @@ class Events {
     } else if (ai.gItems && ai.gItems.length > 1 && ai.popup) {
       dropEvent(e);
       Gallery.next(dir);
-    } else if (cfg.zoom === 'wheel' && dir < 0 && ai.popup) {
+    } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
       dropEvent(e);
       App.activateZoom();
     } else {
@@ -1984,12 +1988,8 @@ class Popup {
         -1 * clamp(5 / 3 * (cy / vh - 0.2), 0, 1) * (h - vh);
       y = Math.round(mid - (ai.ph + ai.mbh) / 2);
     }
-    p.style.cssText = `
-      width: ${w}px !important;
-      height: ${h}px !important;
-      left: ${x + ai.outline}px !important;
-      top: ${y + ai.outline}px !important;
-    `;
+    p.style.setProperty('transform',
+      `translate(${x + ai.outline}px, ${y + ai.outline}px) scale(${ai.scale})`, 'important');
   }
 
   static destroy() {
@@ -2070,9 +2070,9 @@ class Gallery {
   }
 
   static next(dir) {
-    if (dir > 0 && (ai.gIndex += dir) >= ai.gItems.length) {
+    if (dir < 0 && (ai.gIndex -= dir) >= ai.gItems.length) {
       ai.gIndex = 0;
-    } else if (dir < 0 && (ai.gIndex += dir) < 0) {
+    } else if (dir > 0 && (ai.gIndex -= dir) < 0) {
       ai.gIndex = ai.gItems.length - 1;
     }
     const item = ai.gItems[ai.gIndex];
@@ -2090,7 +2090,7 @@ class Gallery {
   }
 
   static preload(dir) {
-    const i = ai.gIndex + dir;
+    const i = ai.gIndex - dir;
     if (ai.popup && i >= 0 && i < ai.gItems.length) {
       ai.preloadUrl = ensureArray(ai.gItems[i].url)[0];
       ai.popup.addEventListener('load', Gallery.preloadOnLoad, {once: true});
@@ -2320,6 +2320,14 @@ class Util {
     return el;
   }
 
+  static findScaleIndex(dir) {
+    const i = ai.scales.indexOf(ai.scale);
+    if (i >= 0) return i + dir;
+    for (let len = ai.scales.length, i = dir > 0 ? 0 : len - 1; i >= 0 && i < len; i += dir)
+      if (Math.sign(ai.scales[i] - ai.scale) === dir)
+        return i;
+    return -1;
+  }
   static decodeHtmlEntities(s) {
     return s.replace(/&quot;/g, '"')
             .replace(/&apos;/g, '\'')
