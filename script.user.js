@@ -771,25 +771,34 @@ class Ruler {
               !data ? a.href :
                 data.video_url || data.display_url);
         },
-        c: (html, doc, node, rule) =>
-          tryCatch(() => rule._getData(node).data.edge_media_to_caption.edges[0].node.text) || '',
+        c: (html, doc, node, rule) => {
+          const {data, img} = rule._getData(node) || {};
+          try {
+            return data && data.edge_media_to_caption.edges[0].node.text || img && img.alt || '';
+          } catch (e) {}
+        },
         follow: true,
         _getData(node) {
-          const n = node.closest('a[href*="/p/"], article');
-          if (!n)
-            return;
-          const a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-          if (!a)
-            return;
+          let a;
           try {
-            const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
-            return {
-              a,
-              data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
-                .graphql.user.edge_owner_to_timeline_media.edges
-                .find(e => e.node.shortcode === shortcode)
-                .node,
-            };
+            if (location.pathname.startsWith('/p/')) {
+              const img = $('img[srcset]', node.parentNode);
+              const href = img.srcset.split(',').pop().split(' ')[0];
+              return {img, a: {href}};
+            } else {
+              const n = node.closest('a[href*="/p/"], article');
+              if (!n) return;
+              a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
+              if (!a) return;
+              const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
+              return {
+                a,
+                data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
+                  .graphql.user.edge_owner_to_timeline_media.edges
+                  .find(e => e.node.shortcode === shortcode)
+                  .node,
+              };
+            }
           } catch (e) {
             return {a};
           }
