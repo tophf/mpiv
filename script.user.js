@@ -813,8 +813,8 @@ class Ruler {
           let a;
           try {
             if (location.pathname.startsWith('/p/')) {
-              const img = $('img[srcset]', node.parentNode);
-              const href = img.srcset.split(',').pop().split(' ')[0];
+              const img = $('img[srcset], video', node.parentNode);
+              const href = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
               return {img, a: {href}};
             } else {
               const n = node.closest('a[href*="/p/"], article');
