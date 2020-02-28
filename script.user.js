@@ -1320,14 +1320,7 @@ class Ruler {
         follow: true,
       },
       {
-        u: [
-          '.jp',
-          '.gif',
-          '.png',
-          '.svg',
-          '.webm',
-        ],
-        r: /[^?:]+\.(jpe?g?|gif|png|svg|webm)($|\?)/i,
+        r: /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|webm)($|\?)/i,
       },
     ];
 
@@ -1567,7 +1560,7 @@ class RuleMatcher {
       if (e && !node.matches(e) || rule === skipRule)
         continue;
       const {r, u} = rule;
-      if (r && !noHtml && rule.html && (tn === 'A' || tn === 'IMG' || e))
+      if (r && !noHtml && rule.html && ('A,IMG,VIDEO'.includes(tn) || e))
         m = r.exec(html || (html = node.outerHTML));
       else if (r || u)
         m = url && RuleMatcher.makeUrlMatch(url, node, rule);
@@ -1576,7 +1569,7 @@ class RuleMatcher {
       if (!m ||
           // a rule with follow:true for the currently hovered IMG produced a URL,
           // but we'll only allow it to match rules without 's' in the nested find call
-          tn === 'IMG' && !('s' in rule) && !skipRule)
+          'IMG,VIDEO'.includes(tn) && !('s' in rule) && !skipRule)
         continue;
       if (rule.s === '')
         return {};
@@ -1657,13 +1650,15 @@ class Events {
     if (!Ruler.rules)
       Ruler.init();
 
-    let a, img, url, info;
-    if (node.tagName === 'A') {
+    let a, img, imgSrc, url, info;
+    const tag = node.tagName;
+    if (tag === 'A') {
       a = node;
     } else {
-      if (node.tagName === 'IMG') {
+      if (tag === 'IMG' || tag === 'VIDEO') {
         img = node;
-        url = !img.src.startsWith('data:') && Util.rel2abs(img.src, location.href);
+        imgSrc = img.currentSrc || img.src;
+        url = Util.rel2abs(imgSrc);
       }
       info = RuleMatcher.find(url, node);
       a = !info && node.closest('a');
@@ -1674,7 +1669,7 @@ class Events {
 
     if (!info && img) {
       info = Util.lazyGetRect({
-        url: img.src,
+        url: imgSrc,
         node: img,
         rule: {},
       }, img);
@@ -2471,19 +2466,12 @@ class Util {
     return maxBounds;
   }
 
-  static rel2abs(rel, abs) {
-    if (rel.startsWith('data:'))
+  static rel2abs(rel, abs = location.href) {
+    try {
+      return new URL(rel, abs).href;
+    } catch (e) {
       return rel;
-    const rx = /^([a-z]+:)\/\//;
-    if (rx.test(rel))
-      return rel;
-    if (!rx.test(abs))
-      return;
-    if (rel.indexOf('//') === 0)
-      return RegExp.$1 + rel;
-    if (rel[0] === '/')
-      return abs.substr(0, abs.indexOf('/', RegExp.lastMatch.length)) + rel;
-    return abs.substr(0, abs.lastIndexOf('/')) + '/' + rel;
+    }
   }
 
   static scaleCut(scale, i, arr) {
