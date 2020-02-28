@@ -1644,39 +1644,24 @@ class Events {
         node === doc.body ||
         node === doc.documentElement)
       return;
-
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
-
     if (!Ruler.rules)
       Ruler.init();
-
-    let a, img, imgSrc, url, info;
+    let a, img, src, url;
     const tag = node.tagName;
-    if (tag === 'A') {
-      a = node;
-    } else {
-      if (tag === 'IMG' || tag === 'VIDEO') {
-        img = node;
-        imgSrc = img.currentSrc || img.src;
-        if (imgSrc.startsWith('blob:')) img = null; // blobs don't seem to work at all
-        else url = Util.rel2abs(imgSrc);
-      }
-      info = RuleMatcher.find(url, node);
-      a = !info && node.closest('a');
+    if (tag === 'IMG' || tag === 'VIDEO') {
+      src = node.currentSrc || node.src;
+      img = !src.startsWith('blob:') && node; // blobs don't seem to work at all
+      url = img && Util.rel2abs(src);
     }
-
-    if (!info && a)
-      info = RuleMatcher.findForLink(a);
-
-    if (!info && img) {
-      info = Util.lazyGetRect({
-        url: imgSrc,
-        node: img,
-        rule: {},
-      }, img);
-    }
-
+    const info =
+      tag !== 'A' &&
+        RuleMatcher.find(url, node) ||
+      (a = node.closest('A')) &&
+        RuleMatcher.findForLink(a) ||
+      img &&
+        Util.lazyGetRect({url: src, node: img, rule: {}}, img);
     if (info && info.url && info.node !== ai.node)
       App.activate(info, e);
   }
