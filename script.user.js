@@ -54,6 +54,8 @@ let ai = {rule: {}};
 let elConfig;
 
 const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
+const compareNumbers = (a, b) => a - b;
+const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 const ensureArray = v => Array.isArray(v) ? v : [v];
 const safeIncludes = (a, b) => typeof a === 'string' && a.includes(b);
 const sumProps = (...props) => props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
@@ -62,16 +64,15 @@ const tryCatch = function (fn, ...args) {
     return fn.apply(this, args);
   } catch (e) {}
 };
+
 const $ = (s, n = doc) => n.querySelector(s) || 0;
 const $$ = (s, n = doc) => n.querySelectorAll(s);
 const $create = (tag, props) => Object.assign(document.createElement(tag), props);
 const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
 const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
-const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
-                             (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
+const $propUp = (n, prop) =>
+  (n = n.closest(`[${prop}]`)) && (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
 const $remove = el => el && el.remove();
-const dropEvent = e => (e.preventDefault(), e.stopPropagation());
-const compareNumbers = (a, b) => a - b;
 
 class App {
 
@@ -168,8 +169,10 @@ class App {
     if (p) {
       ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && 800;
       ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && 1200;
-      if (ai.nheight)
-        return App.updateProgress();
+      if (ai.nheight) {
+        App.updateProgress();
+        return;
+      }
     }
     if (start)
       ai.timerProgress = setInterval(App.checkProgress, 150);
@@ -250,16 +253,17 @@ class App {
   }
 
   static setStatus(status) {
-    if (!status && !cfg.globalStatus)
-      return ai.node && ai.node.removeAttribute(STATUS_ATTR);
+    if (!status && !cfg.globalStatus) {
+      ai.node && ai.node.removeAttribute(STATUS_ATTR);
+      return;
+    }
     const prefix = cfg.globalStatus ? PREFIX : '';
     const action = status && /^[+-]/.test(status) && status[0];
     const name = status && `${prefix}${action ? status.slice(1) : status}`;
     const el = cfg.globalStatus ? doc.documentElement :
       name === 'edge' ? ai.popup :
         ai.node;
-    if (!el)
-      return;
+    if (!el) return;
     const attr = cfg.globalStatus ? 'class' : STATUS_ATTR;
     const oldValue = (el.getAttribute(attr) || '').trim();
     const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
@@ -296,23 +300,6 @@ class App {
     clearTimeout(ai.timerBar);
     clearTimeout(ai.timerStatus);
     clearInterval(ai.timerProgress);
-  }
-
-  static activateZoom({keepScale} = {}) {
-    const p = ai.popup;
-    if (!p || !ai.scales || ai.scales.length < 2)
-      return;
-    ai.zoom = !ai.zoom;
-    ai.zoomed = true;
-    ai.scale = ai.zoom && Util.scaleNextToZoom(keepScale) || ai.scales[0];
-    if (ai.zooming)
-      p.classList.add(`${PREFIX}zooming`);
-    Popup.move();
-    App.updateTitle();
-    App.setStatus(ai.zoom ? 'zoom' : false);
-    if (!ai.zoom)
-      App.updateFileInfo();
-    return ai.zoom;
   }
 
   static updateBar() {
@@ -375,8 +362,10 @@ class App {
   static updateProgress() {
     App.stopTimers();
     let wait;
-    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0)
-      return (ai.timer = setTimeout(App.checkProgress, wait));
+    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0) {
+      ai.timer = setTimeout(App.checkProgress, wait);
+      return;
+    }
     if ((ai.urls || 0).length && Math.max(ai.nheight, ai.nwidth) < 130) {
       App.handleError({type: 'error'});
       return;
@@ -387,7 +376,7 @@ class App {
     App.updateSpacing();
     App.updateScales();
     if (!(cfg.imgtab && App.isImageTab || cfg.zoom === 'auto') ||
-        App.activateZoom({keepScale: true}) === undefined)
+        App.zoomToggle({keepScale: true}) === undefined)
       Popup.move();
     App.updateTitle();
     if (!ai.bar)
@@ -532,8 +521,7 @@ class App {
   }
 
   static updateTitle() {
-    if (!ai.bar)
-      return;
+    if (!ai.bar) return;
     const zoom = ai.nwidth && `${
       Math.round(ai.scale * 100)
     }%, ${
@@ -548,6 +536,45 @@ class App {
       else delete ai.bar.dataset.zoom;
       App.updateBar();
     }
+  }
+
+  static zoomToggle({keepScale} = {}) {
+    const p = ai.popup;
+    if (!p || !ai.scales || ai.scales.length < 2)
+      return;
+    ai.zoom = !ai.zoom;
+    ai.zoomed = true;
+    ai.scale = ai.zoom && Util.scaleNextToZoom(keepScale) || ai.scales[0];
+    if (ai.zooming)
+      p.classList.add(`${PREFIX}zooming`);
+    Popup.move();
+    App.updateTitle();
+    App.setStatus(ai.zoom ? 'zoom' : false);
+    if (!ai.zoom)
+      App.updateFileInfo();
+    return ai.zoom;
+  }
+
+  static zoomInOut(dir) {
+    const i = Util.findScaleIndex(dir);
+    const n = ai.scales.length;
+    if (i >= 0 && i < n)
+      ai.scale = ai.scales[i];
+    if (i <= 0 && cfg.zoomOut !== 'stay') {
+      if ((cfg.zoomOut === 'close' || !ai.isOverRect) && (!ai.gItems || ai.gItems.length < 2)) {
+        App.deactivate({wait: true});
+        return;
+      }
+      ai.zoom = cfg.zoomOut === 'auto';
+      ai.zoomed = false;
+      App.updateFileInfo();
+    } else {
+      ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
+    }
+    if (ai.zooming)
+      ai.popup.classList.add(`${PREFIX}zooming`);
+    Popup.move();
+    App.updateTitle();
   }
 }
 
@@ -940,15 +967,14 @@ class Ruler {
         s: (m, node) => {
           if (node.id === 'fbPhotoImage') {
             const a = $('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
-            if (a)
-              return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
+            if (a) return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
           }
           if (m[4])
             return false;
-          if (node.parentNode.outerHTML.includes('/hovercard/'))
+          const pn = node.parentNode;
+          if (pn.outerHTML.includes('/hovercard/'))
             return '';
-          const gp = node.parentNode.parentNode;
-          if (node.outerHTML.includes('profile') && gp.href.includes('/photo'))
+          if (node.outerHTML.includes('profile') && pn.parentNode.href.includes('/photo'))
             return false;
           return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
         },
@@ -1405,8 +1431,7 @@ class Ruler {
   }
 
   static substituteSingle(s, m) {
-    if (!m)
-      return s;
+    if (!m) return s;
     if (s.startsWith('/') && !s.startsWith('//')) {
       const mid = s.search(/[^\\]\//) + 1;
       const end = s.lastIndexOf('/');
@@ -1564,7 +1589,7 @@ class RuleMatcher {
       if (r && !noHtml && rule.html && ('A,IMG,VIDEO'.includes(tn) || e))
         m = r.exec(html || (html = node.outerHTML));
       else if (r || u)
-        m = url && RuleMatcher.makeUrlMatch(url, node, rule);
+        m = url && RuleMatcher.makeUrlMatch(url, node, rule, r, u);
       else
         m = url ? RuleMatcher.makeDummyMatch(url) : [];
       if (!m ||
@@ -1587,8 +1612,7 @@ class RuleMatcher {
     }
   }
 
-  static makeUrlMatch(url, node, rule) {
-    let {r, u} = rule;
+  static makeUrlMatch(url, node, rule, r, u) {
     let m;
     if (u) {
       u = rule._u || (rule._u = SimpleUrlMatcher(u));
@@ -1693,11 +1717,11 @@ class Events {
 
   static onMouseMove(e) {
     App.updateMouse(e);
-    if (e.shiftKey)
-      return (ai.lazyUnload = true);
-    if (!ai.zoomed && !ai.isOverRect)
-      return App.deactivate();
-    if (ai.zoom) {
+    if (e.shiftKey) {
+      ai.lazyUnload = true;
+    } else if (!ai.zoomed && !ai.isOverRect) {
+      App.deactivate();
+    } else if (ai.zoom) {
       Popup.move();
       const {height: h, width: w} = ai.view;
       const {clientX: cx, clientY: cy} = ai;
@@ -1721,33 +1745,16 @@ class Events {
   static onMouseScroll(e) {
     const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
     if (ai.zoom) {
-      dropEvent(e);
-      const i = Util.findScaleIndex(dir);
-      const n = ai.scales.length;
-      if (i >= 0 && i < n)
-        ai.scale = ai.scales[i];
-      if (i <= 0 && cfg.zoomOut !== 'stay') {
-        if ((cfg.zoomOut === 'close' || !ai.isOverRect) && (!ai.gItems || ai.gItems.length < 2))
-          return App.deactivate({wait: true});
-        ai.zoom = cfg.zoomOut === 'auto';
-        ai.zoomed = false;
-        App.updateFileInfo();
-      } else {
-        ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
-      }
-      if (ai.zooming)
-        ai.popup.classList.add(`${PREFIX}zooming`);
-      Popup.move();
-      App.updateTitle();
+      App.zoomInOut(dir);
     } else if (ai.gItems && ai.gItems.length > 1 && ai.popup) {
-      dropEvent(e);
       Gallery.next(dir);
     } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
-      dropEvent(e);
-      App.activateZoom();
+      App.zoomToggle();
     } else {
       App.deactivate();
+      return;
     }
+    dropEvent(e);
   }
 
   static onKeyDown(e) {
@@ -1775,7 +1782,7 @@ class Events {
           return;
         }
         ai.popup && (ai.zoomed || ai.isOverRect !== false) ?
-          App.activateZoom() :
+          App.zoomToggle() :
           App.deactivate({wait: true});
         break;
       case 'Control':
@@ -1813,16 +1820,10 @@ class Events {
   }
 
   static onContext(e) {
-    if (e.shiftKey)
-      return;
-    if (cfg.zoom === 'context' && ai.popup && App.activateZoom()) {
+    if (e.shiftKey) return;
+    if (cfg.zoom === 'context' && ai.popup && App.zoomToggle()) {
       dropEvent(e);
-      return;
-    }
-    if (!ai.popup && (
-      cfg.start === 'context' ||
-      (cfg.start === 'auto' && ai.rule.manual)
-    )) {
+    } else if (!ai.popup && (cfg.start === 'context' || (cfg.start === 'auto' && ai.rule.manual))) {
       Popup.start();
       dropEvent(e);
     } else {
@@ -1892,16 +1893,14 @@ class Popup {
     App.setStatusLoading();
     try {
       const startUrl = ai.url;
-      const p = ai.rule.s === 'gallery' ? {} :
-        await Remoting.getDoc(startUrl);
+      const p = ai.rule.s === 'gallery' ? {} : await Remoting.getDoc(startUrl);
       const items = await new Promise(resolve => {
         const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, resolve);
         if (Array.isArray(it))
           resolve(it);
       });
       // bail out if the gallery's async callback took too long
-      if (ai.url !== startUrl)
-        return;
+      if (ai.url !== startUrl) return;
       ai.gItems = items.length && items;
       if (ai.gItems) {
         ai.gIndex = Gallery.findIndex(ai.url);
@@ -1919,8 +1918,7 @@ class Popup {
     ai.imageUrl = src;
     if (ai.xhr && src)
       src = await Remoting.getImage(src, pageUrl).catch(App.handleError);
-    if (!src)
-      return;
+    if (!src) return;
     const p = ai.popup =
       src.startsWith('data:video') ||
       !src.startsWith('data:') && /\.(webm|mp4)($|\?)/.test(src) ?
@@ -1945,13 +1943,12 @@ class Popup {
   }
 
   static onZoom() {
-    return this.classList.remove(`${PREFIX}zooming`);
+    this.classList.remove(`${PREFIX}zooming`);
   }
 
   static move() {
     const p = ai.popup;
-    if (!p)
-      return;
+    if (!p) return;
     let x, y;
     const w = Math.round(ai.scale * ai.nwidth);
     const h = Math.round(ai.scale * ai.nheight);
@@ -1991,8 +1988,7 @@ class Popup {
 
   static destroy() {
     const p = ai.popup;
-    if (!p)
-      return;
+    if (!p) return;
     p.removeEventListener('error', App.handleError);
     if (typeof p.pause === 'function')
       p.pause();
@@ -2002,9 +1998,7 @@ class Popup {
       p.src = '';
     }
     p.remove();
-    ai.zoom = false;
-    ai.popupLoaded = false;
-    ai.popup = null;
+    ai.zoom = ai.popup = ai.popupLoaded = null;
   }
 }
 
@@ -2308,8 +2302,7 @@ class Util {
     const id = `${PREFIX}style:${name}`;
     const el = doc.getElementById(id) ||
                css && $create('style', {id});
-    if (!el)
-      return;
+    if (!el) return;
     if (el.textContent !== css)
       el.textContent = css;
     if (el.parentElement !== doc.head)
@@ -2318,24 +2311,24 @@ class Util {
   }
 
   static decodeHtmlEntities(s) {
-    return s.replace(/&quot;/g, '"')
-            .replace(/&apos;/g, '\'')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&');
+    return s
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, '\'')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
   }
   static deepEqual(a, b) {
-    if (typeof a !== typeof b)
-      return false;
-    if (!a || !b || typeof a !== 'object')
+    if (!a || !b || typeof a !== 'object' || typeof a !== typeof b)
       return a === b;
-    if (Array.isArray(a))
+    if (Array.isArray(a)) {
       return Array.isArray(b) &&
-             a.length === b.length &&
-             a.every((v, i) => Util.deepEqual(v, b[i]));
+        a.length === b.length &&
+        a.every((v, i) => Util.deepEqual(v, b[i]));
+    }
     const keys = Object.keys(a);
     return keys.length === Object.keys(b).length &&
-           keys.every(k => Util.deepEqual(a[k], b[k]));
+      keys.every(k => Util.deepEqual(a[k], b[k]));
   }
 
   static findScale(url, parent) {
@@ -2366,33 +2359,25 @@ class Util {
   }
 
   static formatError(e, rule) {
-    let {message} = e;
-    if (!message) {
-      if (e.readyState)
-        message = 'Request failed.';
-      else if (e.type === 'error')
-        message = "File can't be displayed." + (
-          $('div[bgactive*="flashblock"]', doc) ?
-            ' Check Flashblock settings.' :
-            '');
-      else
-        message = e;
-    }
+    const message =
+      e.message ||
+      e.readyState && 'Request failed.' ||
+      e.type === 'error' && `File can't be displayed.${
+        $('div[bgactive*="flashblock"]', doc) ? ' Check Flashblock settings.' : ''
+      }` ||
+      e;
     const m = [
       [`${GM_info.script.name}: %c${message}%c`, 'font-weight:bold;color:yellow'],
       ['', 'font-weight:normal;color:unset'],
     ];
-    if (rule.u)
-      m.push(['Url simple match: %o', rule.u]);
-    if (rule.e)
-      m.push(['Element match: %o', rule.e]);
-    if (rule.r)
-      m.push(['RegExp match: %o', rule.r]);
-    if (ai.url)
-      m.push(['URL: %s', ai.url]);
-    if (ai.imageUrl && ai.imageUrl !== ai.url)
-      m.push(['File: %s', ai.imageUrl]);
-    m.push(['Node: %o', ai.node]);
+    m.push(...[
+      rule.u && ['Url simple match: %o', rule.u],
+      rule.e && ['Element match: %o', rule.e],
+      rule.r && ['RegExp match: %o', rule.r],
+      ai.url && ['URL: %s', ai.url],
+      ai.imageUrl && ai.imageUrl !== ai.url && ['File: %s', ai.imageUrl],
+      ['Node: %o', ai.node],
+    ].filter(Boolean));
     return {
       message,
       consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
@@ -2413,8 +2398,7 @@ class Util {
 
   // decode only if the main part of the URL is encoded to preserve the encoded parameters
   static maybeDecodeUrl(url) {
-    if (!url)
-      return url;
+    if (!url) return url;
     const iPct = url.indexOf('%');
     const iColon = url.indexOf(':');
     return iPct >= 0 && (iPct < iColon || iColon < 0) ?
@@ -2435,8 +2419,7 @@ class Util {
 
   static rect(node, selector) {
     let n = selector && node.closest(selector);
-    if (n)
-      return n.getBoundingClientRect();
+    if (n) return n.getBoundingClientRect();
     const nested = node.getElementsByTagName('*');
     let maxArea = 0;
     let maxBounds;
