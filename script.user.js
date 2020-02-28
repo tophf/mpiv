@@ -1659,7 +1659,8 @@ class Events {
       if (tag === 'IMG' || tag === 'VIDEO') {
         img = node;
         imgSrc = img.currentSrc || img.src;
-        url = Util.rel2abs(imgSrc);
+        if (imgSrc.startsWith('blob:')) img = null; // blobs don't seem to work at all
+        else url = Util.rel2abs(imgSrc);
       }
       info = RuleMatcher.find(url, node);
       a = !info && node.closest('a');
