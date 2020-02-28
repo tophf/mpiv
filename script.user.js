@@ -2822,6 +2822,9 @@ function setup({rule} = {}) {
     right: 0;
     bottom: 2px;
   }
+  #installHint {
+    color: green;
+  }
   @keyframes fade-in {
     from { background-color: deepskyblue }
     to {}
@@ -2844,6 +2847,9 @@ function setup({rule} = {}) {
     }
     #cssApp {
       color: darkseagreen;
+    }
+    #installHint {
+      color: greenyellow;
     }
   }
 </style>
@@ -2937,7 +2943,8 @@ function setup({rule} = {}) {
     </li>
     <li>
       <div hidden id=installLoading>Loading...</div>
-      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it. Click OK when done.</div>
+      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it.
+        Click <code>Apply</code> or <code>Save</code> to confirm.</div>
       <a href="${MPIV_BASE_URL}more_host_rules.html" id=install>Install rule from repository...</a>
     </li>
   </ul>
