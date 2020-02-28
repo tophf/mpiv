@@ -767,11 +767,12 @@ class Ruler {
           'article div div img',
         ],
         s: (m, node, rule) => {
-          const {a, data} = rule._getData(node) || {};
+          const {a, data = 0} = rule._getData(node) || {};
           rule.follow = !data;
+          rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
           return (
             !a ? false :
-              !data ? a.href :
+              !data || rule.q ? a.href :
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) => {
