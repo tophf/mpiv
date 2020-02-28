@@ -50,6 +50,8 @@ const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 let cfg;
 /** @type mpiv.AppInfo */
 let ai = {rule: {}};
+/** @type Element */
+let elConfig;
 
 const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 const ensureArray = v => Array.isArray(v) ? v : [v];
@@ -67,6 +69,7 @@ const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, d
 const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
 const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
                              (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
+const $remove = el => el && el.remove();
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 const compareNumbers = (a, b) => a - b;
 
@@ -217,7 +220,7 @@ class App {
   static setBar(label, className) {
     let b = ai.bar;
     if (typeof label !== 'string') {
-      b && b.remove();
+      $remove(b);
       ai.bar = null;
       return;
     }
@@ -2541,10 +2544,8 @@ class Util {
 
 function setup({rule} = {}) {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
-  const SETUP_ID = `${PREFIX}setup`;
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
-  let div = doc.getElementById(SETUP_ID);
-  let root = div && div.shadowRoot;
+  let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
   const UI = new Proxy({}, {
@@ -2552,7 +2553,7 @@ function setup({rule} = {}) {
       return root.getElementById(id);
     },
   });
-  if (!rule || !div)
+  if (!rule || !elConfig)
     init(new Config({save: true}));
   if (rule)
     installRule(rule);
@@ -2566,8 +2567,7 @@ function setup({rule} = {}) {
         return;
       }
     }
-    const el = doc.getElementById(SETUP_ID);
-    el && el.remove();
+    $remove(elConfig);
   }
 
   function collectConfig({save, clone} = {}) {
@@ -2652,7 +2652,7 @@ function setup({rule} = {}) {
     }
     if (el[RULE])
       el.value = Ruler.format(el[RULE], {expand: true});
-    const h = clamp(el.scrollHeight, 15, div.clientHeight / 4);
+    const h = clamp(el.scrollHeight, 15, elConfig.clientHeight / 4);
     if (h > el.offsetHeight)
       el.style.minHeight = h + 'px';
     if (!this.contains(from))
@@ -2691,15 +2691,12 @@ function setup({rule} = {}) {
 
   function init(config) {
     closeSetup();
-    div = $create('div', {
-      id: SETUP_ID,
-      // prevent the main page from interpreting key presses in inputs as hotkeys
-      // which may happen since it sees only the outer <div> in the event |target|
-      contentEditable: true,
-    });
+    // preventing the main page from interpreting key presses in inputs as hotkeys
+    // which may happen since it sees only the outer <div> in the event |target|
+    elConfig = $create('div', {contentEditable: true});
     const scalesHint = 'Leave it empty and click Apply or Save to restore the default values.';
     const trimLeft = s => s.trim().replace(/\n\s+/g, '\n');
-    root = div.attachShadow({mode: 'open'});
+    root = elConfig.attachShadow({mode: 'open'});
     root.innerHTML = `
 <style>
   :host {
@@ -3025,9 +3022,9 @@ function setup({rule} = {}) {
       el.rel = 'noreferrer noopener external';
     }
     renderCustomScales(config);
-    doc.body.appendChild(div);
+    doc.body.appendChild(elConfig);
     requestAnimationFrame(() => {
-      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, div.clientHeight / 4) + 'px';
+      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elConfig.clientHeight / 4) + 'px';
     });
   }
 }
