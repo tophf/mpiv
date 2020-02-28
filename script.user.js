@@ -133,12 +133,12 @@ class App {
   }
 
   static activate(info, event) {
+    const {match, node, rule, url} = info;
     const force = event.ctrlKey;
-    if (!force) {
-      const scale = Util.findScale(info.url, info.node.parentNode);
-      if (scale && scale < cfg.scale)
-        return;
-    }
+    const scale = !force && Util.findScale(url, node.parentNode);
+    if (elConfig) console.info(Object.assign({node, rule, url, match}, scale && {scale}));
+    if (scale && scale < cfg.scale)
+      return;
     if (ai.node)
       App.deactivate();
     ai = info;
@@ -157,7 +157,7 @@ class App {
     App.updateMouse(event);
     if (force) {
       Popup.start();
-    } else if (cfg.start === 'auto' && !ai.rule.manual) {
+    } else if (cfg.start === 'auto' && !rule.manual) {
       Popup.schedule();
     } else {
       App.setStatus('ready');
@@ -1601,7 +1601,6 @@ class RuleMatcher {
         return {};
       const hasS = 's' in rule && rule.s !== 'gallery';
       urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
-      if (elConfig) console.info('RuleMatcher:', Object.assign([...arguments], {rule, urls}));
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
