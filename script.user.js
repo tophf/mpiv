@@ -1582,6 +1582,7 @@ class RuleMatcher {
         return {};
       const hasS = 's' in rule && rule.s !== 'gallery';
       urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
+      if (elConfig) console.info('RuleMatcher.find:', {arguments: [...arguments], rule, urls});
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
