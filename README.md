@@ -36,3 +36,4 @@ Action | Trigger
     * `||foo.bar/path`, here `||` means "domain or subdomain" so the pattern matches domains like `foo.bar` or `subdomain.foo.bar` and doesn't match unrelated domains partially like for example `foofoo.bar`
     * `|foo` matches things that start with foo (the entire URL is checked so that means `http` at least, usually)
     * `^` is a URL part separator (like `/` or `?` or `:`) but not a letter/number, neither any of `%._-`. Additionally, when used at the end like `foo^` it also matches when the source ends with `foo`
+* New rule property `"anonymous": true` to make the requests for this rule anonymously (i.e. without sending cookies)

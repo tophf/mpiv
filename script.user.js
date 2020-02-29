@@ -808,6 +808,7 @@ class Ruler {
             return data && data.edge_media_to_caption.edges[0].node.text || img && img.alt || '';
           } catch (e) {}
         },
+        anonymous: true,
         follow: true,
         _getData(node) {
           let a;
@@ -2144,6 +2145,7 @@ class Remoting {
       ai.req = GM_xmlhttpRequest({
         url,
         method: 'GET',
+        anonymous: (ai.rule || {}).anonymous,
         timeout: 10e3,
         ...opts,
         onload: done,
