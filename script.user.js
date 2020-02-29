@@ -2855,8 +2855,8 @@ function setup({rule} = {}) {
         * after a value marks the default zoom factor, for example: 1*
         The popup won't shrink below the image's natural size or window size for bigger mages.
         ${scalesHint}
-      `)}">
-      Custom scale factors: <input id=scales placeholder="${scalesHint}">
+      `)}">Custom scale factors to use if “zooms to” is set to “custom”:
+        <input id=scales placeholder="${scalesHint}">
       </label>
     </li>
     <li class="options row">
