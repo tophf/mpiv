@@ -794,7 +794,7 @@ class Ruler {
           'article div div img',
         ],
         s: (m, node, rule) => {
-          const {a, data = 0} = rule._getData(node) || {};
+          const {a, data} = rule._getData(node);
           rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
           rule.g = a && $('[class*="Carousel"]', a) && rule._g;
           rule.follow = !data && !rule.g;
@@ -804,7 +804,7 @@ class Ruler {
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) => {
-          const {data, img} = rule._getData(node) || {};
+          const {data, img} = rule._getData(node);
           return tryCatch(rule._getCaption, data) || img && img.alt || '';
         },
         anonymous: true,
@@ -819,30 +819,18 @@ class Ruler {
           return items;
         },
         _getCaption: data => data && data.edge_media_to_caption.edges[0].node.text,
+        _getEdge: shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user
+            .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
         _getData(node) {
-          let a;
-          try {
-            if (location.pathname.startsWith('/p/')) {
-              const img = $('img[srcset], video', node.parentNode);
-              const href = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
-              return {img, a: {href}};
-            } else {
-              const n = node.closest('a[href*="/p/"], article');
-              if (!n) return;
-              a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-              if (!a) return;
-              const shortcode = a.pathname.match(/\/p\/(\w+)/)[1];
-              return {
-                a,
-                data: unsafeWindow._sharedData.entry_data.ProfilePage[0]
-                  .graphql.user.edge_owner_to_timeline_media.edges
-                  .find(e => e.node.shortcode === shortcode)
-                  .node,
-              };
-            }
-          } catch (e) {
-            return {a};
+          if (location.pathname.startsWith('/p/')) {
+            const img = $('img[srcset], video', node.parentNode);
+            const href = img && (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
+            return {img, a: {href}};
           }
+          const n = node.closest('a[href*="/p/"], article');
+          const a = n && (n.tagName === 'A' ? n : $('a[href*="/p/"]', n));
+          const data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]) || false;
+          return {a, data};
         },
       },
       ...dotDomain.endsWith('.reddit.com') && [{
