@@ -794,13 +794,13 @@ class Ruler {
           'article div div img',
         ],
         s: (m, node, rule) => {
-          const {a, data} = rule._getData(node);
+          const {a = false, data = false, src} = rule._getData(node);
           rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
           rule.g = a && $('[class*="Carousel"]', a) && rule._g;
           rule.follow = !data && !rule.g;
           return (
-            !a ? false :
-              !data || rule.q ? `${a.href}${rule.g ? '?__a=1' : ''}` :
+            !a && !src ? false :
+              !data || rule.q ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) => {
@@ -824,12 +824,12 @@ class Ruler {
         _getData(node) {
           if (location.pathname.startsWith('/p/')) {
             const img = $('img[srcset], video', node.parentNode);
-            const href = img && (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
-            return {img, a: {href}};
+            if (img && parseFloat(img.sizes) > 900)
+              return {img, src: (img.srcset || img.currentSrc).split(',').pop().split(' ')[0]};
           }
           const n = node.closest('a[href*="/p/"], article');
           const a = n && (n.tagName === 'A' ? n : $('a[href*="/p/"]', n));
-          const data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]) || false;
+          const data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]);
           return {a, data};
         },
       },
