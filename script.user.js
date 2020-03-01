@@ -795,21 +795,30 @@ class Ruler {
         ],
         s: (m, node, rule) => {
           const {a, data = 0} = rule._getData(node) || {};
-          rule.follow = !data;
           rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
+          rule.g = a && $('[class*="Carousel"]', a) && rule._g;
+          rule.follow = !data && !rule.g;
           return (
             !a ? false :
-              !data || rule.q ? a.href :
+              !data || rule.q ? `${a.href}${rule.g ? '?__a=1' : ''}` :
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) => {
           const {data, img} = rule._getData(node) || {};
-          try {
-            return data && data.edge_media_to_caption.edges[0].node.text || img && img.alt || '';
-          } catch (e) {}
+          return tryCatch(rule._getCaption, data) || img && img.alt || '';
         },
         anonymous: true,
         follow: true,
+        _g(text, doc, url, m, rule) {
+          const media = JSON.parse(text).graphql.shortcode_media;
+          const items = media.edge_sidecar_to_children.edges.map(e => ({
+            url: e.node.video_url || e.node.display_url,
+            desc: e.node.accessibility_caption || '',
+          }));
+          items.title = tryCatch(rule._getCaption, media) || '';
+          return items;
+        },
+        _getCaption: data => data && data.edge_media_to_caption.edges[0].node.text,
         _getData(node) {
           let a;
           try {
