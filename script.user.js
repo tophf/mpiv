@@ -804,7 +804,7 @@ class Ruler {
           rule.follow = !data && !rule.g;
           return (
             !a && !src ? false :
-              !data || rule.q ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
+              !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) => {
