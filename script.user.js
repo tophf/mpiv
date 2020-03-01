@@ -2022,12 +2022,16 @@ class PopupVideo {
     }
   }
 
-  static progressDone() {
-    this.play(); // sometimes videos are paused, see https://github.com/tophf/mpiv/issues/8
+  static async progressDone() {
     this.removeEventListener('progress', PopupVideo.progress);
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`)) {
       App.setBar(false);
       App.updateFileInfo();
+    }
+    try {
+      await this.play();
+    } catch (e) {
+      this.controls |= this.paused;
     }
   }
 }
