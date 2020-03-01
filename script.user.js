@@ -60,6 +60,7 @@ const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 const compareNumbers = (a, b) => a - b;
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 const ensureArray = v => Array.isArray(v) ? v : [v];
+const now = () => performance.now();
 const safeIncludes = (a, b) => typeof a === 'string' && a.includes(b);
 const sumProps = (...props) => props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
 const tryCatch = function (fn, ...args) {
@@ -349,7 +350,7 @@ class App {
   static updateProgress() {
     App.stopTimers();
     let wait;
-    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - Date.now()) > 0) {
+    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - now()) > 0) {
       ai.timer = setTimeout(App.checkProgress, wait);
       return;
     }
@@ -1837,7 +1838,7 @@ class Popup {
     } else if (!force) {
       // we don't want to preload everything in the path of a quickly moving mouse cursor
       ai.timer = setTimeout(Popup.schedule, SETTLE_TIME, true);
-      ai.preloadStart = Date.now();
+      ai.preloadStart = now();
     } else {
       Popup.start();
       App.setStatus('+preloading');
@@ -2008,16 +2009,16 @@ class PopupVideo {
     p.controls = false;
     p.addEventListener('progress', PopupVideo.progress);
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
-    ai.bufferingBar = false;
-    ai.bufferingStart = Date.now();
+    ai.bufBar = false;
+    ai.bufStart = now();
     return p;
   }
 
   static progress() {
     const {duration} = this;
-    if (duration && this.buffered.length && Date.now() - ai.bufferingStart > 2000) {
+    if (duration && this.buffered.length && now() - ai.bufStart > 2000) {
       const pct = Math.round(this.buffered.end(0) / duration * 100);
-      if ((ai.bufferingBar |= pct > 0 && pct < 50))
+      if ((ai.bufBar |= pct > 0 && pct < 50))
         App.setBar(`${pct}% of ${Math.round(duration)}s`, 'xhr');
     }
   }
@@ -2182,8 +2183,8 @@ class Remoting {
   }
 
   static async getImage(url, pageUrl) {
-    ai.bufferingBar = false;
-    ai.bufferingStart = Date.now();
+    ai.bufBar = false;
+    ai.bufStart = now();
     const response = await Remoting.gmXhr(url, {
       responseType: 'blob',
       headers: {
@@ -2203,9 +2204,9 @@ class Remoting {
   }
 
   static getImageProgress(e) {
-    if (!ai.bufferingBar && Date.now() - ai.bufferingStart > 3000 && e.loaded / e.total < 0.5)
-      ai.bufferingBar = true;
-    if (ai.bufferingBar) {
+    if (!ai.bufBar && now() - ai.bufStart > 3000 && e.loaded / e.total < 0.5)
+      ai.bufBar = true;
+    if (ai.bufBar) {
       const pct = e.loaded / e.total * 100 | 0;
       const size = e.total / 1024 | 0;
       App.setBar(`${pct}% of ${size} kiB`, 'xhr');
