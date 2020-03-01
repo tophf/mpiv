@@ -130,7 +130,7 @@ declare namespace mpiv {
     timerProgress: number
     timerStatus: number
     tooltip: { node: Node, text: string }
-    view: { width: number, height: number }
+    view: { w: number, h: number }
     zoom: boolean
     zoomed: boolean
     zooming: boolean

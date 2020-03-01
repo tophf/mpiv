@@ -35,9 +35,12 @@ const installableSites = ['greasyfork.org', 'w9p.co', 'github.com'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 
-const POSTMSG_PREFIX = GM_info.script.name + ':';
 const PREFIX = 'mpiv-';
 const STATUS_ATTR = `${PREFIX}status`;
+const MSG = Object.assign({}, ...[
+  'getViewSize',
+  'viewSize',
+].map(k => ({[k]: `${PREFIX}${k}`})));
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 const PASSIVE = {passive: true};
 // time for volatile things to settle down meanwhile we postpone action
@@ -109,26 +112,18 @@ class App {
 
   /** @param {MessageEvent} e */
   static onMessageParent(e) {
-    if (typeof e.data === 'string' && e.data.startsWith(POSTMSG_PREFIX)) {
-      for (const el of $$('iframe, frame')) {
-        if (el.contentWindow === e.source) {
-          const r = el.getBoundingClientRect();
-          const w = clamp(r.width, 0, innerWidth - r.left);
-          const h = clamp(r.height, 0, innerHeight - r.top);
-          e.source.postMessage(`${POSTMSG_PREFIX}${w}:${h}`, '*');
-        }
-      }
+    if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
+      const [w, h] = Util.getFrameSize(e.source, window);
+      e.source.postMessage(`${MSG.viewSize}:${w}:${h}`, '*');
     }
   }
 
   /** @param {MessageEvent} e */
   static onMessageChild(e) {
-    if (e.source === parent && typeof e.data === 'string' && e.data.startsWith(POSTMSG_PREFIX)) {
-      const [width, height] = e.data.slice(POSTMSG_PREFIX.length).split(':').map(parseFloat);
-      if (width && height) {
-        ai.view = {width, height};
-        window.removeEventListener('message', App.onMessageChild);
-      }
+    if (e.source === parent && typeof e.data === 'string' && e.data.startsWith(MSG.viewSize)) {
+      window.removeEventListener('message', App.onMessageChild);
+      const [w, h] = e.data.split(':').slice(1).map(parseFloat);
+      if (w && h) ai.view = {w, h};
     }
   }
 
@@ -142,17 +137,9 @@ class App {
     if (ai.node)
       App.deactivate();
     ai = info;
-    const view = doc.compatMode === 'BackCompat' ? doc.body : doc.documentElement;
-    ai.view = {
-      width: view.clientWidth,
-      height: view.clientHeight,
-    };
-    if (window !== top) {
-      window.addEventListener('message', App.onMessageChild);
-      parent.postMessage(POSTMSG_PREFIX + 'getDimensions', '*');
-    }
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressHoverTooltip();
+    App.updateViewSize();
     App.setListeners();
     App.updateMouse(event);
     if (force) {
@@ -389,8 +376,8 @@ class App {
 
   static updateScales() {
     const fit = Math.min(
-      (ai.view.width - ai.mbw - ai.outline * 2) / ai.nwidth,
-      (ai.view.height - ai.mbh - ai.outline * 2) / ai.nheight);
+      (ai.view.w - ai.mbw - ai.outline * 2) / ai.nwidth,
+      (ai.view.h - ai.mbh - ai.outline * 2) / ai.nheight);
     const isCustom = !cfg.fit;
     const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
     const dst = isCustom ? [] : [fit];
@@ -535,6 +522,22 @@ class App {
       if (zoom) ai.bar.dataset.zoom = zoom;
       else delete ai.bar.dataset.zoom;
       App.updateBar();
+    }
+  }
+
+  static updateViewSize() {
+    const view = doc.compatMode === 'BackCompat' ? doc.body : doc.documentElement;
+    ai.view = {
+      w: view.clientWidth,
+      h: view.clientHeight,
+    };
+    if (window === top) return;
+    const [w, h] = tryCatch(Util.getFrameSize, window, parent) || 0;
+    if (w && h) {
+      ai.view = {w, h};
+    } else {
+      window.addEventListener('message', App.onMessageChild);
+      parent.postMessage(MSG.getViewSize, '*');
     }
   }
 
@@ -1717,7 +1720,7 @@ class Events {
       App.deactivate();
     } else if (ai.zoom) {
       Popup.move();
-      const {height: h, width: w} = ai.view;
+      const {w, h} = ai.view;
       const {clientX: cx, clientY: cy} = ai;
       const bx = w / 6;
       const by = h / 6;
@@ -1948,8 +1951,8 @@ class Popup {
     const h = Math.round(ai.scale * ai.nheight);
     const cx = ai.clientX;
     const cy = ai.clientY;
-    const vw = ai.view.width - ai.outline * 2;
-    const vh = ai.view.height - ai.outline * 2;
+    const vw = ai.view.w - ai.outline * 2;
+    const vh = ai.view.h - ai.outline * 2;
     if (!ai.zoom && (!ai.gItems || ai.gItems.length < 2) && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
@@ -2379,6 +2382,13 @@ class Util {
       consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
       consoleArgs: m.map(([, v]) => v),
     };
+  }
+
+  static getFrameSize(frameWindow, parentWindow) {
+    const r = frameWindow.frameElement.getBoundingClientRect();
+    const w = clamp(r.width, 0, parentWindow.innerWidth - r.left);
+    const h = clamp(r.height, 0, parentWindow.innerHeight - r.top);
+    return [w, h];
   }
 
   static lazyGetRect(obj, node, selector) {
