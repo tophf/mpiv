@@ -1669,20 +1669,17 @@ class Events {
       node = Events.pierceShadow(node, e.clientX, e.clientY);
     if (!Ruler.rules)
       Ruler.init();
-    let a, img, src, url;
+    let a;
     const tag = node.tagName;
-    if (tag === 'IMG' || tag === 'VIDEO') {
-      src = node.currentSrc || node.src;
-      img = !src.startsWith('blob:') && node; // blobs don't seem to work at all
-      url = img && Util.rel2abs(src);
-    }
+    const src = node.currentSrc || node.src;
+    const isPic = tag === 'IMG' || tag === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
     const info =
       tag !== 'A' &&
-        RuleMatcher.find(url, node) ||
+        RuleMatcher.find(isPic && Util.rel2abs(src), node) ||
       (a = node.closest('A')) &&
         RuleMatcher.findForLink(a) ||
-      img &&
-        Util.lazyGetRect({url: src, node: img, rule: {}}, img);
+      isPic &&
+        Util.lazyGetRect({node, rule: {}, url: src}, node);
     if (info && info.url && info.node !== ai.node)
       App.activate(info, e);
   }
@@ -2437,7 +2434,9 @@ class Util {
 
   static rel2abs(rel, abs = location.href) {
     try {
-      return new URL(rel, abs).href;
+      return rel.startsWith('data:') ? rel :
+        rel.startsWith('blob:') ? '' : // blobs don't work because they're usually revoked
+          new URL(rel, abs).href;
     } catch (e) {
       return rel;
     }
