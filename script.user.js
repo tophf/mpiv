@@ -2026,6 +2026,7 @@ class PopupVideo {
   }
 
   static progressDone() {
+    this.play(); // sometimes videos are paused, see https://github.com/tophf/mpiv/issues/8
     this.removeEventListener('progress', PopupVideo.progress);
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`)) {
       App.setBar(false);
