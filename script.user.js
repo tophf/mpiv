@@ -100,8 +100,9 @@ class App {
         const text = el && el.textContent.trim();
         let rule;
         if (text && e.button === 0 &&
-            /^\s*{\s*"\w+"\s*:[\s\S]+}\s*$/.test(text) &&
-            (rule = tryCatch(JSON.parse, text))) {
+            /^\s*{\s*"[dersu]"\s*:[\s\S]+}\s*$/.test(text) &&
+            (rule = tryCatch(JSON.parse, text)) &&
+            Object.keys(rule).some(k => /^[dersu]$/.test(k))) {
           setup({rule});
           dropEvent(e);
         }
