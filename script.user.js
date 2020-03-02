@@ -74,8 +74,8 @@ const $$ = (s, n = doc) => n.querySelectorAll(s);
 const $create = (tag, props) => Object.assign(document.createElement(tag), props);
 const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
 const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
-const $propUp = (n, prop) =>
-  (n = n.closest(`[${prop}]`)) && (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
+const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
+  (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
 const $remove = el => el && el.remove();
 
 class App {
@@ -285,10 +285,10 @@ class App {
   }
 
   static stopTimers() {
-    clearTimeout(ai.timer);
-    clearTimeout(ai.timerBar);
-    clearTimeout(ai.timerStatus);
-    clearInterval(ai.timerProgress);
+    for (const k of Object.keys(ai)) {
+      if (k.startsWith('timer'))
+        clearTimeout(ai[k]);
+    }
   }
 
   static updateBar() {
@@ -1581,34 +1581,36 @@ class RuleMatcher {
   }
 
   /** @returns ?mpiv.RuleMatchInfo */
-  static find(url, node, {noHtml, skipRule} = {}) {
+  static find(url, node, {noHtml, skipRules} = {}) {
     const tn = node.tagName;
+    const isPic = tn === 'IMG' || tn === 'VIDEO';
+    const isPicOrLink = isPic || tn === 'A';
     let m, html, urls;
     for (const rule of Ruler.rules) {
       const {e} = rule;
-      if (e && !node.matches(e) || rule === skipRule)
+      if (e && !node.matches(e) || skipRules && skipRules.includes(rule))
         continue;
       const {r, u} = rule;
-      if (r && !noHtml && rule.html && ('A,IMG,VIDEO'.includes(tn) || e))
+      if (r && !noHtml && rule.html && (isPicOrLink || e))
         m = r.exec(html || (html = node.outerHTML));
       else if (r || u)
         m = url && RuleMatcher.makeUrlMatch(url, node, rule, r, u);
       else
         m = url ? RuleMatcher.makeDummyMatch(url) : [];
-      if (!m ||
-          // a rule with follow:true for the currently hovered IMG produced a URL,
-          // but we'll only allow it to match rules without 's' in the nested find call
-          'IMG,VIDEO'.includes(tn) && !('s' in rule) && !skipRule)
+      const {s} = rule;
+      // a rule with follow:true for the currently hovered IMG produced a URL,
+      // but we'll only allow it to match rules without 's' in the nested find call
+      if (!m || isPic && s !== undefined && !skipRules)
         continue;
-      if (rule.s === '')
+      if (s === '')
         return {};
-      const hasS = 's' in rule && rule.s !== 'gallery';
+      const hasS = s !== undefined && s !== 'gallery';
       urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
           hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule) ?
-            RuleMatcher.find(url, node, {skipRule: rule}) :
+            RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]}) :
             RuleMatcher.makeInfo(urls, node, rule, m);
       }
     }
