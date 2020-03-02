@@ -2032,7 +2032,7 @@ class PopupVideo {
     try {
       await this.play();
     } catch (e) {
-      this.controls |= this.paused;
+      if (this.paused) this.controls = true;
     }
   }
 }
