@@ -1598,13 +1598,14 @@ class RuleMatcher {
       else
         m = url ? RuleMatcher.makeDummyMatch(url) : [];
       const {s} = rule;
+      let hasS = s !== undefined;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (!m || isPic && s !== undefined && !skipRules)
+      if (!m || isPic && !hasS && !skipRules)
         continue;
       if (s === '')
         return {};
-      const hasS = s !== undefined && s !== 'gallery';
+      hasS &= s !== 'gallery';
       urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
       if (!urls.skipRule) {
         const url = urls[0];
