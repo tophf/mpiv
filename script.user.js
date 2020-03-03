@@ -2088,7 +2088,7 @@ class Gallery {
   }
 
   static preload(dir) {
-    if (!ai.popup) return;
+    if (!ai.popup || !dir) return;
     ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir)].url)[0];
     ai.popup.addEventListener('load', Gallery.preloadOnLoad, {once: true});
   }
