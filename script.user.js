@@ -792,11 +792,7 @@ class Ruler {
         },
       },
       dotDomain.endsWith('.instagram.com') && {
-        e: [
-          'a[href*="/p/"]',
-          'a[role="button"][data-reactid*="scontent-"]',
-          'article div div img',
-        ],
+        e: 'a[href*="/p/"], article [role="button"], article [role="button"] div',
         s: (m, node, rule) => {
           const {a = false, data = false, src} = rule._getData(node);
           rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
@@ -828,7 +824,7 @@ class Ruler {
         _getData(node) {
           if (location.pathname.startsWith('/p/')) {
             const img = $('img[srcset], video', node.parentNode);
-            if (img && (img.currentSrc || parseFloat(img.sizes) > 900))
+            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
               return {img, src: (img.srcset || img.currentSrc).split(',').pop().split(' ')[0]};
           }
           const n = node.closest('a[href*="/p/"], article');
