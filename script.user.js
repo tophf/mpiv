@@ -2819,6 +2819,11 @@ function setup({rule} = {}) {
     input[type="checkbox"] {
       filter: invert(1);
     }
+    @supports (-moz-appearance: none) {
+      input[type="checkbox"] {
+        filter: none;
+      }
+    }
     #cssApp {
       color: darkseagreen;
     }
