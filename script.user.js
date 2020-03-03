@@ -1749,7 +1749,7 @@ class Events {
     if (ai.zoom) {
       App.zoomInOut(dir);
     } else if (ai.gItems && ai.gItems.length > 1 && ai.popup) {
-      Gallery.next(dir);
+      Gallery.next(-dir);
     } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
       App.zoomToggle();
     } else {
@@ -1795,12 +1795,12 @@ class Events {
       case 'ArrowRight':
       case 'KeyJ':
         dropEvent(e);
-        Gallery.next(-1);
+        Gallery.next(1);
         break;
       case 'ArrowLeft':
       case 'KeyK':
         dropEvent(e);
-        Gallery.next(1);
+        Gallery.next(-1);
         break;
       case 'KeyD': {
         dropEvent(e);
@@ -2068,11 +2068,7 @@ class Gallery {
   }
 
   static next(dir) {
-    if (dir < 0 && (ai.gIndex -= dir) >= ai.gItems.length) {
-      ai.gIndex = 0;
-    } else if (dir > 0 && (ai.gIndex -= dir) < 0) {
-      ai.gIndex = ai.gItems.length - 1;
-    }
+    if (dir) ai.gIndex = Gallery.nextIndex(dir);
     const item = ai.gItems[ai.gIndex];
     if (Array.isArray(item.url)) {
       ai.urls = item.url.slice(1);
@@ -2087,12 +2083,14 @@ class Gallery {
     Gallery.preload(dir);
   }
 
+  static nextIndex(dir) {
+    return (ai.gIndex + dir + ai.gItems.length) % ai.gItems.length;
+  }
+
   static preload(dir) {
-    const i = ai.gIndex - dir;
-    if (ai.popup && i >= 0 && i < ai.gItems.length) {
-      ai.preloadUrl = ensureArray(ai.gItems[i].url)[0];
-      ai.popup.addEventListener('load', Gallery.preloadOnLoad, {once: true});
-    }
+    if (!ai.popup) return;
+    ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir)].url)[0];
+    ai.popup.addEventListener('load', Gallery.preloadOnLoad, {once: true});
   }
 
   static preloadOnLoad() {
