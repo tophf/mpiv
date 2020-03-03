@@ -1795,12 +1795,12 @@ class Events {
       case 'ArrowRight':
       case 'KeyJ':
         dropEvent(e);
-        Gallery.next(1);
+        Gallery.next(-1);
         break;
       case 'ArrowLeft':
       case 'KeyK':
         dropEvent(e);
-        Gallery.next(-1);
+        Gallery.next(1);
         break;
       case 'KeyD': {
         dropEvent(e);
