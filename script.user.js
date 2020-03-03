@@ -824,7 +824,7 @@ class Ruler {
         _getData(node) {
           if (location.pathname.startsWith('/p/')) {
             const img = $('img[srcset], video', node.parentNode);
-            if (img && (img.currentSrc || parseFloat(img.sizes) > 900))
+            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
               return {img, src: (img.srcset || img.currentSrc).split(',').pop().split(' ')[0]};
           }
           const n = node.closest('a[href*="/p/"], article');
