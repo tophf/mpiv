@@ -2535,10 +2535,11 @@ function setup({rule} = {}) {
     installRule(rule);
 
   function closeSetup(event) {
-    if (event && this.id !== 'x') {
-      cfg = collectConfig({save: true, clone: this.id === 'apply'});
+    const isApply = this.id === 'apply';
+    if (event && (this.id === 'ok' || isApply)) {
+      cfg = collectConfig({save: true, clone: isApply});
       Ruler.init();
-      if (this.id === 'apply') {
+      if (isApply) {
         renderCustomScales(cfg);
         return;
       }
@@ -2666,7 +2667,7 @@ function setup({rule} = {}) {
   }
 
   function init(config) {
-    closeSetup();
+    $remove(elConfig);
     // preventing the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
     elConfig = $create('div', {contentEditable: true});
