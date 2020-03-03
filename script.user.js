@@ -3053,13 +3053,13 @@ async function setupRuleInstaller(e) {
   }
 
   function findMatchingRuleIndex() {
-    const rxWords = hostname.split('.')
-      .slice(/^(www|m)\./.test(hostname) ? 1 : 0, -1)
-      .map(w => new RegExp(`\\b${w}\\b`, 'i'));
-    return rules.map(({d, name}, index) => ({
-      index,
-      count: rxWords.filter(rx => rx.test(name)).length + 10 * !!(d && hostname.includes(d)),
-    })).sort((a, b) => b.count - a.count)[0].index;
+    const dottedHost = `.${hostname}.`;
+    const weighParts = (n, part) => n + (dottedHost.includes(`.${part}.`) && part.length);
+    const weighName = name => name.toLowerCase().split(/[^a-z\d.-]+/i).reduce(weighParts, 0);
+    return rules.reduce((max, {d, name}, index) => {
+      const count = !!(d && hostname.includes(d)) * 10 + weighName(name);
+      return count > max.count ? {count, index} : max;
+    }, {count: 0, index: 0}).index;
   }
 
   function renderRule(r) {
