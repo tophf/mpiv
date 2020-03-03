@@ -3028,6 +3028,10 @@ async function setupRuleInstaller(e) {
     parent.children.installLoading.remove();
     parent.children.installHint.hidden = false;
     parent.appendChild(selector);
+    requestAnimationFrame(() => {
+      const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
+      selector.scrollTo(0, optY - selector.offsetHeight / 2);
+    });
   } catch (e) {
     parent.textContent = 'Error loading rules: ' + (e.message || e);
   }
@@ -3044,13 +3048,13 @@ async function setupRuleInstaller(e) {
   }
 
   function findMatchingRuleIndex() {
-    // get the core part of the current domain that's not "www", "m", etc.
-    const h = hostname.split('.');
-    const core = h[0] === 'www' || h.length > 2 && h[0].length === 1 ? h[1] : h[0];
-    // find a rule matching the domain core
-    return rules.findIndex(r =>
-      r.name.toLowerCase().includes(core) ||
-      r.d && hostname.includes(r.d));
+    const rxWords = hostname.split('.')
+      .slice(/^(www|m)\./.test(hostname) ? 1 : 0, -1)
+      .map(w => new RegExp(`\\b${w}\\b`, 'i'));
+    return rules.map(({d, name}, index) => ({
+      index,
+      count: rxWords.filter(rx => rx.test(name)).length + 10 * !!(d && hostname.includes(d)),
+    })).sort((a, b) => b.count - a.count)[0].index;
   }
 
   function renderRule(r) {
