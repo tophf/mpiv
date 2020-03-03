@@ -1671,7 +1671,8 @@ class Events {
     let node = e.target;
     if (node === ai.popup ||
         node === doc.body ||
-        node === doc.documentElement)
+        node === doc.documentElement ||
+        ai.gallery && ai.isOverRect)
       return;
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
