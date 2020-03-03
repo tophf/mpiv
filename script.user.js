@@ -795,7 +795,6 @@ class Ruler {
         e: [
           'a[href*="/p/"]',
           'a[role="button"][data-reactid*="scontent-"]',
-          'article div',
           'article div div img',
         ],
         s: (m, node, rule) => {
