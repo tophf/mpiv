@@ -772,24 +772,22 @@ class Ruler {
         }`,
       },
       isGoogleImages && {
-        e: 'a',
-        r: /imgres\?imgurl=([^&]+)/,
-        s: '$1',
+        e: 'a[href*="imgres?imgurl="] img',
+        s: (m, node) => new URLSearchParams(node.closest('a').search).get('imgurl'),
+        follow: true,
       },
       isGoogleImages && {
-        e: '[data-tbnid] a',
-        s: (m, node, rule) => {
-          const id = $propUp(node, 'data-tbnid');
-          for (const {text} of $$('script', doc)) {
-            let i = text.indexOf(id);
-            if (i < 0) continue;
-            i = text.indexOf('[', i + id.length + 9) + 1;
-            const url = tryCatch(JSON.parse, text.slice(i, text.indexOf('"', i + 1) + 1)) || '';
-            if (url.startsWith('http')) {
-              rule.xhr = !url.startsWith(location.protocol);
-              return url;
-            }
-          }
+        e: '[data-tbnid] a:not([href])',
+        s: (m, a) => {
+          const a2 = $('a[jsaction*="mousedown"]', a.closest('[data-tbnid]')) || a;
+          new MutationObserver((_, mo) => {
+            mo.disconnect();
+            a.alt = a2.innerText;
+            const {left, top} = a.getBoundingClientRect();
+            Events.onMouseOver({target: a, clientX: left, clientY: top});
+          }).observe(a, {attributes: true, attributeFilter: ['href']});
+          // ping the title link's handler so it renders the real URL
+          a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
         },
       },
       dotDomain.endsWith('.instagram.com') && {
