@@ -783,8 +783,8 @@ class Ruler {
           for (const {text} of $$('script', doc)) {
             let i = text.indexOf(id);
             if (i < 0) continue;
-            i = text.indexOf('[', i + id.length + 9) + 2;
-            const url = text.slice(i, text.indexOf('"', i + 1));
+            i = text.indexOf('[', i + id.length + 9) + 1;
+            const url = tryCatch(JSON.parse, text.slice(i, text.indexOf('"', i + 1) + 1));
             if (!url.startsWith('http')) continue;
             rule.xhr = !url.startsWith(location.protocol);
             return url;
@@ -2197,6 +2197,7 @@ class Remoting {
     App.setBar(false);
     const type = Remoting.guessMimeType(response);
     let b = response.response;
+    if (!b) throw 'Empty response';
     if (b.type !== type)
       b = b.slice(0, b.size, type);
     return ai.xhr === 'data' ?
