@@ -2544,6 +2544,7 @@ function setup({rule} = {}) {
       }
     }
     $remove(elConfig);
+    elConfig = null;
   }
 
   function collectConfig({save, clone} = {}) {
