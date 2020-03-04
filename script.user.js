@@ -1635,6 +1635,7 @@ class RuleMatcher {
   /** @returns mpiv.RuleMatchInfo */
   static makeInfo(urls, node, rule, m) {
     const url = urls[0];
+    const xhr = cfg.xhr && rule.xhr;
     const info = {
       node,
       rule,
@@ -1643,7 +1644,7 @@ class RuleMatcher {
       match: m,
       gallery: rule.g && Gallery.makeParser(rule.g),
       post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
-      xhr: cfg.xhr && rule.xhr,
+      xhr: xhr != null ? xhr : isSecureContext && !`${url}`.startsWith(location.protocol),
     };
     Util.lazyGetRect(info, node, rule.rect);
     if (
