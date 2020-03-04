@@ -792,7 +792,10 @@ class Ruler {
         },
       },
       dotDomain.endsWith('.instagram.com') && {
-        e: 'a[href*="/p/"], article [role="button"], article [role="button"] div',
+        e: [
+          'a[href*="/p/"]',
+          'article [role="button"][tabindex="0"], article [role="button"][tabindex="0"] div',
+        ],
         s: (m, node, rule) => {
           const {a = false, data = false, src} = rule._getData(node);
           rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
