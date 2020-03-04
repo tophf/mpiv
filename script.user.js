@@ -784,10 +784,11 @@ class Ruler {
             let i = text.indexOf(id);
             if (i < 0) continue;
             i = text.indexOf('[', i + id.length + 9) + 1;
-            const url = tryCatch(JSON.parse, text.slice(i, text.indexOf('"', i + 1) + 1));
-            if (!url.startsWith('http')) continue;
-            rule.xhr = !url.startsWith(location.protocol);
-            return url;
+            const url = tryCatch(JSON.parse, text.slice(i, text.indexOf('"', i + 1) + 1)) || '';
+            if (url.startsWith('http')) {
+              rule.xhr = !url.startsWith(location.protocol);
+              return url;
+            }
           }
         },
       },
