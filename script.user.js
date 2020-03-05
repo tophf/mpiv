@@ -137,6 +137,7 @@ class App {
     if (ai.node)
       App.deactivate();
     ai = info;
+    ai.gNum = 0;
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressHoverTooltip();
     App.updateViewSize();
@@ -373,11 +374,11 @@ class App {
   }
 
   static updateFileInfo() {
-    const gi = ai.gItems;
+    const {gItems: gi, gIndex: i, gNum: n} = ai;
     if (gi) {
-      const item = gi[ai.gIndex];
-      let c = gi.length > 1 ? '[' + (ai.gIndex + 1) + '/' + gi.length + '] ' : '';
-      if (ai.gIndex === 0 && gi.title && !`${item.desc || ''}`.includes(gi.title))
+      const item = gi[i];
+      let c = n > 1 ? '[' + (i + 1) + '/' + n + '] ' : '';
+      if (!i && gi.title && !`${item.desc || ''}`.includes(gi.title))
         c += gi.title + (item.desc ? ' - ' : '');
       if (item.desc)
         c += item.desc;
@@ -409,6 +410,7 @@ class App {
     const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
     const dst = isCustom ? [] : [fit];
     let cutoff = Math.min(1, fit);
+    ai.scaleFit = fit;
     ai.scaleZoom = cfg.fit === 'all' && fit || cfg.fit === 'no' && 1 || cutoff;
     ai.scale = cfg.zoom === 'auto' ? ai.scaleZoom : cutoff;
     for (const scale of src) {
@@ -604,12 +606,15 @@ ${App.popupStyleBase = `
     const n = ai.scales.length;
     if (i >= 0 && i < n)
       ai.scale = ai.scales[i];
-    if (i <= 0 && cfg.zoomOut !== 'stay') {
-      if ((cfg.zoomOut === 'close' || !ai.isOverRect) && (!ai.gItems || ai.gItems.length < 2)) {
+    const zo = cfg.zoomOut;
+    if (i <= 0 && zo !== 'stay') {
+      if (ai.scaleFit < ai.scale * .99) {
+        ai.scales.unshift(ai.scale = ai.scaleFit);
+      } else if (i < 0 && (zo === 'close' || !ai.isOverRect) && ai.gNum < 2) {
         App.deactivate({wait: true});
         return;
       }
-      ai.zoom = cfg.zoomOut === 'auto';
+      ai.zoom = zo === 'auto';
       ai.zoomed = false;
       App.updateFileInfo();
     } else {
@@ -1787,7 +1792,7 @@ class Events {
     const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
     if (ai.zoom) {
       App.zoomInOut(dir);
-    } else if (ai.gItems && ai.gItems.length > 1 && ai.popup) {
+    } else if (ai.gNum > 1 && ai.popup) {
       Gallery.next(-dir);
     } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
       App.zoomToggle();
@@ -1928,6 +1933,7 @@ class Popup {
       });
       // bail out if the gallery's async callback took too long
       if (ai.url !== startUrl) return;
+      ai.gNum = items.length;
       ai.gItems = items.length && items;
       if (ai.gItems) {
         ai.gIndex = Gallery.findIndex(ai.url);
@@ -1980,7 +1986,7 @@ class Popup {
     const {clientX: cx, clientY: cy, extras, outline, view: {w: vw, h: vh}} = ai;
     const w = Math.round(ai.scale * ai.nwidth + extras.w);
     const h = Math.round(ai.scale * ai.nheight + extras.h);
-    if (!ai.zoom && (!ai.gItems || ai.gItems.length < 2) && !cfg.center) {
+    if (!ai.zoom && ai.gNum < 2 && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
       const ry = (r.top + r.bottom) / 2;
@@ -2074,7 +2080,7 @@ class Gallery {
       return 0;
     if (/^\d+$/.test(sel))
       return parseInt(sel);
-    for (let i = ai.gItems.length; i--;) {
+    for (let i = ai.gNum; i--;) {
       let {url} = ai.gItems[i];
       if (Array.isArray(url))
         url = url[0];
@@ -2101,7 +2107,7 @@ class Gallery {
   }
 
   static nextIndex(dir) {
-    return (ai.gIndex + dir + ai.gItems.length) % ai.gItems.length;
+    return (ai.gIndex + dir + ai.gNum) % ai.gNum;
   }
 
   static preload(dir) {

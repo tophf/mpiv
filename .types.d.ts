@@ -97,6 +97,7 @@ declare namespace mpiv {
     clientY: number
     gIndex: number
     gItems: GalleryItemsArray
+    gNum: number
     imageUrl: StringOrArrayOfStrings
     large: boolean
     lazyUnload: boolean
@@ -117,6 +118,8 @@ declare namespace mpiv {
     req: { abort: VoidFunction }
     scale: number
     scales: number[]
+    // scale fit-to-window factor
+    scaleFit: number
     // scale factor to use when zoom is enabled
     scaleZoom: number
     timer: number
