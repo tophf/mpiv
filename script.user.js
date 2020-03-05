@@ -1632,8 +1632,8 @@ class RuleMatcher {
       if (!urls.skipRule) {
         const url = urls[0];
         return !url ? {} :
-          hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule) ?
-            RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]}) :
+          hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule) &&
+            RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]}) ||
             RuleMatcher.makeInfo(urls, node, rule, m);
       }
     }
