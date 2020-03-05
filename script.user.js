@@ -1765,6 +1765,7 @@ class Events {
       // we ignore RMB and Shift
     } else {
       App.deactivate({wait: true});
+      document.addEventListener('mouseup', App.enable, {once: true});
     }
   }
 
