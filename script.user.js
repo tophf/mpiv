@@ -143,24 +143,77 @@ class App {
     if (force) {
       Popup.start();
     } else if (cfg.start === 'auto' && !rule.manual) {
-      Popup.schedule();
+      App.belate();
     } else {
       App.setStatus('ready');
+    }
+  }
+
+  static belate(force) {
+    if (!cfg.preload) {
+      ai.timer = setTimeout(Popup.start, cfg.delay);
+    } else if (!force) {
+      // we don't want to preload everything in the path of a quickly moving mouse cursor
+      ai.timer = setTimeout(App.belate, SETTLE_TIME, true);
+      ai.preloadStart = now();
+    } else {
+      Popup.start();
+      App.setStatus('+preloading');
+      setTimeout(App.setStatus, cfg.delay, '-preloading');
     }
   }
 
   static checkProgress({start} = {}) {
     const p = ai.popup;
     if (p) {
-      ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && 800;
-      ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && 1200;
-      if (ai.nheight) {
-        App.updateProgress();
+      const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
+      const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
+      if (h) {
+        App.stopTimers();
+        const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
+        if (wait) {
+          ai.timer = setTimeout(App.checkProgress, wait);
+        } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
+          App.handleError({type: 'error'});
+        } else {
+          App.commit();
+        }
         return;
       }
     }
     if (start)
       ai.timerProgress = setInterval(App.checkProgress, 150);
+  }
+
+  static commit() {
+    App.updateStyles();
+    const p = ai.popup;
+    let {nwidth: nw, nheight: nh} = ai;
+    // overriding custom CSS to detect an unrestricted SVG that scales to the entire page
+    p.setAttribute('style', 'display:inline !important;' + App.popupStyleBase);
+    if (p.clientWidth > nw) {
+      const w = clamp(p.clientWidth, nw, innerWidth / 2) | 0;
+      nh = ai.nheight = w / nw * nh | 0;
+      nw = ai.nwidth = w;
+      p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
+    } else {
+      p.removeAttribute('style');
+    }
+    p.className = `${PREFIX}show`;
+    App.setStatus(false);
+    App.updateSpacing();
+    App.updateScales();
+    const willZoom = cfg.zoom === 'auto' || App.isImageTab && cfg.imgtab;
+    const willMove = !willZoom || App.zoomToggle({keepScale: true}) === undefined;
+    if (willMove)
+      Popup.move();
+    App.updateTitle();
+    if (!ai.bar)
+      App.updateFileInfo();
+    ai.large = nw > p.clientWidth + ai.mbw ||
+               nh > p.clientHeight + ai.mbh;
+    if (ai.large)
+      App.setStatus('large');
   }
 
   static deactivate({wait} = {}) {
@@ -343,34 +396,6 @@ class App {
         cy > r.top - 2 && cy < r.bottom + 2;
   }
 
-  static updateProgress() {
-    App.stopTimers();
-    let wait;
-    if (ai.preloadStart && (wait = ai.preloadStart + cfg.delay - now()) > 0) {
-      ai.timer = setTimeout(App.checkProgress, wait);
-      return;
-    }
-    if ((ai.urls || 0).length && Math.max(ai.nheight, ai.nwidth) < 130) {
-      App.handleError({type: 'error'});
-      return;
-    }
-    App.setStatus(false);
-    Util.forceLayout(ai.popup);
-    ai.popup.className = `${PREFIX}show`;
-    App.updateSpacing();
-    App.updateScales();
-    if (!(cfg.imgtab && App.isImageTab || cfg.zoom === 'auto') ||
-        App.zoomToggle({keepScale: true}) === undefined)
-      Popup.move();
-    App.updateTitle();
-    if (!ai.bar)
-      App.updateFileInfo();
-    ai.large = ai.nwidth > ai.popup.clientWidth + ai.mbw ||
-               ai.nheight > ai.popup.clientHeight + ai.mbh;
-    if (ai.large)
-      App.setStatus('large');
-  }
-
   static updateScales() {
     const fit = Math.min(
       (ai.view.w - ai.mbw - ai.outline * 2) / ai.nwidth,
@@ -434,20 +459,22 @@ class App {
 }
 #\mpiv-popup {
   display: none;
-  border: none !important;
-  box-sizing: content-box !important;
-  position: fixed !important;
-  z-index: 2147483647 !important;
-  margin: 0 !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: auto !important;
-  height: auto !important;
-  transform-origin: top left !important;
-  max-width: none !important;
-  max-height: none !important;
   cursor: none;
   animation: .2s \mpiv-fadein both;
+${App.popupStyleBase = `
+  border: none;
+  box-sizing: content-box;
+  position: fixed;
+  z-index: 2147483647;
+  margin: 0;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  transform-origin: top left;
+  max-width: none;
+  max-height: none;
+`.replace(/;/g, '!important;')}
 }
 #\mpiv-popup.\mpiv-show {
   box-shadow: 6px 6px 30px transparent;
@@ -1829,20 +1856,6 @@ class Events {
 }
 
 class Popup {
-
-  static schedule(force) {
-    if (!cfg.preload) {
-      ai.timer = setTimeout(Popup.start, cfg.delay);
-    } else if (!force) {
-      // we don't want to preload everything in the path of a quickly moving mouse cursor
-      ai.timer = setTimeout(Popup.schedule, SETTLE_TIME, true);
-      ai.preloadStart = now();
-    } else {
-      Popup.start();
-      App.setStatus('+preloading');
-      setTimeout(App.setStatus, cfg.delay, '-preloading');
-    }
-  }
 
   static start() {
     App.updateStyles();
