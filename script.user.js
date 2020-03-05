@@ -31,7 +31,6 @@
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
-const installableSites = ['greasyfork.org', 'w9p.co', 'github.com'];
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 
@@ -60,8 +59,8 @@ const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 const compareNumbers = (a, b) => a - b;
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 const ensureArray = v => Array.isArray(v) ? v : [v];
+const modKeyPressed = e => e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
 const now = () => performance.now();
-const safeIncludes = (a, b) => typeof a === 'string' && a.includes(b);
 const sumProps = (...props) => props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
 const tryCatch = function (fn, ...args) {
   try {
@@ -69,14 +68,14 @@ const tryCatch = function (fn, ...args) {
   } catch (e) {}
 };
 
-const $ = (s, n = doc) => n.querySelector(s) || 0;
-const $$ = (s, n = doc) => n.querySelectorAll(s);
+const $ = (sel, node = doc) => node.querySelector(sel) || false;
+const $$ = (sel, node = doc) => node.querySelectorAll(sel);
 const $create = (tag, props) => Object.assign(document.createElement(tag), props);
 const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
-const $prop = (s, prop, n = doc) => (n.querySelector(s) || 0)[prop] || '';
-const $propUp = (n, prop) => (n = n.closest(`[${prop}]`)) &&
-  (prop.startsWith('data-') ? n.getAttribute(prop) : n[prop]) || '';
-const $remove = el => el && el.remove();
+const $prop = (sel, prop, node = doc) => (node = $(sel, node)) && node[prop] || '';
+const $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) &&
+  (prop.startsWith('data-') ? node.getAttribute(prop) : node[prop]) || '';
+const $remove = node => node && node.remove();
 
 class App {
 
@@ -93,16 +92,16 @@ class App {
     if (isGoogleDomain && doc.getElementById('main'))
       doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, PASSIVE);
 
-    if (installableSites.includes(hostname)) {
+    if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname)) {
       doc.addEventListener('click', e => {
-        if (hostname === 'github.com' && !location.pathname.startsWith('/tophf/mpiv/')) return;
         const el = e.target.closest('blockquote, code, pre');
-        const text = el && el.textContent.trim();
+        const text = el && el.textContent.trim() || '';
         let rule;
-        if (text && e.button === 0 &&
-            /^\s*{\s*"[dersu]"\s*:[\s\S]+}\s*$/.test(text) &&
+        if (!e.button && !modKeyPressed(e) &&
+            text.startsWith('{') && text.endsWith('{') &&
+            /[{,]\s*"[degrsu]"\s*:\s*"$/.test(text) &&
             (rule = tryCatch(JSON.parse, text)) &&
-            Object.keys(rule).some(k => /^[dersu]$/.test(k))) {
+            Object.keys(rule).some(k => /^[degrsu]$/.test(k))) {
           setup({rule});
           dropEvent(e);
         }
@@ -324,7 +323,7 @@ class App {
     if (gi) {
       const item = gi[ai.gIndex];
       let c = gi.length > 1 ? '[' + (ai.gIndex + 1) + '/' + gi.length + '] ' : '';
-      if (ai.gIndex === 0 && gi.title && (!item.desc || !safeIncludes(item.desc, gi.title)))
+      if (ai.gIndex === 0 && gi.title && !`${item.desc || ''}`.includes(gi.title))
         c += gi.title + (item.desc ? ' - ' : '');
       if (item.desc)
         c += item.desc;
@@ -1162,7 +1161,7 @@ class Ruler {
               desc: [img.title, img.description].filter(Boolean).join(' - '),
             });
           }
-          if (images && info.is_album && !safeIncludes(items[0].desc, info.title))
+          if (images && info.is_album && !`${items[0].desc || ''}`.includes(info.title))
             items.title = info.title;
           cb(items);
         },
@@ -3088,7 +3087,7 @@ async function setupRuleInstaller(e) {
   }
 
   function maybeSetup(e) {
-    if (!e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey)
+    if (!modKeyPressed(e))
       setup({rule: rules[e.currentTarget.selectedIndex]});
   }
 }
