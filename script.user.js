@@ -71,6 +71,8 @@ const tryCatch = function (fn, ...args) {
 const $ = (sel, node = doc) => node.querySelector(sel) || false;
 const $$ = (sel, node = doc) => node.querySelectorAll(sel);
 const $create = (tag, props) => Object.assign(document.createElement(tag), props);
+const $css = (el, props) => Object.entries(props).forEach(([k, v]) =>
+  el.style.setProperty(k, v, 'important'));
 const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
 const $prop = (sel, prop, node = doc) => (node = $(sel, node)) && node[prop] || '';
 const $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) &&
@@ -210,8 +212,8 @@ class App {
     App.updateTitle();
     if (!ai.bar)
       App.updateFileInfo();
-    ai.large = nw > p.clientWidth + ai.mbw ||
-               nh > p.clientHeight + ai.mbh;
+    ai.large = nw > p.clientWidth + ai.extras.w ||
+               nh > p.clientHeight + ai.extras.h;
     if (ai.large)
       App.setStatus('large');
   }
@@ -345,7 +347,7 @@ class App {
   static updateBar() {
     clearTimeout(ai.timerBar);
     ai.bar.style.removeProperty('opacity');
-    ai.timerBar = setTimeout(() => ai.bar && ai.bar.style.setProperty('opacity', 0), 3000);
+    ai.timerBar = setTimeout(() => ai.bar && $css(ai.bar, {opacity: 0}), 3000);
   }
 
   static updateCaption(text, doc = document) {
@@ -401,8 +403,8 @@ class App {
 
   static updateScales() {
     const fit = Math.min(
-      (ai.view.w - ai.mbw - ai.outline * 2) / ai.nwidth,
-      (ai.view.h - ai.mbh - ai.outline * 2) / ai.nheight);
+      (ai.view.w - ai.extras.w) / ai.nwidth,
+      (ai.view.h - ai.extras.h) / ai.nheight);
     const isCustom = !cfg.fit;
     const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
     const dst = isCustom ? [] : [fit];
@@ -423,10 +425,16 @@ class App {
   static updateSpacing() {
     const s = getComputedStyle(ai.popup);
     ai.outline = sumProps(s.outlineOffset, s.outlineWidth);
-    ai.pw = sumProps(s.paddingLeft, s.paddingRight);
-    ai.ph = sumProps(s.paddingTop, s.paddingBottom);
-    ai.mbw = sumProps(s.marginLeft, s.marginRight, s.borderLeftWidth, s.borderRightWidth);
-    ai.mbh = sumProps(s.marginTop, s.marginBottom, s.borderTopWidth, s.borderBottomWidth);
+    ai.extras = {
+      w: sumProps(ai.outline * 2,
+        s.paddingLeft, s.paddingRight,
+        s.marginLeft, s.marginRight,
+        s.borderLeftWidth, s.borderRightWidth),
+      h: sumProps(ai.outline * 2,
+        s.paddingTop, s.paddingBottom,
+        s.marginTop, s.marginBottom,
+        s.borderTopWidth, s.borderBottomWidth),
+    };
   }
 
   static updateStyles() {
@@ -466,9 +474,10 @@ class App {
   animation: .2s \mpiv-fadein both;
 ${App.popupStyleBase = `
   border: none;
-  box-sizing: content-box;
+  box-sizing: border-box;
   position: fixed;
   z-index: 2147483647;
+  padding: 0;
   margin: 0;
   top: 0;
   left: 0;
@@ -491,8 +500,13 @@ ${App.popupStyleBase = `
   image-rendering: pixelated;
 }
 @keyframes \mpiv-fadein {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+    border-color: transparent;
+  }
+  to {
+    opacity: 1;
+  }
 }
 ` + (cfg.globalStatus ? String.raw`
 .\mpiv-loading:not(.\mpiv-preloading) * {
@@ -1963,40 +1977,32 @@ class Popup {
     const p = ai.popup;
     if (!p) return;
     let x, y;
-    const w = Math.round(ai.scale * ai.nwidth);
-    const h = Math.round(ai.scale * ai.nheight);
-    const cx = ai.clientX;
-    const cy = ai.clientY;
-    const vw = ai.view.w - ai.outline * 2;
-    const vh = ai.view.h - ai.outline * 2;
+    const {clientX: cx, clientY: cy, extras, outline, view: {w: vw, h: vh}} = ai;
+    const w = Math.round(ai.scale * ai.nwidth + extras.w);
+    const h = Math.round(ai.scale * ai.nheight + extras.h);
     if (!ai.zoom && (!ai.gItems || ai.gItems.length < 2) && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
       const ry = (r.top + r.bottom) / 2;
-      if (vw - r.right - 40 > w + ai.mbw || w + ai.mbw < r.left - 40) {
-        if (h + ai.mbh < vh - 60)
+      if (vw - r.right - 40 > w || w < r.left - 40) {
+        if (h < vh - 60)
           y = clamp(ry - h / 2, 30, vh - h - 30);
         x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
-      } else if (vh - r.bottom - 40 > h + ai.mbh || h + ai.mbh < r.top - 40) {
-        if (w + ai.mbw < vw - 60)
+      } else if (vh - r.bottom - 40 > h || h < r.top - 40) {
+        if (w < vw - 60)
           x = clamp(rx - w / 2, 30, vw - w - 30);
         y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
       }
     }
-    if (x === undefined) {
-      const mid = vw > w ?
-        vw / 2 - w / 2 :
-        -1 * clamp(5 / 3 * (cx / vw - 0.2), 0, 1) * (w - vw);
-      x = Math.round(mid - (ai.pw + ai.mbw) / 2);
-    }
-    if (y === undefined) {
-      const mid = vh > h ?
-        vh / 2 - h / 2 :
-        -1 * clamp(5 / 3 * (cy / vh - 0.2), 0, 1) * (h - vh);
-      y = Math.round(mid - (ai.ph + ai.mbh) / 2);
-    }
-    p.style.setProperty('transform',
-      `translate(${x + ai.outline}px, ${y + ai.outline}px) scale(${ai.scale})`, 'important');
+    if (x == null)
+      x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
+    if (y == null)
+      y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
+    $css(p, {
+      transform: `translate(${Math.round(x + outline)}px, ${Math.round(y + outline)}px)`,
+      width: `${w}px`,
+      height: `${h}px`,
+    });
   }
 
   static destroy() {

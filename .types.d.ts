@@ -100,20 +100,12 @@ declare namespace mpiv {
     imageUrl: StringOrArrayOfStrings
     large: boolean
     lazyUnload: boolean
-    // margin+border height
-    mbh: number
-    // margin+border width
-    mbw: number
     // naturalHeight
     nheight: number
     // naturalWidth
     nwidth: number
     // outline thickness
     outline: number
-    // padding height
-    ph: number
-    // padding width
-    pw: number
     popup: HTMLImageElement | HTMLVideoElement
     // true when 'load' event fired on the element
     popupLoaded: boolean
@@ -133,6 +125,9 @@ declare namespace mpiv {
     timerStatus: number
     tooltip: { node: Node, text: string }
     view: { w: number, h: number }
+    // padding+margin+border
+    extras: { w: number, h: number }
+    xwidth: number
     zoom: boolean
     zoomed: boolean
     zooming: boolean
