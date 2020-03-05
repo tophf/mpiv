@@ -281,10 +281,9 @@ class App {
   }
 
   static stopTimers() {
-    for (const k of Object.keys(ai)) {
-      if (k.startsWith('timer'))
-        clearTimeout(ai[k]);
-    }
+    for (const timer of ['timer', 'timerBar', 'timerStatus'])
+      clearTimeout(ai[timer]);
+    clearInterval(ai.timerProgress);
   }
 
   static updateBar() {
