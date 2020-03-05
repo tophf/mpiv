@@ -238,13 +238,16 @@ class App {
   }
 
   static handleError(e, rule = ai.rule) {
+    if (isGoogleImages && cfg.xhr && !ai.xhr) {
+      ai.xhr = true;
+      console.debug('Retrying in XHR mode', ai.url);
+      Popup.startSingle();
+      return;
+    }
     const fe = Util.formatError(e, rule);
     if (!rule || !ai.urls || !ai.urls.length)
       console.warn(fe.consoleFormat, ...fe.consoleArgs);
-    if (cfg.xhr && !ai.xhr && isGoogleImages) {
-      ai.xhr = true;
-      Popup.startSingle();
-    } else if (ai.urls && ai.urls.length) {
+    if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
       if (ai.url) {
         App.stopTimers();
