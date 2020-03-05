@@ -89,9 +89,6 @@ class App {
     GM_registerMenuCommand('MPIV: configure', setup);
     doc.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
 
-    if (isGoogleDomain && doc.getElementById('main'))
-      doc.getElementById('main').addEventListener('mouseover', Events.onMouseOver, PASSIVE);
-
     if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname)) {
       doc.addEventListener('click', e => {
         const el = e.target.closest('blockquote, code, pre');
