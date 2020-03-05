@@ -480,11 +480,11 @@ ${App.popupStyleBase = `
 `.replace(/;/g, '!important;')}
 }
 #\mpiv-popup.\mpiv-show {
-  box-shadow: 6px 6px 30px transparent;
+  box-shadow: 6px 6px 20px transparent;
   transition: box-shadow .25s, background-color .25s;
 }
 #\mpiv-popup.\mpiv-show[loaded] {
-  box-shadow: 6px 6px 30px black;
+  box-shadow: 2px 4px 20px 4px #000a;
   background-color: white;
 }
 #\mpiv-popup.\mpiv-zoom-max {
@@ -496,7 +496,7 @@ ${App.popupStyleBase = `
 }
 ` + (cfg.globalStatus ? String.raw`
 .\mpiv-loading:not(.\mpiv-preloading) * {
-  cursor: wait !important;
+  cursor: progress !important;
 }
 .\mpiv-edge #\mpiv-popup {
   cursor: default;
@@ -512,7 +512,7 @@ ${App.popupStyleBase = `
 }
 ` : String.raw`
 [\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]) {
-  cursor: wait !important;
+  cursor: progress !important;
 }
 #\mpiv-popup[\mpiv-status~="edge"] {
   cursor: default !important;
