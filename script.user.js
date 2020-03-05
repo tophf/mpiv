@@ -807,11 +807,11 @@ class Ruler {
           const a2 = $('a[jsaction*="mousedown"]', a.closest('[data-tbnid]')) || a;
           new MutationObserver((_, mo) => {
             mo.disconnect();
+            App.enabled = true;
             a.alt = a2.innerText;
             const {left, top} = a.getBoundingClientRect();
-            Events.onMouseOver({target: a, clientX: left, clientY: top});
+            Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
           }).observe(a, {attributes: true, attributeFilter: ['href']});
-          // ping the title link's handler so it renders the real URL
           a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
         },
       },
