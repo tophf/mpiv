@@ -99,9 +99,9 @@ class App {
         let rule;
         if (!e.button && !modKeyPressed(e) &&
             text.startsWith('{') && text.endsWith('}') &&
-            /[{,]\s*"[degrqsu]"\s*:\s*"/.test(text) &&
+            /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text) &&
             (rule = tryCatch(JSON.parse, text)) &&
-            Object.keys(rule).some(k => /^[degrqsu]$/.test(k))) {
+            Object.keys(rule).some(k => /^[degqrsu]$/.test(k))) {
           setup({rule});
           dropEvent(e);
         }
