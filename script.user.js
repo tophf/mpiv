@@ -404,8 +404,8 @@ class App {
 
   static updateScales() {
     const fit = Math.min(
-      (ai.view.w - ai.extras.w) / ai.nwidth,
-      (ai.view.h - ai.extras.h) / ai.nheight);
+      (ai.view.w - ai.extras.w - ai.extras.o2) / ai.nwidth,
+      (ai.view.h - ai.extras.h - ai.extras.o2) / ai.nheight);
     const isCustom = !cfg.fit;
     const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
     const dst = isCustom ? [] : [fit];
@@ -426,16 +426,16 @@ class App {
 
   static updateSpacing() {
     const s = getComputedStyle(ai.popup);
-    ai.outline = sumProps(s.outlineOffset, s.outlineWidth);
+    const outline = sumProps(s.outlineOffset, s.outlineWidth);
     ai.extras = {
-      w: sumProps(ai.outline * 2,
-        s.paddingLeft, s.paddingRight,
+      w: sumProps(s.paddingLeft, s.paddingRight,
         s.marginLeft, s.marginRight,
         s.borderLeftWidth, s.borderRightWidth),
-      h: sumProps(ai.outline * 2,
-        s.paddingTop, s.paddingBottom,
+      h: sumProps(s.paddingTop, s.paddingBottom,
         s.marginTop, s.marginBottom,
         s.borderTopWidth, s.borderBottomWidth),
+      o: outline,
+      o2: outline * 2,
     };
   }
 
@@ -1980,7 +1980,9 @@ class Popup {
   static move() {
     if (!ai.popup) return;
     let x, y;
-    const {cx, cy, extras, outline, view: {w: vw, h: vh}} = ai;
+    const {cx, cy, extras, view} = ai;
+    const vw = view.w - extras.o2;
+    const vh = view.h - extras.o2;
     const w = ai.scale * ai.nwidth + extras.w;
     const h = ai.scale * ai.nheight + extras.h;
     if (!ai.zoom && ai.gNum < 2 && !cfg.center) {
@@ -2002,7 +2004,7 @@ class Popup {
     if (y == null)
       y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
     $css(ai.popup, {
-      transform: `translate(${Math.round(x + outline)}px, ${Math.round(y + outline)}px)`,
+      transform: `translate(${Math.round(x + extras.o)}px, ${Math.round(y + extras.o)}px)`,
       width: `${Math.round(w)}px`,
       height: `${Math.round(h)}px`,
     });

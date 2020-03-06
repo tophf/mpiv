@@ -97,6 +97,16 @@ declare namespace mpiv {
     cx: number
     // clientY of the last mouse event
     cy: number
+    extras: {
+      // padding + margin + border for left and right edges
+      w: number,
+      // padding + margin + border for top and bottom edges
+      h: number,
+      // outline offset + thickness
+      o: number,
+      // outline offset + thickness doubled to account for both edges
+      o2: number,
+    }
     gIndex: number
     gItems: GalleryItemsArray
     gNum: number
@@ -107,8 +117,6 @@ declare namespace mpiv {
     nheight: number
     // naturalWidth
     nwidth: number
-    // outline thickness
-    outline: number
     popup: HTMLImageElement | HTMLVideoElement
     // true when 'load' event fired on the element
     popupLoaded: boolean
@@ -132,8 +140,6 @@ declare namespace mpiv {
     timerStatus: number
     tooltip: { node: Node, text: string }
     view: { w: number, h: number }
-    // padding+margin+border
-    extras: { w: number, h: number }
     xwidth: number
     zoom: boolean
     zoomed: boolean
