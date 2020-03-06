@@ -175,7 +175,7 @@ class App {
       if (h) {
         App.stopTimers();
         const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
-        if (wait) {
+        if (wait > 0) {
           ai.timer = setTimeout(App.checkProgress, wait);
         } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
           App.handleError({type: 'error'});
