@@ -93,8 +93,10 @@ declare namespace mpiv {
     controlled: boolean
     // is mouse still over PopupInfo.rect
     isOverRect: boolean
-    clientX: number
-    clientY: number
+    // clientX of the last mouse event
+    cx: number
+    // clientY of the last mouse event
+    cy: number
     gIndex: number
     gItems: GalleryItemsArray
     gNum: number

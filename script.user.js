@@ -393,8 +393,8 @@ class App {
   }
 
   static updateMouse(e) {
-    const cx = ai.clientX = e.clientX;
-    const cy = ai.clientY = e.clientY;
+    const cx = ai.cx = e.clientX;
+    const cy = ai.cy = e.clientY;
     const r = ai.rect;
     if (r)
       ai.isOverRect =
@@ -1768,8 +1768,7 @@ class Events {
       App.deactivate();
     } else if (ai.zoom) {
       Popup.move();
-      const {w, h} = ai.view;
-      const {clientX: cx, clientY: cy} = ai;
+      const {cx, cy, view: {w, h}} = ai;
       const bx = w / 6;
       const by = h / 6;
       const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
@@ -1980,12 +1979,11 @@ class Popup {
   }
 
   static move() {
-    const p = ai.popup;
-    if (!p) return;
+    if (!ai.popup) return;
     let x, y;
-    const {clientX: cx, clientY: cy, extras, outline, view: {w: vw, h: vh}} = ai;
-    const w = Math.round(ai.scale * ai.nwidth + extras.w);
-    const h = Math.round(ai.scale * ai.nheight + extras.h);
+    const {cx, cy, extras, outline, view: {w: vw, h: vh}} = ai;
+    const w = ai.scale * ai.nwidth + extras.w;
+    const h = ai.scale * ai.nheight + extras.h;
     if (!ai.zoom && ai.gNum < 2 && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
@@ -2004,10 +2002,10 @@ class Popup {
       x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
     if (y == null)
       y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
-    $css(p, {
+    $css(ai.popup, {
       transform: `translate(${Math.round(x + outline)}px, ${Math.round(y + outline)}px)`,
-      width: `${w}px`,
-      height: `${h}px`,
+      width: `${Math.round(w)}px`,
+      height: `${Math.round(h)}px`,
     });
   }
 
@@ -2258,6 +2256,7 @@ class Remoting {
   }
 
   static async saveFile() {
+    App.setStatus('+loading');
     let url = ai.popup.src || ai.popup.currentSrc;
     let name = Remoting.getFileName(ai.imageUrl || url);
     if (!name.includes('.'))
@@ -2275,6 +2274,8 @@ class Remoting {
         .dispatchEvent(new MouseEvent('click'));
     } catch (e) {
       App.setBar(`Could not download ${name}.`, 'error');
+    } finally {
+      App.setStatus('-loading');
     }
   }
 
