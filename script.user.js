@@ -12,6 +12,7 @@
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
+// @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
@@ -2256,26 +2257,23 @@ class Remoting {
   }
 
   static async saveFile() {
-    App.setStatus('+loading');
-    let url = ai.popup.src || ai.popup.currentSrc;
+    const url = ai.popup.src || ai.popup.currentSrc;
     let name = Remoting.getFileName(ai.imageUrl || url);
     if (!name.includes('.'))
       name += '.jpg';
-    try {
-      if (!url.startsWith('blob:') && !url.startsWith('data:')) {
-        const {response} = await Remoting.gmXhr(url, {
-          responseType: 'blob',
-          headers: {'Referer': url},
-        });
-        url = URL.createObjectURL(response);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-      }
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
       $create('a', {href: url, download: name})
         .dispatchEvent(new MouseEvent('click'));
-    } catch (e) {
-      App.setBar(`Could not download ${name}.`, 'error');
-    } finally {
-      App.setStatus('-loading');
+    } else {
+      App.setStatus('+loading');
+      GM_download({
+        url,
+        name,
+        headers: {Referer: url},
+        onerror: () => App.setBar(`Could not download ${name}.`, 'error'),
+        onload: () => App.setStatus('-loading'),
+        onprogress: Remoting.getImageProgress,
+      });
     }
   }
 
