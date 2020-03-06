@@ -2544,6 +2544,8 @@ class Util {
 function setup({rule} = {}) {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
+  // FF is superslow with textareas, bugzil.la/190147
+  const FF = CSS.supports('-moz-appearance', 'none');
   let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
@@ -2764,13 +2766,14 @@ function setup({rule} = {}) {
   input:not([type="checkbox"])  {
     padding: 0 .25em;
   }
+  #rules input,
   textarea {
     flex: 1;
     resize: vertical;
     margin: 1px 0;
     font: 11px/1.25 Consolas, monospace;
   }
-  textarea:invalid {
+  :invalid {
     background-color: #f002;
     border-color: #800;
   }
@@ -2795,6 +2798,7 @@ function setup({rule} = {}) {
     animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
     animation-fill-mode: both;
   }
+  #rules input,
   #rules textarea {
     word-break: break-all;
   }
@@ -2920,7 +2924,7 @@ function setup({rule} = {}) {
     </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
-      e.g. <code>#mpiv-popup.mpiv-show { animation: none }</code>
+      e.g. <b>#mpiv-popup { animation: none !important }</b>
       <a href="#" id=reveal style="float: right"
          title="You can copy parts of it to override them in your custom CSS">
          View the built-in CSS</a>
@@ -2941,7 +2945,7 @@ function setup({rule} = {}) {
     </li>
     <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
       <div id=rules class=column>
-        <textarea rows=1 spellcheck=false></textarea>
+        ${FF ? '<input spellcheck=false>' : '<textarea rows=1 spellcheck=false></textarea>'}
       </div>
     </li>
     <li>
@@ -2964,8 +2968,8 @@ function setup({rule} = {}) {
     // rules
     const rules = UI.rules;
     rules.addEventListener('input', checkRule);
-    rules.addEventListener('focusin', focusRule);
-    rules.addEventListener('paste', focusRule);
+    if (!FF) rules.addEventListener('focusin', focusRule);
+    if (!FF) rules.addEventListener('paste', focusRule);
     blankRuleElement =
       setup.blankRuleElement =
         setup.blankRuleElement || rules.firstElementChild.cloneNode();
