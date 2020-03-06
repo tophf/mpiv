@@ -98,10 +98,10 @@ class App {
         const text = el && el.textContent.trim() || '';
         let rule;
         if (!e.button && !modKeyPressed(e) &&
-            text.startsWith('{') && text.endsWith('{') &&
-            /[{,]\s*"[degrsu]"\s*:\s*"$/.test(text) &&
+            text.startsWith('{') && text.endsWith('}') &&
+            /[{,]\s*"[degrqsu]"\s*:\s*"/.test(text) &&
             (rule = tryCatch(JSON.parse, text)) &&
-            Object.keys(rule).some(k => /^[degrsu]$/.test(k))) {
+            Object.keys(rule).some(k => /^[degrqsu]$/.test(k))) {
           setup({rule});
           dropEvent(e);
         }
