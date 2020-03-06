@@ -57,6 +57,8 @@ declare namespace mpiv {
     follow?: boolean | BooleanFunction
     // POST method should be used to make HTTP request
     post?: boolean | BooleanFunction
+    // CSS selector for an element used to calculate the bounds of the hoverable area
+    rect?: string
     // CSS to be added to the page
     css?: string
     // for generic rules: the result should be more than cfg.scale bigger than the original
@@ -91,8 +93,6 @@ declare namespace mpiv {
     caption: string
     // video controls are shown
     controlled: boolean
-    // is mouse still over PopupInfo.rect
-    isOverRect: boolean
     // clientX of the last mouse event
     cx: number
     // clientY of the last mouse event
@@ -117,6 +117,8 @@ declare namespace mpiv {
     // used by gallery to preload the next image
     preloadUrl: string
     rect: DOMRect
+    // is mouse still over PopupInfo.rect
+    rectHovered: boolean
     req: { abort: VoidFunction }
     scale: number
     scales: number[]

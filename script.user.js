@@ -396,11 +396,10 @@ class App {
   static updateMouse(e) {
     const cx = ai.cx = e.clientX;
     const cy = ai.cy = e.clientY;
-    const r = ai.rect;
-    if (r)
-      ai.isOverRect =
-        cx > r.left - 2 && cx < r.right + 2 &&
-        cy > r.top - 2 && cy < r.bottom + 2;
+    const r = ai.rect || (ai.rect = Util.rect());
+    ai.rectHovered =
+      cx > r.left - 2 && cx < r.right + 2 &&
+      cy > r.top - 2 && cy < r.bottom + 2;
   }
 
   static updateScales() {
@@ -611,7 +610,7 @@ ${App.popupStyleBase = `
     if (i <= 0 && zo !== 'stay') {
       if (ai.scaleFit < ai.scale * .99) {
         ai.scales.unshift(ai.scale = ai.scaleFit);
-      } else if (i < 0 && (zo === 'close' || !ai.isOverRect) && ai.gNum < 2) {
+      } else if (i < 0 && (zo === 'close' || !ai.rectHovered) && ai.gNum < 2) {
         App.deactivate({wait: true});
         return;
       }
@@ -1689,7 +1688,6 @@ class RuleMatcher {
       post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
       xhr: xhr != null ? xhr : isSecureContext && !`${url}`.startsWith(location.protocol),
     };
-    Util.lazyGetRect(info, node, rule.rect);
     if (
       dotDomain.endsWith('.twitter.com') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
       dotDomain.endsWith('.github.com') && !/github/.test(url) ||
@@ -1715,7 +1713,7 @@ class Events {
     if (node === ai.popup ||
         node === doc.body ||
         node === doc.documentElement ||
-        ai.gallery && ai.isOverRect)
+        ai.gallery && ai.rectHovered)
       return;
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
@@ -1731,7 +1729,7 @@ class Events {
       (a = node.closest('A')) &&
         RuleMatcher.findForLink(a) ||
       isPic &&
-        Util.lazyGetRect({node, rule: {}, url: src}, node);
+        {node, rule: {}, url: src};
     if (info && info.url && info.node !== ai.node)
       App.activate(info, e);
   }
@@ -1765,7 +1763,7 @@ class Events {
     App.updateMouse(e);
     if (e.shiftKey) {
       ai.lazyUnload = true;
-    } else if (!ai.zoomed && !ai.isOverRect) {
+    } else if (!ai.zoomed && !ai.rectHovered) {
       App.deactivate();
     } else if (ai.zoom) {
       Popup.move();
@@ -1827,7 +1825,7 @@ class Events {
           ai.controlled = false;
           return;
         }
-        ai.popup && (ai.zoomed || ai.isOverRect !== false) ?
+        ai.popup && (ai.zoomed || ai.rectHovered !== false) ?
           App.zoomToggle() :
           App.deactivate({wait: true});
         break;
@@ -2421,17 +2419,6 @@ class Util {
     return [w, h];
   }
 
-  static lazyGetRect(obj, node, selector) {
-    return Object.defineProperty(obj, 'rect', {
-      configurable: true,
-      get() {
-        const value = Util.rect(node, selector);
-        Object.defineProperty(obj, 'rect', {value, configurable: true});
-        return value;
-      },
-    });
-  }
-
   // decode only if the main part of the URL is encoded to preserve the encoded parameters
   static maybeDecodeUrl(url) {
     if (!url) return url;
@@ -2453,8 +2440,9 @@ class Util {
     }
   }
 
-  static rect(node, selector) {
-    let n = selector && node.closest(selector);
+  static rect() {
+    let {node, rule} = ai;
+    let n = rule.rect && node.closest(rule.rect);
     if (n) return n.getBoundingClientRect();
     const nested = node.getElementsByTagName('*');
     let maxArea = 0;
