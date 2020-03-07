@@ -1724,8 +1724,9 @@ class Events {
     const src = node.currentSrc || node.src;
     const isPic = tag === 'IMG' || tag === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
     const info =
+      // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
       tag !== 'A' &&
-        RuleMatcher.find(isPic && Util.rel2abs(src), node) ||
+        RuleMatcher.find(isPic && !src.startsWith('data:') && Util.rel2abs(src), node) ||
       (a = node.closest('A')) &&
         RuleMatcher.findForLink(a) ||
       isPic &&
