@@ -3,7 +3,7 @@
 // @namespace   https://github.com/tophf
 // @description Shows images and videos behind links and thumbnails.
 
-// @include     http*
+// @include     *
 // @connect     *
 
 // allow rule installer in config dialog https://w9p.co/userscripts/mpiv/more_host_rules.html
