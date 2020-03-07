@@ -654,7 +654,7 @@ class Config {
           delete c[key];
       c.version = DEFAULTS.version;
       if (save)
-        GM_setValue('cfg', JSON.stringify(c));
+        GM_setValue('cfg', c);
     }
     if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
       App.globalStyle = '';
