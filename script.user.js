@@ -2563,14 +2563,12 @@ function setup({rule} = {}) {
   }
 
   function collectConfig({save, clone} = {}) {
-    const delay = parseInt(UI.delay.value);
-    const scale = parseFloat(UI.scale.value.replace(',', '.'));
     let data = {
       css: UI.css.value.trim(),
-      delay: !isNaN(delay) && delay >= 0 ? delay : undefined,
+      delay: UI.delay.valueAsNumber * 1000,
       fit: UI.fit.value || '',
       hosts: collectRules(),
-      scale: !isNaN(scale) ? Math.max(1, scale) : undefined,
+      scale: Math.max(1, UI.scale.valueAsNumber || 0),
       scales: UI.scales.value
         .trim()
         .split(/[,;]*\s+/)
@@ -2861,7 +2859,7 @@ function setup({rule} = {}) {
           <option value=ctrl>Ctrl
         </select>
       </label>
-      <label>after, ms <input id=delay type=number min=0 max=10000 step=50 title=milliseconds></label>
+      <label>after, sec<input id=delay type=number min=0 max=10 step=0.1 title=seconds></label>
       <label title="Activate only if the full version of the hovered image is that many times larger">
         if larger <input id=scale type=number min=1 max=100 step=.05>
       </label>
@@ -2984,7 +2982,7 @@ function setup({rule} = {}) {
     root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
     UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
     UI.css.value = config.css;
-    UI.delay.value = config.delay;
+    UI.delay.value = config.delay / 1000;
     UI.export.onclick = exportSettings;
     UI.fit.value = config.fit;
     UI.import.onclick = importSettings;
