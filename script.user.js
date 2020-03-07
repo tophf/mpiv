@@ -2983,25 +2983,25 @@ function setup({rule} = {}) {
       <label>Background
         <span>
           <input id=uiBackgroundColor type=color><u></u>
-          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 title="Opacity, %">
+          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
         </span>
       </label>
       <label>Border color, opacity, size
         <span>
           <input id=uiBorderColor type=color><u></u>
-          <input id=uiBorderOpacity type=range min=0 max=100 step=1 title="Opacity, %">
-          <input id=uiBorder type=range min=0 max=20 step=1 title="Border width, px">
+          <input id=uiBorderOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
+          <input id=uiBorder type=range min=0 max=20 step=1 title="Border size: $px">
         </span>
       </label>
       <label>Shadow color, opacity, size
         <span>
           <input id=uiShadowColor type=color><u></u>
-          <input id=uiShadowOpacity type=range min=0 max=100 step=1 title="Opacity, %">
-          <input id=uiShadow type=range min=0 max=100 step=1 title="Blur radius, px">
+          <input id=uiShadowOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
+          <input id=uiShadow type=range min=0 max=100 step=1 title="Blur radius: $px">
         </span>
       </label>
-      <label>Padding<input id=uiPadding type=range min=0 max=100 step=1 title="Padding, px"></label>
-      <label>Margin<input id=uiMargin type=range min=0 max=100 step=1 title="Margin, px"></label>
+      <label>Padding<input id=uiPadding type=range min=0 max=100 step=1 title="Padding: $px"></label>
+      <label>Margin<input id=uiMargin type=range min=0 max=100 step=1 title="Margin: $px"></label>
     </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
@@ -3117,6 +3117,7 @@ function setup({rule} = {}) {
   }
 
   function renderValues(config) {
+    const titleTemplate = {};
     const onChange = {
       color() {
         const next = this.nextElementSibling;
@@ -3124,7 +3125,8 @@ function setup({rule} = {}) {
         next.style.setProperty('--color', Util.color(this.value, opacity));
       },
       range() {
-        this.title = `${this.title.split('\n', 1)[0]}\n${this.value}`;
+        const tpl = titleTemplate[this.id] || (titleTemplate[this.id] = this.title);
+        this.title = tpl.replace('$', this.value);
         if (this.id.endsWith('Opacity'))
           UI[this.id.replace('Opacity', 'Color')].oninput();
       },
@@ -3134,7 +3136,7 @@ function setup({rule} = {}) {
       if (v != null) el[el.type === 'checkbox' ? 'checked' : 'value'] = v;
       el.oninput = onChange[el.type];
     }
-    for (const el of $$('input[id$="Color"], input[id$="Opacity"]', root))
+    for (const el of $$('input[type="range"]', root))
       el.oninput();
     UI.delay.value = config.delay / 1000;
     const noReferrer = {
