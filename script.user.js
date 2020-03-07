@@ -2980,8 +2980,7 @@ function setup({rule} = {}) {
       search.oninput();
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
-    root.addEventListener('keydown', e =>
-      !e.altKey && !e.ctrlKey && !e.metaKey && e.stopPropagation(), true);
+    root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
     UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
     UI.css.value = config.css;
     UI.delay.value = config.delay;
