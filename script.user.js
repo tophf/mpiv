@@ -491,12 +491,15 @@ ${App.popupStyleBase = `
 `.replace(/;/g, '!important;')}
 }
 #\mpiv-popup.\mpiv-show {
-  box-shadow: 6px 6px 20px transparent;
+  border: ${cfg.uiBorder ? `${cfg.uiBorder}px solid ${Util.color('Border')}` : 'none'} !important;
+  padding: ${cfg.uiPadding}px !important;
+  margin: ${cfg.uiMargin}px !important;
+  box-shadow: 2px 4px ${cfg.uiShadow}px 4px transparent !important;
   transition: box-shadow .25s, background-color .25s;
 }
 #\mpiv-popup.\mpiv-show[loaded] {
-  box-shadow: 2px 4px 20px 4px #000a;
-  background-color: white;
+  box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')} !important;
+  background-color: ${Util.color('Background')};
 }
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
@@ -653,18 +656,15 @@ class Config {
       if (save)
         GM_setValue('cfg', JSON.stringify(c));
     }
-    if (cfg && (
-      cfg.css !== c.css ||
-      cfg.globalStatus !== c.globalStatus
-    )) {
+    if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
       App.globalStyle = '';
-    }
-    if (!Array.isArray(c.scales)) c.scales = [];
+    if (!Array.isArray(c.scales))
+      c.scales = [];
     c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
     c.fit = ['all', 'large', 'no'].includes(c.fit) ? c.fit :
       !c.scales.length || `${c.scales}` === `${Config.DEFAULTS.scales}` ? 'large' :
         '';
-    Object.assign(this, c);
+    Object.assign(this, DEFAULTS, c);
   }
 }
 
@@ -694,6 +694,16 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
   scale: 1.25,
   scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
   start: 'auto',
+  uiBackgroundColor: '#ffffff',
+  uiBackgroundOpacity: 100,
+  uiBorderColor: '#000000',
+  uiBorderOpacity: 100,
+  uiBorder: 0,
+  uiShadowColor: '#000000',
+  uiShadowOpacity: 80,
+  uiShadow: 20,
+  uiPadding: 0,
+  uiMargin: 0,
   version: 6,
   xhr: true,
   zoom: 'context',
@@ -2348,6 +2358,12 @@ class Util {
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
   }
+
+  static color(color, opacity = cfg[`ui${color}Opacity`]) {
+    return (color.startsWith('#') ? color : cfg[`ui${color}Color`]) +
+           (0x100 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
+  }
+
   static deepEqual(a, b) {
     if (!a || !b || typeof a !== 'object' || typeof a !== typeof b)
       return a === b;
@@ -2563,10 +2579,14 @@ function setup({rule} = {}) {
   }
 
   function collectConfig({save, clone} = {}) {
-    let data = {
+    let data = {};
+    for (const el of $$('input[id], select[id]', root))
+      data[el.id] = el.type === 'checkbox' ? el.checked :
+        (el.type === 'number' || el.type === 'range') ? el.valueAsNumber :
+          el.value || '';
+    Object.assign(data, {
       css: UI.css.value.trim(),
       delay: UI.delay.valueAsNumber * 1000,
-      fit: UI.fit.value || '',
       hosts: collectRules(),
       scale: Math.max(1, UI.scale.valueAsNumber || 0),
       scales: UI.scales.value
@@ -2574,12 +2594,7 @@ function setup({rule} = {}) {
         .split(/[,;]*\s+/)
         .map(x => x.replace(',', '.'))
         .filter(x => !isNaN(parseFloat(x))),
-      start: UI.start.value,
-      zoom: UI.zoom.value,
-      zoomOut: UI.zoomOut.value,
-    };
-    for (const el of $$('[type="checkbox"]', root))
-      data[el.id] = el.checked;
+    });
     if (clone)
       data = JSON.parse(JSON.stringify(data));
     return new Config({data, save});
@@ -2675,10 +2690,6 @@ function setup({rule} = {}) {
     el.focus();
   }
 
-  function renderCustomScales(config) {
-    UI.scales.value = config.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
-  }
-
   function init(config) {
     $remove(elConfig);
     // preventing the main page from interpreting key presses in inputs as hotkeys
@@ -2695,11 +2706,11 @@ function setup({rule} = {}) {
     z-index: 2147483647 !important;
     top: 20px !important;
     right: 20px !important;
-    padding: 20px 30px !important;
+    padding: 1.5em !important;
     color: #000 !important;
     background: #eee !important;
     box-shadow: 5px 5px 25px 2px #000 !important;
-    width: 500px !important;
+    width: 32em !important;
     border: 1px solid black !important;
     display: flex !important;
     flex-direction: column !important;
@@ -2733,6 +2744,15 @@ function setup({rule} = {}) {
   li.row input {
     margin-right: .25em;
   }
+  li.stretch label {
+    flex: 1;
+    white-space: nowrap;
+  }
+  li.stretch label > span {
+    display: flex;
+    flex-direction: row;
+    flex: 1;
+  }
   label {
     display: inline-flex;
     flex-direction: column;
@@ -2744,14 +2764,56 @@ function setup({rule} = {}) {
     min-height: 1.6em;
     box-sizing: border-box;
   }
-  input[type="checkbox"] {
+  input[type=checkbox] {
     margin-left: 0;
   }
-  input[type="number"] {
+  input[type=number] {
     width: 4em;
   }
-  input:not([type="checkbox"])  {
+  input:not([type=checkbox])  {
     padding: 0 .25em;
+  }
+  input[type=range] {
+    flex: 1;
+    width: 100%;
+    margin: 0 .25em;
+    padding: 0;
+    filter: saturate(0);
+  }
+  u + input[type=range] {
+    max-width: 3em;
+  }
+  input[type=range]:hover {
+    filter: none;
+  }
+  input[type=color] {
+    position: absolute;
+    width: calc(1.5em + 2px);
+    opacity: 0;
+    cursor: pointer;
+  }
+  u {
+    display: inline-block;
+    position: relative;
+    width: 1.5em;
+    height: 1.5em;
+    border: 1px solid #888;
+    pointer-events: none;
+    color: #888;
+    background-image:
+      linear-gradient(45deg, currentColor 25%, transparent 25%, transparent 75%, currentColor 75%),
+      linear-gradient(45deg, currentColor 25%, transparent 25%, transparent 75%, currentColor 75%);
+    background-size: .5em .5em;
+    background-position: 0 0, .25em .25em;
+  }
+  u::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    content: "";
+    background-color: var(--color);
   }
   #rules input,
   textarea {
@@ -2831,11 +2893,19 @@ function setup({rule} = {}) {
       color: #BBB;
       border: 1px solid #555;
     }
-    input[type="checkbox"] {
+    input[type=checkbox] {
+      filter: invert(1);
+    }
+    input[type=range] {
+      filter: invert(1) saturate(0);
+    }
+    input[type=range]:hover {
       filter: invert(1);
     }
     @supports (-moz-appearance: none) {
-      input[type="checkbox"] {
+      input[type=checkbox],
+      input[type=range],
+      input[type=range]:hover {
         filter: none;
       }
     }
@@ -2909,6 +2979,30 @@ function setup({rule} = {}) {
         <input type=checkbox id=globalStatus>Expose status on &lt;html&gt; node (may cause slowdowns)
       </label>
     </li>
+    <li class="options stretch">
+      <label>Background
+        <span>
+          <input id=uiBackgroundColor type=color><u></u>
+          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 title="Opacity, %">
+        </span>
+      </label>
+      <label>Border color, opacity, size
+        <span>
+          <input id=uiBorderColor type=color><u></u>
+          <input id=uiBorderOpacity type=range min=0 max=100 step=1 title="Opacity, %">
+          <input id=uiBorder type=range min=0 max=20 step=1 title="Border width, px">
+        </span>
+      </label>
+      <label>Shadow color, opacity, size
+        <span>
+          <input id=uiShadowColor type=color><u></u>
+          <input id=uiShadowOpacity type=range min=0 max=100 step=1 title="Opacity, %">
+          <input id=uiShadow type=range min=0 max=100 step=1 title="Blur radius, px">
+        </span>
+      </label>
+      <label>Padding<input id=uiPadding type=range min=0 max=100 step=1 title="Padding, px"></label>
+      <label>Margin<input id=uiMargin type=range min=0 max=100 step=1 title="Margin, px"></label>
+    </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
       e.g. <b>#mpiv-popup { animation: none !important }</b>
@@ -2952,39 +3046,19 @@ function setup({rule} = {}) {
   </div>
 </main>
     `;
-    // rules
-    const rules = UI.rules;
-    rules.addEventListener('input', checkRule);
-    if (!FF) rules.addEventListener('focusin', focusRule);
-    if (!FF) rules.addEventListener('paste', focusRule);
-    blankRuleElement =
-      setup.blankRuleElement =
-        setup.blankRuleElement || rules.firstElementChild.cloneNode();
-    for (const rule of config.hosts || []) {
-      const el = blankRuleElement.cloneNode();
-      el.value = typeof rule === 'string' ? rule : Ruler.format(rule);
-      rules.appendChild(el);
-      checkRule({target: el});
-    }
-    // search rules
-    const search = UI.search;
-    search.oninput = () => {
-      setup.search = search.value;
-      const s = search.value.toLowerCase();
-      for (const el of rules.children)
-        el.hidden = s && !el.value.toLowerCase().includes(s);
-    };
-    search.value = setup.search || '';
-    if (search.value)
-      search.oninput();
-    // prevent the main page from interpreting key presses in inputs as hotkeys
-    // which may happen since it sees only the outer <div> in the event |target|
-    root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
+    initEvents();
+    renderValues(config);
+    renderCustomScales(config);
+    initRules(config);
+    doc.body.appendChild(elConfig);
+    requestAnimationFrame(() => {
+      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elConfig.clientHeight / 4) + 'px';
+    });
+  }
+
+  function initEvents() {
     UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
-    UI.css.value = config.css;
-    UI.delay.value = config.delay / 1000;
     UI.export.onclick = exportSettings;
-    UI.fit.value = config.fit;
     UI.import.onclick = importSettings;
     UI.install.onclick = setupRuleInstaller;
     const {/** @type {HTMLTextAreaElement} */ cssApp} = UI;
@@ -3000,8 +3074,6 @@ function setup({rule} = {}) {
         cssApp.focus();
       }
     };
-    UI.scale.value = config.scale;
-    UI.start.value = config.start;
     UI.start.onchange = function () {
       UI.delay.closest('label').hidden =
         UI.preload.closest('label').hidden =
@@ -3009,19 +3081,68 @@ function setup({rule} = {}) {
     };
     UI.start.onchange();
     UI.xhr.onclick = ({target: el}) => el.checked || confirm($propUp(el, 'title'));
-    UI.zoom.value = config.zoom;
-    UI.zoomOut.value = config.zoomOut;
-    for (const el of $$('[type="checkbox"]', root))
-      el.checked = config[el.id];
-    for (const el of $$('a[href^="http"]', root)) {
-      el.target = '_blank';
-      el.rel = 'noreferrer noopener external';
+    // prevent the main page from interpreting key presses in inputs as hotkeys
+    // which may happen since it sees only the outer <div> in the event |target|
+    root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
+  }
+
+  function initRules(config) {
+    const rules = UI.rules;
+    rules.addEventListener('input', checkRule);
+    if (!FF) rules.addEventListener('focusin', focusRule);
+    if (!FF) rules.addEventListener('paste', focusRule);
+    blankRuleElement =
+      setup.blankRuleElement =
+        setup.blankRuleElement || rules.firstElementChild.cloneNode();
+    for (const rule of config.hosts || []) {
+      const el = blankRuleElement.cloneNode();
+      el.value = typeof rule === 'string' ? rule : Ruler.format(rule);
+      rules.appendChild(el);
+      checkRule({target: el});
     }
-    renderCustomScales(config);
-    doc.body.appendChild(elConfig);
-    requestAnimationFrame(() => {
-      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elConfig.clientHeight / 4) + 'px';
-    });
+    const search = UI.search;
+    search.oninput = () => {
+      setup.search = search.value;
+      const s = search.value.toLowerCase();
+      for (const el of rules.children)
+        el.hidden = s && !el.value.toLowerCase().includes(s);
+    };
+    search.value = setup.search || '';
+    if (search.value)
+      search.oninput();
+  }
+
+  function renderCustomScales(config) {
+    UI.scales.value = config.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
+  }
+
+  function renderValues(config) {
+    const onChange = {
+      color() {
+        const next = this.nextElementSibling;
+        const opacity = next.nextElementSibling.valueAsNumber;
+        next.style.setProperty('--color', Util.color(this.value, opacity));
+      },
+      range() {
+        this.title = `${this.title.split('\n', 1)[0]}\n${this.value}`;
+        if (this.id.endsWith('Opacity'))
+          UI[this.id.replace('Opacity', 'Color')].oninput();
+      },
+    };
+    for (const el of $$('input[id], select[id], textarea[id]', root)) {
+      const v = config[el.id];
+      if (v != null) el[el.type === 'checkbox' ? 'checked' : 'value'] = v;
+      el.oninput = onChange[el.type];
+    }
+    for (const el of $$('input[id$="Color"], input[id$="Opacity"]', root))
+      el.oninput();
+    UI.delay.value = config.delay / 1000;
+    const noReferrer = {
+      target: '_blank',
+      rel: 'noreferrer noopener external',
+    };
+    for (const el of $$('a[href^="http"]', root))
+      Object.assign(el, noReferrer);
   }
 }
 

@@ -18,6 +18,16 @@ declare namespace mpiv {
     scale: number
     scales: (string | number)[]
     start: 'auto' | 'context' | 'ctrl'
+    uiBackgroundColor: string
+    uiBackgroundOpacity: number,
+    uiBorderColor: string,
+    uiBorderOpacity: number,
+    uiBorder: number,
+    uiShadowColor: string,
+    uiShadowOpacity: number,
+    uiShadow: number,
+    uiPadding: number,
+    uiMargin: number,
     version: number
     xhr: boolean
     zoom: 'context' | 'wheel' | 'shift' | 'auto'
