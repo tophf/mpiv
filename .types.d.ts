@@ -108,14 +108,20 @@ declare namespace mpiv {
     // clientY of the last mouse event
     cy: number
     extras: {
-      // padding + margin + border for left and right edges
+      // padding + border for left and right edges
+      inw: number,
+      // padding + border for top and bottom edges
+      inh: number,
+      // margin + outline for left and right edges
+      outw: number,
+      // margin + outline for top and bottom edges
+      outh: number,
+      // padding + margin + border + outlines for left and right edges
       w: number,
-      // padding + margin + border for top and bottom edges
+      // padding + margin + border + outlines for top and bottom edges
       h: number,
       // outline offset + thickness
       o: number,
-      // outline offset + thickness doubled to account for both edges
-      o2: number,
     }
     gIndex: number
     gItems: GalleryItemsArray

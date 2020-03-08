@@ -404,8 +404,8 @@ class App {
 
   static updateScales() {
     const fit = Math.min(
-      (ai.view.w - ai.extras.w - ai.extras.o2) / ai.nwidth,
-      (ai.view.h - ai.extras.h - ai.extras.o2) / ai.nheight);
+      (ai.view.w - ai.extras.w) / ai.nwidth,
+      (ai.view.h - ai.extras.h) / ai.nheight);
     const isCustom = !cfg.fit;
     const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
     const dst = isCustom ? [] : [fit];
@@ -426,16 +426,17 @@ class App {
 
   static updateSpacing() {
     const s = getComputedStyle(ai.popup);
-    const outline = sumProps(s.outlineOffset, s.outlineWidth);
+    const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
+    const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
+    const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
+    const outw = o2 + sumProps(s.marginLeft, s.marginRight);
+    const outh = o2 + sumProps(s.marginTop, s.marginBottom);
     ai.extras = {
-      w: sumProps(s.paddingLeft, s.paddingRight,
-        s.marginLeft, s.marginRight,
-        s.borderLeftWidth, s.borderRightWidth),
-      h: sumProps(s.paddingTop, s.paddingBottom,
-        s.marginTop, s.marginBottom,
-        s.borderTopWidth, s.borderBottomWidth),
-      o: outline,
-      o2: outline * 2,
+      inw, inh,
+      outw, outh,
+      o: o2 / 2,
+      w: inw + outw,
+      h: inh + outh,
     };
   }
 
@@ -1992,10 +1993,10 @@ class Popup {
     if (!ai.popup) return;
     let x, y;
     const {cx, cy, extras, view} = ai;
-    const vw = view.w - extras.o2;
-    const vh = view.h - extras.o2;
-    const w = ai.scale * ai.nwidth + extras.w;
-    const h = ai.scale * ai.nheight + extras.h;
+    const vw = view.w - extras.outw;
+    const vh = view.h - extras.outh;
+    const w = ai.scale * ai.nwidth + extras.inw;
+    const h = ai.scale * ai.nheight + extras.inh;
     if (!ai.zoom && ai.gNum < 2 && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
