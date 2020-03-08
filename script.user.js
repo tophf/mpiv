@@ -3186,7 +3186,8 @@ function setup({rule} = {}) {
 
   function renderValues(config) {
     for (const el of $$('input[id], select[id], textarea[id]', root))
-      el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id];
+      if (el.id in config)
+        el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id];
     for (const el of $$('input[type="range"]', root))
       el.oninput();
     for (const el of $$('a[href^="http"]', root))
