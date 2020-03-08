@@ -474,6 +474,7 @@ class App {
   display: none;
   cursor: none;
   animation: .2s \mpiv-fadein both;
+  transition: box-shadow .25s, background-color .25s;
 ${App.popupStyleBase = `
   border: none;
   box-sizing: border-box;
@@ -494,12 +495,11 @@ ${App.popupStyleBase = `
   border: ${cfg.uiBorder ? `${cfg.uiBorder}px solid ${Util.color('Border')}` : 'none'} !important;
   padding: ${cfg.uiPadding}px !important;
   margin: ${cfg.uiMargin}px !important;
-  box-shadow: 2px 4px ${cfg.uiShadow}px 4px transparent !important;
-  transition: box-shadow .25s, background-color .25s;
+  box-shadow: ${cfg.uiShadow ? `2px 4px ${cfg.uiShadow}px 4px transparent` : 'none'} !important;
 }
 #\mpiv-popup.\mpiv-show[loaded] {
-  box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')} !important;
   background-color: ${Util.color('Background')};
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')} !important;` : ''}
 }
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
