@@ -1724,6 +1724,7 @@ class Events {
     if (node === ai.popup ||
         node === doc.body ||
         node === doc.documentElement ||
+        node === elConfig ||
         ai.gallery && ai.rectHovered)
       return;
     if (node.shadowRoot)
@@ -2816,6 +2817,11 @@ function setup({rule} = {}) {
     content: "";
     background-color: var(--color);
   }
+  .range-edit {
+    position: absolute;
+    box-shadow: 0 .75em 1em .5em #000;
+    z-index: 99;
+  }
   #rules input,
   textarea {
     flex: 1;
@@ -2984,25 +2990,30 @@ function setup({rule} = {}) {
       <label>Background
         <span>
           <input id=uiBackgroundColor type=color><u></u>
-          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
+          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
         </span>
       </label>
       <label>Border color, opacity, size
         <span>
           <input id=uiBorderColor type=color><u></u>
-          <input id=uiBorderOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
-          <input id=uiBorder type=range min=0 max=20 step=1 title="Border size: $px">
+          <input id=uiBorderOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
+          <input id=uiBorder type=range min=0 max=20 step=1 data-title="Border size: $px">
         </span>
       </label>
       <label>Shadow color, opacity, size
         <span>
           <input id=uiShadowColor type=color><u></u>
-          <input id=uiShadowOpacity type=range min=0 max=100 step=1 title="Opacity: $%">
-          <input id=uiShadow type=range min=0 max=100 step=1 title="Blur radius: $px">
+          <input id=uiShadowOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
+          <input id=uiShadow type=range min=0 max=100 step=1 data-title="
+            ${'Shadow blur radius: $px\n"0" disables the shadow.'}">
         </span>
       </label>
-      <label>Padding<input id=uiPadding type=range min=0 max=100 step=1 title="Padding: $px"></label>
-      <label>Margin<input id=uiMargin type=range min=0 max=100 step=1 title="Margin: $px"></label>
+      <label>Padding
+        <span><input id=uiPadding type=range min=0 max=100 step=1 data-title="Padding: $px"></span>
+      </label>
+      <label>Margin
+        <span><input id=uiMargin type=range min=0 max=100 step=1 data-title="Margin: $px"></span>
+      </label>
     </li>
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
@@ -3082,6 +3093,57 @@ function setup({rule} = {}) {
     };
     UI.start.onchange();
     UI.xhr.onclick = ({target: el}) => el.checked || confirm($propUp(el, 'title'));
+    // color
+    for (const el of $$('[type="color"]', root)) {
+      el.oninput = colorOnInput;
+      el.elSwatch = el.nextElementSibling;
+      el.elOpacity = UI[el.id.replace('Color', 'Opacity')];
+      el.elOpacity.elColor = el;
+    }
+    function colorOnInput() {
+      this.elSwatch.style.setProperty('--color',
+        Util.color(this.value, this.elOpacity.valueAsNumber));
+    }
+    // range
+    for (const el of $$('[type="range"]', root)) {
+      el.oninput = rangeOnInput;
+      el.onblur = rangeOnBlur;
+      el.addEventListener('focusin', rangeOnFocus);
+    }
+    function rangeOnBlur(e) {
+      if (this.elEdit && e.relatedTarget !== this.elEdit)
+        this.elEdit.onblur(e);
+    }
+    function rangeOnFocus() {
+      if (this.elEdit) return;
+      const {min, max, step, value} = this;
+      this.elEdit = $create('input', {
+        value, min, max, step,
+        className: 'range-edit',
+        style: `left: ${this.offsetLeft}px; margin-top: ${this.offsetHeight + 1}px`,
+        type: 'number',
+        elRange: this,
+        onblur: rangeEditOnBlur,
+        oninput: rangeEditOnInput,
+      });
+      this.insertAdjacentElement('afterend', this.elEdit);
+    }
+    function rangeOnInput() {
+      this.title = (this.dataset.title || '').replace('$', this.value);
+      if (this.elColor) this.elColor.oninput();
+      if (this.elEdit) this.elEdit.valueAsNumber = this.valueAsNumber;
+    }
+    // range-edit
+    function rangeEditOnBlur(e) {
+      if (e.relatedTarget !== this.elRange) {
+        this.remove();
+        this.elRange.elEdit = null;
+      }
+    }
+    function rangeEditOnInput() {
+      this.elRange.valueAsNumber = this.valueAsNumber;
+      this.elRange.oninput();
+    }
     // prevent the main page from interpreting key presses in inputs as hotkeys
     // which may happen since it sees only the outer <div> in the event |target|
     root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
@@ -3118,34 +3180,13 @@ function setup({rule} = {}) {
   }
 
   function renderValues(config) {
-    const titleTemplate = {};
-    const onChange = {
-      color() {
-        const next = this.nextElementSibling;
-        const opacity = next.nextElementSibling.valueAsNumber;
-        next.style.setProperty('--color', Util.color(this.value, opacity));
-      },
-      range() {
-        const tpl = titleTemplate[this.id] || (titleTemplate[this.id] = this.title);
-        this.title = tpl.replace('$', this.value);
-        if (this.id.endsWith('Opacity'))
-          UI[this.id.replace('Opacity', 'Color')].oninput();
-      },
-    };
-    for (const el of $$('input[id], select[id], textarea[id]', root)) {
-      const v = config[el.id];
-      if (v != null) el[el.type === 'checkbox' ? 'checked' : 'value'] = v;
-      el.oninput = onChange[el.type];
-    }
+    for (const el of $$('input[id], select[id], textarea[id]', root))
+      el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id] || '';
     for (const el of $$('input[type="range"]', root))
       el.oninput();
-    UI.delay.value = config.delay / 1000;
-    const noReferrer = {
-      target: '_blank',
-      rel: 'noreferrer noopener external',
-    };
     for (const el of $$('a[href^="http"]', root))
-      Object.assign(el, noReferrer);
+      Object.assign(el, {target: '_blank', rel: 'noreferrer noopener external'});
+    UI.delay.value = config.delay / 1000;
   }
 }
 
