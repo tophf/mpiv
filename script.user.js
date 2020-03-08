@@ -2781,12 +2781,14 @@ function setup({rule} = {}) {
     margin: 0 .25em;
     padding: 0;
     filter: saturate(0);
+    opacity: .5;
   }
   u + input[type=range] {
     max-width: 3em;
   }
   input[type=range]:hover {
     filter: none;
+    opacity: 1;
   }
   input[type=color] {
     position: absolute;
@@ -2819,7 +2821,7 @@ function setup({rule} = {}) {
   }
   .range-edit {
     position: absolute;
-    box-shadow: 0 .75em 1em .5em #000;
+    box-shadow: 0 0.25em 1em #000;
     z-index: 99;
   }
   #rules input,
@@ -2915,6 +2917,9 @@ function setup({rule} = {}) {
       input[type=range]:hover {
         filter: none;
       }
+    }
+    .range-edit {
+      box-shadow: 0 .5em 1em .5em #000;
     }
     #cssApp {
       color: darkseagreen;
@@ -3181,7 +3186,7 @@ function setup({rule} = {}) {
 
   function renderValues(config) {
     for (const el of $$('input[id], select[id], textarea[id]', root))
-      el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id] || '';
+      el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id];
     for (const el of $$('input[type="range"]', root))
       el.oninput();
     for (const el of $$('a[href^="http"]', root))
@@ -3198,7 +3203,7 @@ async function setupRuleInstaller(e) {
   let rules;
 
   try {
-    rules = extractRules((await Remoting.getDoc(this.href)).doc);
+    rules = extractRules(await Remoting.getDoc(this.href));
     const selector = $create('select', {
       size: 8,
       style: 'width: 100%',
@@ -3221,7 +3226,7 @@ async function setupRuleInstaller(e) {
     parent.textContent = 'Error loading rules: ' + (e.message || e);
   }
 
-  function extractRules(doc) {
+  function extractRules({doc}) {
     const code = $('script', doc).textContent;
     // sort by name
     return JSON.parse(code.match(/var\s+rules\s*=\s*(\[.+]);?[\r\n]/)[1])
