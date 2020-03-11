@@ -348,11 +348,11 @@ const Bar = {
     const {gItems: gi, gIndex: i, gNum: n} = ai;
     if (gi) {
       const item = gi[i];
-      let c = n > 1 ? '[' + (i + 1) + '/' + n + '] ' : '';
-      if (!i && gi.title && !`${item.desc || ''}`.includes(gi.title))
-        c += gi.title + (item.desc ? ' - ' : '');
-      if (item.desc)
-        c += item.desc;
+      const noDesc = !gi.some(_ => _.desc);
+      const c = `${n > 1 ? `[${i + 1}/${n}] ` : ''}${[
+        gi.title && (!i || noDesc) && !`${item.desc || ''}`.includes(gi.title) && gi.title || '',
+        item.desc,
+      ].filter(Boolean).join(' - ')}`;
       Bar.set(c.trim() || ' ', 'gallery', true);
     } else if ('caption' in ai) {
       Bar.set(ai.caption, 'caption');
