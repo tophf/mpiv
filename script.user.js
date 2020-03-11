@@ -2453,6 +2453,7 @@ const Util = {
 };
 
 function setup({rule} = {}) {
+  if (window !== top) return;
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
   // FF is superslow with textareas, bugzil.la/190147
   const FF = CSS.supports('-moz-appearance', 'none');
