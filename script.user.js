@@ -131,6 +131,7 @@ const App = {
     App.updateStyles();
     Calc.naturalSize();
     ai.popup.className = `${PREFIX}show`;
+    ai.popup.style.removeProperty('display');
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
@@ -411,8 +412,6 @@ const Calc = {
       nh = ai.nheight = w / nw * nh | 0;
       nw = ai.nwidth = w;
       p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
-    } else {
-      p.removeAttribute('style');
     }
   },
 
@@ -982,12 +981,14 @@ const Popup = {
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
-    p.addEventListener('load', Popup.onLoad, {once: true});
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
     App.checkProgress({start: true});
+    ai.nheight ?
+      Popup.onLoad.call(ai.popup) :
+      p.addEventListener('load', Popup.onLoad, {once: true});
   },
 
   destroy() {
