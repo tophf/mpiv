@@ -1228,7 +1228,6 @@ const Ruler = {
           const media = JSON.parse(text).graphql.shortcode_media;
           const items = media.edge_sidecar_to_children.edges.map(e => ({
             url: e.node.video_url || e.node.display_url,
-            desc: e.node.accessibility_caption || '',
           }));
           items.title = tryCatch(rule._getCaption, media) || '';
           return items;
