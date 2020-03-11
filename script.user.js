@@ -850,7 +850,7 @@ const Events = {
     if (i <= 0 && zo !== 'stay') {
       if (ai.scaleFit < ai.scale * .99) {
         ai.scales.unshift(ai.scale = ai.scaleFit);
-      } else if (i < 0 && (zo === 'close' || !ai.rectHovered) && ai.gNum < 2) {
+      } else if ((i <= 0 && zo === 'close' || i < 0 && !ai.rectHovered) && ai.gNum < 2) {
         App.deactivate({wait: true});
         return;
       }
