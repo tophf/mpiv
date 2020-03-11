@@ -52,7 +52,7 @@ rules:
   id-blacklist: [0]
   id-length: [0]
   id-match: [0]
-  indent: [2, 2, {VariableDeclarator: 0, SwitchCase: 1, MemberExpression: off}]
+  indent: [2, 2, {VariableDeclarator: 1, SwitchCase: 1, MemberExpression: off}]
   jsx-quotes: [0]
   key-spacing: [2, {mode: minimum}]
   keyword-spacing: [2]
@@ -188,7 +188,7 @@ rules:
     ignoreRestSiblings: true,
     argsIgnorePattern: ^_|^e$
   }]
-  no-use-before-define: [2, {functions: false, classes: false}]
+  no-use-before-define: [0]
   no-useless-call: [2]
   no-useless-computed-key: [2]
   no-useless-concat: [0]
