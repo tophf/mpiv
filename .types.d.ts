@@ -157,7 +157,6 @@ declare namespace mpiv {
     tooltip: { node: Node, text: string }
     view: { w: number, h: number }
     xwidth: number
-    zoom: boolean
     zoomed: boolean
     zooming: boolean
   };

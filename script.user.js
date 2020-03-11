@@ -290,17 +290,16 @@ const App = {
     const p = ai.popup;
     if (!p || !ai.scales || ai.scales.length < 2)
       return;
-    ai.zoom = !ai.zoom;
-    ai.zoomed = true;
-    ai.scale = ai.zoom && Calc.scaleForFirstZoom(keepScale) || ai.scales[0];
+    ai.zoomed = !ai.zoomed;
+    ai.scale = ai.zoomed && Calc.scaleForFirstZoom(keepScale) || ai.scales[0];
     if (ai.zooming)
       p.classList.add(`${PREFIX}zooming`);
     Popup.move();
     Bar.updateTitle();
-    Status.set(ai.zoom ? 'zoom' : false);
-    if (!ai.zoom)
+    Status.set(ai.zoomed ? 'zoom' : false);
+    if (!ai.zoomed)
       Bar.updateFileInfo();
-    return ai.zoom;
+    return ai.zoomed;
   },
 
   updateStyles() {
@@ -445,7 +444,7 @@ const Calc = {
     const vh = view.h - extras.outh;
     const w = ai.scale * ai.nwidth + extras.inw;
     const h = ai.scale * ai.nheight + extras.inh;
-    if (!ai.zoom && ai.gNum < 2 && !cfg.center) {
+    if (!ai.zoomed && ai.gNum < 2 && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
       const ry = (r.top + r.bottom) / 2;
@@ -651,7 +650,7 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
 const Events = {
 
   onMouseOver(e) {
-    if (!App.enabled || e.shiftKey || ai.zoom)
+    if (!App.enabled || e.shiftKey || ai.zoomed)
       return;
     let node = e.target;
     if (node === ai.popup ||
@@ -699,7 +698,7 @@ const Events = {
       ai.lazyUnload = true;
     } else if (!ai.zoomed && !ai.rectHovered) {
       App.deactivate();
-    } else if (ai.zoom) {
+    } else if (ai.zoomed) {
       Popup.move();
       const {cx, cy, view: {w, h}} = ai;
       const bx = w / 6;
@@ -722,7 +721,7 @@ const Events = {
 
   onMouseScroll(e) {
     const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
-    if (ai.zoom) {
+    if (ai.zoomed) {
       Events.zoomInOut(dir);
     } else if (ai.gNum > 1 && ai.popup) {
       Gallery.next(-dir);
@@ -855,7 +854,6 @@ const Events = {
         App.deactivate({wait: true});
         return;
       }
-      ai.zoom = zo === 'auto';
       ai.zoomed = false;
       Bar.updateFileInfo();
     } else {
@@ -1004,7 +1002,7 @@ const Popup = {
       p.src = '';
     }
     p.remove();
-    ai.zoom = ai.popup = ai.popupLoaded = null;
+    ai.zoomed = ai.popup = ai.popupLoaded = null;
   },
 
   move() {
