@@ -574,6 +574,9 @@ class Config {
     if (typeof c !== 'object' || !c)
       c = {};
     const {DEFAULTS} = Config;
+    c.fit = ['all', 'large', 'no', ''].includes(c.fit) ? c.fit :
+      !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? 'large' :
+        '';
     if (c.version !== DEFAULTS.version) {
       if (typeof c.hosts === 'string')
         c.hosts = c.hosts.split('\n')
@@ -598,9 +601,6 @@ class Config {
     if (!Array.isArray(c.scales))
       c.scales = [];
     c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
-    c.fit = ['all', 'large', 'no'].includes(c.fit) ? c.fit :
-      !c.scales.length || `${c.scales}` === `${Config.DEFAULTS.scales}` ? 'large' :
-        '';
     Object.assign(this, DEFAULTS, c);
   }
 }
