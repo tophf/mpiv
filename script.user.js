@@ -114,8 +114,13 @@ class App {
   /** @param {MessageEvent} e */
   static onMessageParent(e) {
     if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
-      const [w, h] = Util.getFrameSize(e.source, window);
-      e.source.postMessage(`${MSG.viewSize}:${w}:${h}`, '*');
+      for (const el of doc.getElementsByTagName('iframe')) {
+        if (el.contentWindow === e.source) {
+          const [w, h] = Util.getFrameSize(el, window);
+          e.source.postMessage(`${MSG.viewSize}:${w}:${h}`, '*');
+          return;
+        }
+      }
     }
   }
 
@@ -579,7 +584,7 @@ ${App.popupStyleBase = `
       h: view.clientHeight,
     };
     if (window === top) return;
-    const [w, h] = tryCatch(Util.getFrameSize, window, parent) || 0;
+    const [w, h] = Util.getFrameSize(frameElement, parent) || [];
     if (w && h) {
       ai.view = {w, h};
     } else {
@@ -2433,8 +2438,9 @@ class Util {
     };
   }
 
-  static getFrameSize(frameWindow, parentWindow) {
-    const r = frameWindow.frameElement.getBoundingClientRect();
+  static getFrameSize(elFrame, parentWindow) {
+    if (!elFrame) return;
+    const r = elFrame.getBoundingClientRect();
     const w = clamp(r.width, 0, parentWindow.innerWidth - r.left);
     const h = clamp(r.height, 0, parentWindow.innerHeight - r.top);
     return [w, h];
