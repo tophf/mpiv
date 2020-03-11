@@ -59,6 +59,8 @@ const PASSIVE = {passive: true};
 const SETTLE_TIME = 50;
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
+const ZOOM_MAX = 16;
+const ZOOM_STEP = 1.25;
 
 //#endregion
 
@@ -385,6 +387,22 @@ const Calc = {
     return [w, h];
   },
 
+  generateScales(fit) {
+    let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
+    const arr = [scale];
+    if (fit !== 1) {
+      const diff = goal / scale;
+      const steps = Math.log(diff) / Math.log(ZOOM_STEP) | 0;
+      const step = Math.pow(diff, 1 / steps);
+      for (let i = steps; --i > 0;)
+        arr.push((scale *= step));
+      arr.push(scale = goal);
+    }
+    while ((scale *= ZOOM_STEP) <= ZOOM_MAX)
+      arr.push(scale);
+    return arr;
+  },
+
   naturalSize() {
     let {popup: p, nwidth: nw, nheight: nh} = ai;
     // overriding custom CSS to detect an unrestricted SVG that scales to the entire page
@@ -474,9 +492,7 @@ const Calc = {
 
   scaleForFirstZoom(keepScale) {
     const z = ai.scaleZoom;
-    return keepScale || z !== ai.scale ? z :
-      z >= 1 ? ai.scales.find(x => x > z) :
-        1;
+    return keepScale || z !== ai.scale ? z : ai.scales.find(x => x > z);
   },
 
   scaleGain(url, parent) {
@@ -511,22 +527,25 @@ const Calc = {
   updateScales() {
     const fit = Math.min(
       (ai.view.w - ai.extras.w) / ai.nwidth,
-      (ai.view.h - ai.extras.h) / ai.nheight);
-    const isCustom = !cfg.fit;
-    const src = (isCustom && cfg.scales.length ? cfg : Config.DEFAULTS).scales;
-    const dst = isCustom ? [] : [fit];
+      (ai.view.h - ai.extras.h) / ai.nheight) || 1;
+    const isCustom = !cfg.fit && cfg.scales.length;
     let cutoff = Math.min(1, fit);
     let scaleZoom = cfg.fit === 'all' && fit || cfg.fit === 'no' && 1 || cutoff;
-    for (const scale of src) {
-      const val = parseFloat(scale) || fit;
-      dst.push(val);
-      if (isCustom && typeof scale === 'string') {
-        if (scale.includes('!')) cutoff = val;
-        if (scale.includes('*')) scaleZoom = val;
+    if (isCustom) {
+      const dst = [];
+      for (const scale of cfg.scales) {
+        const val = parseFloat(scale) || fit;
+        dst.push(val);
+        if (isCustom && typeof scale === 'string') {
+          if (scale.includes('!')) cutoff = val;
+          if (scale.includes('*')) scaleZoom = val;
+        }
       }
+      ai.scales = dst.sort(compareNumbers).filter(Calc.scaleBiggerThan, cutoff);
+    } else {
+      ai.scales = Calc.generateScales(fit);
     }
     ai.scale = cfg.zoom === 'auto' ? scaleZoom : Math.min(1, fit);
-    ai.scales = dst.sort(compareNumbers).filter(Calc.scaleBiggerThan, cutoff);
     ai.scaleFit = fit;
     ai.scaleZoom = scaleZoom;
   },
