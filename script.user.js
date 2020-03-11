@@ -2064,14 +2064,14 @@ class PopupVideo {
 
   static async progressDone() {
     this.removeEventListener('progress', PopupVideo.progress);
-    if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`)) {
+    if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
       App.setBar(false);
-      App.updateFileInfo();
-    }
+    Popup.onLoad.call(this);
     try {
       await this.play();
     } catch (e) {
-      if (this.paused) this.controls = true;
+    } finally {
+      this.controls |= this.paused;
     }
   }
 }
