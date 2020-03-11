@@ -216,6 +216,11 @@ const App = {
   },
 
   start() {
+    // check explicitly as the cursor may have moved into an iframe so mouseout wasn't reported
+    if (!ai.node.matches(':hover')) {
+      App.deactivate();
+      return;
+    }
     App.updateStyles();
     ai.gallery ?
       App.startGallery() :
