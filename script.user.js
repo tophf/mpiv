@@ -131,7 +131,7 @@ const App = {
     App.updateStyles();
     Calc.naturalSize();
     ai.popup.className = `${PREFIX}show`;
-    ai.popup.style.removeProperty('display');
+    ai.popup.removeAttribute('style');
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
