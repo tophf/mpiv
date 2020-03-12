@@ -53,7 +53,6 @@ const MSG = Object.assign({}, ...[
   'viewSize',
 ].map(k => ({[k]: `${PREFIX}${k}`})));
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
-const PASSIVE = {passive: true};
 // time for volatile things to settle down meanwhile we postpone action
 // examples: loading image from cache, quickly moving mouse over one element to another
 const SETTLE_TIME = 50;
@@ -91,17 +90,14 @@ const App = {
     }
   },
 
-  belate(force) {
-    if (!cfg.preload) {
-      ai.timer = setTimeout(App.start, cfg.delay);
-    } else if (!force) {
-      // we don't want to preload everything in the path of a quickly moving mouse cursor
-      ai.timer = setTimeout(App.belate, SETTLE_TIME, true);
+  belate() {
+    if (cfg.preload) {
       ai.preloadStart = now();
-    } else {
       App.start();
       Status.set('+preloading');
       setTimeout(Status.set, cfg.delay, '-preloading');
+    } else {
+      ai.timer = setTimeout(App.start, cfg.delay);
     }
   },
 
@@ -652,6 +648,9 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
 
 const Events = {
 
+  hoverData: [],
+  hoverTimer: 0,
+
   onMouseOver(e) {
     if (!App.enabled || e.shiftKey || ai.zoomed)
       return;
@@ -664,6 +663,20 @@ const Events = {
       return;
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
+    // we don't want to process everything in the path of a quickly moving mouse cursor
+    Events.hoverData = [now(), e, node];
+    Events.hoverTimer = Events.hoverTimer || setTimeout(Events.onMouseOverThrottled, SETTLE_TIME);
+  },
+
+  onMouseOverThrottled() {
+    const [start, e, node] = Events.hoverData;
+    // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
+    const wait = start + SETTLE_TIME - now();
+    Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
+    if (Events.hoverTimer)
+      return;
+    if (!node.matches(':hover'))
+      return;
     if (!Ruler.rules)
       Ruler.init();
     let a;
@@ -813,7 +826,7 @@ const Events = {
 
   pierceShadow(node, x, y) {
     for (let root; (root = node.shadowRoot);) {
-      root.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
+      root.addEventListener('mouseover', Events.onMouseOver, {passive: true});
       root.addEventListener('mouseout', Events.onMouseOutShadow);
       const inner = root.elementFromPoint(x, y);
       if (!inner || inner === node)
@@ -825,7 +838,7 @@ const Events = {
 
   toggle(enable) {
     const onOff = enable ? doc.addEventListener : doc.removeEventListener;
-    const passive = enable ? PASSIVE : undefined;
+    const passive = enable ? {passive: true} : undefined;
     onOff.call(doc, 'mousemove', Events.onMouseMove, passive);
     onOff.call(doc, 'mouseout', Events.onMouseOut, passive);
     onOff.call(doc, 'mousedown', Events.onMouseDown, passive);
@@ -3058,7 +3071,7 @@ function createConfigHtml(FF) {
           <option value=ctrl>Ctrl
         </select>
       </label>
-      <label>after, sec<input id=delay type=number min=0 max=10 step=0.1 title=seconds></label>
+      <label>after, sec<input id=delay type=number min=0.05 max=10 step=0.05 title=seconds></label>
       <label title="Activate only if the full version of the hovered image is that many times larger">
         if larger <input id=scale type=number min=1 max=100 step=.05>
       </label>
@@ -3326,7 +3339,7 @@ App.isImageTab = ((first = doc.body.firstElementChild) =>
 App.enabled = cfg.imgtab || !App.isImageTab;
 
 GM_registerMenuCommand('MPIV: configure', setup);
-doc.addEventListener('mouseover', Events.onMouseOver, PASSIVE);
+doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 
 if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname)) {
   doc.addEventListener('click', e => {
