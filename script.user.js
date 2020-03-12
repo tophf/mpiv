@@ -1209,19 +1209,28 @@ const Ruler = {
           'article [role="button"][tabindex="0"], article [role="button"][tabindex="0"] div',
         ],
         s: (m, node, rule) => {
-          const {a = false, data = false, src} = rule._getData(node);
-          rule.q = data.is_video && !data.video_url && 'meta[property="og:video"]';
+          let data, a, n, img, src;
+          if (location.pathname.startsWith('/p/')) {
+            img = $('img[srcset], video', node.parentNode);
+            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
+              src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
+          }
+          if (!src && (n = node.closest('a[href*="/p/"], article'))) {
+            a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
+            data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]);
+          }
+          rule.q = data && data.is_video && !data.video_url && 'meta[property="og:video"]';
           rule.g = a && $('[class*="Carousel"]', a) && rule._g;
           rule.follow = !data && !rule.g;
+          rule._data = data;
+          rule._img = img;
           return (
             !a && !src ? false :
               !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
                 data.video_url || data.display_url);
         },
-        c: (html, doc, node, rule) => {
-          const {data, img} = rule._getData(node);
-          return tryCatch(rule._getCaption, data) || img && img.alt || '';
-        },
+        c: (html, doc, node, rule) =>
+          tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
         anonymous: true,
         follow: true,
         _g(text, doc, url, m, rule) {
@@ -1235,17 +1244,6 @@ const Ruler = {
         _getCaption: data => data && data.edge_media_to_caption.edges[0].node.text,
         _getEdge: shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user
             .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
-        _getData(node) {
-          if (location.pathname.startsWith('/p/')) {
-            const img = $('img[srcset], video', node.parentNode);
-            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
-              return {img, src: (img.srcset || img.currentSrc).split(',').pop().split(' ')[0]};
-          }
-          const n = node.closest('a[href*="/p/"], article');
-          const a = n && (n.tagName === 'A' ? n : $('a[href*="/p/"]', n));
-          const data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]);
-          return {a, data};
-        },
       },
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
