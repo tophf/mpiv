@@ -397,7 +397,7 @@ const Calc = {
     if (fit !== 1) {
       const diff = goal / scale;
       const steps = Math.log(diff) / Math.log(ZOOM_STEP) | 0;
-      const step = Math.pow(diff, 1 / steps);
+      const step = steps && Math.pow(diff, 1 / steps);
       for (let i = steps; --i > 0;)
         arr.push((scale *= step));
       arr.push(scale = goal);
