@@ -309,10 +309,9 @@ const App = {
   },
 
   updateStyles() {
-    const {css} = cfg;
     Util.addStyle('global',
       (App.globalStyle || createGlobalStyle()) +
-      (css.includes('{') ? css : `#${PREFIX}-popup {${css}}`));
+      (cfg.css.includes('{') ? cfg.css : `#${PREFIX}-popup {${(cfg.css)}}`));
     Util.addStyle('rule', ai.rule.css || '');
   },
 };
@@ -3234,9 +3233,9 @@ ${App.popupStyleBase = `
 `.replace(/;/g, '!important;')}
 }
 #\mpiv-popup.\mpiv-show {
-  border: ${cfg.uiBorder ? `${cfg.uiBorder}px solid ${Util.color('Border')}` : 'none'} !important;
-  padding: ${cfg.uiPadding}px !important;
-  margin: ${cfg.uiMargin}px !important;
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')} !important;` : ''}
+  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px !important;` : ''}
+  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px !important;` : ''}
   box-shadow: ${cfg.uiShadow ? `2px 4px ${cfg.uiShadow}px 4px transparent` : 'none'} !important;
 }
 #\mpiv-popup.\mpiv-show[loaded] {
