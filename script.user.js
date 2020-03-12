@@ -40,6 +40,7 @@ let ai = {rule: {}};
 /** @type Element */
 let elConfig;
 
+const undefined = void 0; // eslint-disable-line no-shadow-restricted-names, no-redeclare
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
@@ -1929,11 +1930,13 @@ const RuleMatcher = {
         m = url && RuleMatcher.makeUrlMatch(url, node, rule, r, u);
       else
         m = url ? RuleMatcher.makeDummyMatch(url) : [];
+      if (!m)
+        continue;
       const {s} = rule;
       let hasS = s !== undefined;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (!m || isPic && !hasS && !skipRules)
+      if (isPic && !hasS && !skipRules)
         continue;
       if (s === '')
         return {};
