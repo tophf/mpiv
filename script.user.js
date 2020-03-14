@@ -129,7 +129,7 @@ const App = {
     Calc.naturalSize();
     const p = ai.popup;
     p.className = `${PREFIX}show`;
-    p.setAttribute('style', 'opacity: 0 !important;');
+    p.style.removeProperty('opacity');
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
@@ -144,11 +144,9 @@ const App = {
                ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large)
       Status.set('large');
-    if (p.complete) {
-      // FF renders a blank bg+border first; I couldn't find a proper solution
-      if (isFF && ai.large) p.style.backgroundImage = `url('${p.src}')`;
-      p.style.removeProperty('opacity');
-    }
+    // FF renders a blank bg+border first; I couldn't find a proper solution
+    if (p.complete && isFF && ai.large)
+      p.style.backgroundImage = `url('${p.src}')`;
   },
 
   deactivate({wait} = {}) {
@@ -1037,7 +1035,6 @@ const Popup = {
 
   onLoad() {
     this.setAttribute('loaded', '');
-    this.style.removeProperty('opacity');
     ai.popupLoaded = true;
     if (!ai.bar)
       Bar.updateFileInfo();
