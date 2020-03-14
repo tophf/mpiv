@@ -1766,7 +1766,7 @@ const Ruler = {
         follow: true,
       },
       {
-        r: /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|webm)($|\?)/i,
+        r: /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|web[mp])($|\?)/i,
       },
     ];
 
