@@ -129,7 +129,11 @@ const App = {
     Calc.naturalSize();
     const p = ai.popup;
     p.className = `${PREFIX}show`;
-    p.style.removeProperty('opacity');
+    // FF renders a blank bg+border first; I couldn't find a proper solution
+    if (p.complete && isFF && ai.large)
+      p.setAttribute('style', `background-image: url('${p.src}')`);
+    else
+      p.removeAttribute('style');
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
@@ -144,9 +148,6 @@ const App = {
                ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large)
       Status.set('large');
-    // FF renders a blank bg+border first; I couldn't find a proper solution
-    if (p.complete && isFF && ai.large)
-      p.style.backgroundImage = `url('${p.src}')`;
   },
 
   deactivate({wait} = {}) {
