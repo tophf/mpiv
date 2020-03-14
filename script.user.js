@@ -3165,7 +3165,7 @@ function createConfigHtml() {
       </label>
     </li>
     <li>
-      <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>
+      <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>&nbsp;
       e.g. <b>#mpiv-popup { animation: none !important }</b>
       <a href="#" id=reveal style="float: right"
          title="You can copy parts of it to override them in your custom CSS">
