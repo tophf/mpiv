@@ -3198,8 +3198,7 @@ function createConfigHtml(FF) {
 }
 
 function createGlobalStyle() {
-  // eslint-disable-next-line no-return-assign
-  return App.globalStyle = /*language=CSS*/ (String.raw`
+  App.globalStyle = /*language=CSS*/ (String.raw`
 #\mpiv-bar {
   position: fixed;
   z-index: 2147483647;
@@ -3246,17 +3245,17 @@ ${App.popupStyleBase = `
   transform-origin: top left;
   max-width: none;
   max-height: none;
-`.replace(/;/g, '!important;')}
+`}
 }
 #\mpiv-popup.\mpiv-show {
-  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')} !important;` : ''}
-  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px !important;` : ''}
-  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px !important;` : ''}
-  box-shadow: ${cfg.uiShadow ? `2px 4px ${cfg.uiShadow}px 4px transparent` : 'none'} !important;
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')};` : ''}
+  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ''}
+  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ''}
+  box-shadow: ${cfg.uiShadow ? `2px 4px ${cfg.uiShadow}px 4px transparent` : 'none'};
 }
 #\mpiv-popup.\mpiv-show[loaded] {
   background-color: ${Util.color('Background')};
-  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')} !important;` : ''}
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
 }
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
@@ -3304,6 +3303,8 @@ ${App.popupStyleBase = `
   cursor: default !important;
 }
 `)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
+  App.popupStyleBase = App.popupStyleBase.replace(/;/g, '!important;');
+  return App.globalStyle;
 }
 
 //#region Global utilities
