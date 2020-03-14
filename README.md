@@ -23,7 +23,7 @@ Action | Trigger
 &nbsp; |
 **change settings** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
 
-![config UI screenshot](https://i.imgur.com/RKzEHiA.png)
+![config UI screenshot](https://i.imgur.com/ZAEj8N8.png)
 
 ### Technical notes
 
