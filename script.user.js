@@ -145,8 +145,8 @@ const App = {
     if (ai.large)
       Status.set('large');
     if (p.complete) {
-      // FF renders a blank bg+border first; I couldn't find a proper solution so let's just delay
-      if (isFF && ai.large) await new Promise(done => setTimeout(done, 100));
+      // FF renders a blank bg+border first; I couldn't find a proper solution
+      if (isFF && ai.large) p.style.backgroundImage = `url('${p.src}')`;
       p.style.removeProperty('opacity');
     }
   },
