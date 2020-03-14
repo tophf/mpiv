@@ -60,7 +60,6 @@ const SETTLE_TIME = 50;
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 const ZOOM_MAX = 16;
-const ZOOM_STEP = 1.25;
 
 //#endregion
 
@@ -395,16 +394,17 @@ const Calc = {
 
   generateScales(fit) {
     let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
+    const zoomStep = cfg.zoomStep / 100;
     const arr = [scale];
     if (fit !== 1) {
       const diff = goal / scale;
-      const steps = Math.log(diff) / Math.log(ZOOM_STEP) | 0;
+      const steps = Math.log(diff) / Math.log(zoomStep) | 0;
       const step = steps && Math.pow(diff, 1 / steps);
       for (let i = steps; --i > 0;)
         arr.push((scale *= step));
       arr.push(scale = goal);
     }
-    while ((scale *= ZOOM_STEP) <= ZOOM_MAX)
+    while ((scale *= zoomStep) <= ZOOM_MAX)
       arr.push(scale);
     return arr;
   },
@@ -650,6 +650,7 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
   xhr: true,
   zoom: 'context',
   zoomOut: 'auto',
+  zoomStep: 150,
 });
 
 const Events = {
@@ -3103,6 +3104,8 @@ function createConfigHtml() {
       </label>
     </li>
     <li class=options>
+      <label>Zoom step, %<input id=zoomStep type=number min=100 max=400 step=1>
+      </label>
       <label>When fully zoomed out:
         <select id=zoomOut>
           <option value=stay>stay in zoom mode
@@ -3111,12 +3114,13 @@ function createConfigHtml() {
         </select>
       </label>
       <label style="flex: 1" title="${trimLeft(`
+        Scale factors to use when “zooms to” selector is set to “custom”.
         0 = fit to window,
         0! = same as 0 but also removes smaller values,
         * after a value marks the default zoom factor, for example: 1*
         The popup won't shrink below the image's natural size or window size for bigger mages.
         ${scalesHint}
-      `)}">Custom scale factors to use if “zooms to” is set to “custom”:
+      `)}">Custom scale factors:
         <input id=scales placeholder="${scalesHint}">
       </label>
     </li>

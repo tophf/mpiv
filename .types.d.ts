@@ -32,6 +32,7 @@ declare namespace mpiv {
     xhr: boolean
     zoom: 'context' | 'wheel' | 'shift' | 'auto'
     zoomOut: 'close' | 'stay' | 'auto'
+    zoomStep: number
   };
 
   type HostRule = {
