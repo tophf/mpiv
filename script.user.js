@@ -219,8 +219,9 @@ const App = {
       return;
     }
     App.updateStyles();
-    ai.gallery ?
-      App.startGallery() :
+    if (ai.gallery)
+      App.startGallery();
+    else
       App.startSingle();
   },
 
@@ -775,8 +776,9 @@ const Events = {
           ai.controlled = false;
           return;
         }
-        ai.popup && (ai.zoomed || ai.rectHovered !== false) ?
-          App.toggleZoom() :
+        if (ai.popup && (ai.zoomed || ai.rectHovered !== false))
+          App.toggleZoom();
+        else
           App.deactivate({wait: true});
         break;
       case 'Control':
@@ -801,11 +803,7 @@ const Events = {
       }
       case 'KeyT':
         ai.lazyUnload = true;
-        GM_openInTab(
-          ai.rule.tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
-          navigator.userAgent.includes('Gecko/') ?
-            Util.tabFixUrl() :
-            ai.popup.src);
+        GM_openInTab(Util.tabFixUrl() || ai.popup.src);
         App.deactivate();
         break;
       default:
@@ -991,11 +989,8 @@ const Popup = {
     if (ai.xhr && src)
       src = await Remoting.getImage(src, pageUrl).catch(App.handleError);
     if (!src) return;
-    const p = ai.popup =
-      src.startsWith('data:video') ||
-      !src.startsWith('data:') && /\.(webm|mp4)($|\?)/.test(src) ?
-        PopupVideo.create() :
-        $create('img');
+    const isVideo = Util.isVideoUrl(src);
+    const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
@@ -1004,8 +999,9 @@ const Popup = {
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
     App.checkProgress({start: true});
-    p.complete ?
-      Popup.onLoad.call(ai.popup) :
+    if (p.complete)
+      Popup.onLoad.call(ai.popup);
+    else if (!isVideo)
       p.addEventListener('load', Popup.onLoad, {once: true});
   },
 
@@ -2019,8 +2015,9 @@ const Remoting = {
       });
       function done(r) {
         ai.req = null;
-        r.status < 400 && !r.error ?
-          resolve(r) :
+        if (r.status < 400 && !r.error)
+          resolve(r);
+        else
           reject(`Server error ${r.status} ${r.error}\nURL: ${url}`);
       }
     });
@@ -2387,6 +2384,11 @@ const Util = {
     };
   },
 
+  isVideoUrl(url) {
+    return url.startsWith('data:video') ||
+           !url.startsWith('data:') && /\.(webm|mp4)($|\?)/.test(url);
+  },
+
   // decode only if the main part of the URL is encoded to preserve the encoded parameters
   maybeDecodeUrl(url) {
     if (!url) return url;
@@ -2434,7 +2436,9 @@ const Util = {
   },
 
   tabFixUrl() {
-    return flattenHtml(`data:text/html;charset=utf8,
+    return ai.rule.tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
+           navigator.userAgent.includes('Gecko/') &&
+           flattenHtml(`data:text/html;charset=utf8,
       <style>
         body {
           margin: 0;
@@ -3311,7 +3315,7 @@ ${App.popupStyleBase = `
 
 const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 const compareNumbers = (a, b) => a - b;
-const flattenHtml = str => str.replace(/\n\s*/g, '').replace(/\x20?([:>])\x20/g, '$1');
+const flattenHtml = str => str.trim().replace(/\n\s*/g, '').replace(/\x20?([:>])\x20/g, '$1');
 const dropEvent = e => (e.preventDefault(), e.stopPropagation());
 const ensureArray = v => Array.isArray(v) ? v : [v];
 const modKeyPressed = e => e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
