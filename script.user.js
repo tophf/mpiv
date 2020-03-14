@@ -124,11 +124,12 @@ const App = {
       ai.timerProgress = setInterval(App.checkProgress, 150);
   },
 
-  commit() {
+  async commit() {
     App.updateStyles();
     Calc.naturalSize();
-    ai.popup.className = `${PREFIX}show`;
-    ai.popup.removeAttribute('style');
+    const p = ai.popup;
+    p.className = `${PREFIX}show`;
+    p.setAttribute('style', 'opacity: 0 !important;');
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
@@ -139,10 +140,15 @@ const App = {
     Bar.updateTitle();
     if (!ai.bar)
       Bar.updateFileInfo();
-    ai.large = ai.nwidth > ai.popup.clientWidth + ai.extras.w ||
-               ai.nheight > ai.popup.clientHeight + ai.extras.h;
+    ai.large = ai.nwidth > p.clientWidth + ai.extras.w ||
+               ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large)
       Status.set('large');
+    if (p.complete) {
+      // FF renders a blank bg+border first; I couldn't find a proper solution so let's just delay
+      if (isFF && ai.large) await new Promise(done => setTimeout(done, 100));
+      p.style.removeProperty('opacity');
+    }
   },
 
   deactivate({wait} = {}) {
@@ -1031,6 +1037,7 @@ const Popup = {
 
   onLoad() {
     this.setAttribute('loaded', '');
+    this.style.removeProperty('opacity');
     ai.popupLoaded = true;
     if (!ai.bar)
       Bar.updateFileInfo();
@@ -2472,7 +2479,6 @@ function setup({rule} = {}) {
   if (window !== top) return;
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
   // FF is superslow with textareas, bugzil.la/190147
-  const FF = CSS.supports('-moz-appearance', 'none');
   let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
@@ -2616,7 +2622,7 @@ function setup({rule} = {}) {
     $remove(elConfig);
     elConfig = $create('div', {contentEditable: true});
     root = elConfig.attachShadow({mode: 'open'});
-    root.innerHTML = createConfigHtml(FF);
+    root.innerHTML = createConfigHtml();
     initEvents();
     renderValues(config);
     renderCustomScales(config);
@@ -2711,8 +2717,8 @@ function setup({rule} = {}) {
   function initRules(config) {
     const rules = UI.rules;
     rules.addEventListener('input', checkRule);
-    if (!FF) rules.addEventListener('focusin', focusRule);
-    if (!FF) rules.addEventListener('paste', focusRule);
+    if (!isFF) rules.addEventListener('focusin', focusRule);
+    if (!isFF) rules.addEventListener('paste', focusRule);
     blankRuleElement =
       setup.blankRuleElement =
         setup.blankRuleElement || rules.firstElementChild.cloneNode();
@@ -2833,7 +2839,7 @@ async function setupRuleInstaller(e) {
   }
 }
 
-function createConfigHtml(FF) {
+function createConfigHtml() {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   const scalesHint = 'Leave it empty and click Apply or Save to restore the default values.';
   const trimLeft = s => s.trim().replace(/\n\s+/g, '\n');
@@ -3180,7 +3186,7 @@ function createConfigHtml(FF) {
     </li>
     <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
       <div id=rules class=column>
-        ${FF ? '<input spellcheck=false>' : '<textarea rows=1 spellcheck=false></textarea>'}
+        ${isFF ? '<input spellcheck=false>' : '<textarea rows=1 spellcheck=false></textarea>'}
       </div>
     </li>
     <li>
@@ -3337,6 +3343,8 @@ const $prop = (sel, prop, node = doc) => (node = $(sel, node)) && node[prop] || 
 const $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) &&
   (prop.startsWith('data-') ? node.getAttribute(prop) : node[prop]) || '';
 const $remove = node => node && node.remove();
+
+const isFF = CSS.supports('-moz-appearance', 'none');
 
 //#endregion
 
