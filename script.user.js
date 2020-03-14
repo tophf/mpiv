@@ -1004,7 +1004,7 @@ const Popup = {
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
     App.checkProgress({start: true});
-    ai.nheight ?
+    p.complete ?
       Popup.onLoad.call(ai.popup) :
       p.addEventListener('load', Popup.onLoad, {once: true});
   },
