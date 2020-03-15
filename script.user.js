@@ -2009,7 +2009,7 @@ const Remoting = {
         url,
         method: 'GET',
         anonymous: (ai.rule || {}).anonymous,
-        timeout: 10e3,
+        timeout: 30e3,
         ...opts,
         onload: done,
         onerror: done,
