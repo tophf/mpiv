@@ -217,7 +217,7 @@ const App = {
 
   start() {
     // check explicitly as the cursor may have moved into an iframe so mouseout wasn't reported
-    if (!ai.node.matches(':hover')) {
+    if (!ai.node.closest(':hover')) {
       App.deactivate();
       return;
     }
@@ -682,7 +682,7 @@ const Events = {
     Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
     if (Events.hoverTimer)
       return;
-    if (!node.matches(':hover'))
+    if (!node.closest(':hover'))
       return;
     if (!Ruler.rules)
       Ruler.init();
