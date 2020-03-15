@@ -246,7 +246,7 @@ const App = {
       const {responseText, doc, finalUrl} = await Remoting.getDoc(ai.url);
       const url = Ruler.runQ(responseText, doc, finalUrl);
       if (!url)
-        throw 'File not found.';
+        throw 'The "q" rule did not produce any URL.';
       Ruler.runC(responseText, doc);
       if (RuleMatcher.isFollowableUrl(url, ai.rule)) {
         const info = RuleMatcher.find(url, ai.node, {noHtml: true});
@@ -2375,12 +2375,10 @@ const Util = {
       ['', 'font-weight:normal;color:unset'],
     ];
     m.push(...[
-      rule.u && ['Url simple match: %o', rule.u],
-      rule.e && ['Element match: %o', rule.e],
-      rule.r && ['RegExp match: %o', rule.r],
+      ['Node: %o', ai.node],
+      ['Rule: %o', rule],
       ai.url && ['URL: %s', ai.url],
       ai.imageUrl && ai.imageUrl !== ai.url && ['File: %s', ai.imageUrl],
-      ['Node: %o', ai.node],
     ].filter(Boolean));
     return {
       message,
