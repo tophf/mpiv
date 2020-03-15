@@ -2840,7 +2840,7 @@ async function setupRuleInstaller(e) {
 function createConfigHtml() {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
   const scalesHint = 'Leave it empty and click Apply or Save to restore the default values.';
-  const trimLeft = s => s.trim().replace(/\n\s+/g, '\n');
+  const trimLeft = s => s.trim().replace(/\n\s+/g, '\r');
   return flattenHtml(`
 <style>
   :host {
