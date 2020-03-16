@@ -1049,15 +1049,22 @@ const Popup = {
 const PopupVideo = {
   create() {
     const p = $create('video');
-    p.autoplay = true;
     p.loop = true;
     p.volume = 0.5;
     p.controls = false;
     p.addEventListener('progress', PopupVideo.progress);
+    p.addEventListener('canplay', PopupVideo.autoplay, {once: true});
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
     ai.bufBar = false;
     ai.bufStart = now();
     return p;
+  },
+
+  autoplay() {
+    this.play().catch(() => {
+      this.muted = this.controls = ai.controlled = ai.zoomed = true;
+      return this.play().catch(() => {});
+    });
   },
 
   progress() {
@@ -1069,17 +1076,11 @@ const PopupVideo = {
     }
   },
 
-  async progressDone() {
+  progressDone() {
     this.removeEventListener('progress', PopupVideo.progress);
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
       Bar.set(false);
     Popup.onLoad.call(this);
-    try {
-      await this.play();
-    } catch (e) {
-    } finally {
-      this.controls |= this.paused;
-    }
   },
 };
 
