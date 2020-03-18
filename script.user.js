@@ -3351,9 +3351,13 @@ const isFF = CSS.supports('-moz-appearance', 'none');
 
 //#region Init
 cfg = new Config({save: true});
-App.isImageTab = ((first = doc.body.firstElementChild) =>
-  first && first === doc.body.lastElementChild && first.matches('img, video'))();
-App.enabled = cfg.imgtab || !App.isImageTab;
+
+App.enabled = true;
+(cb => doc.body ? cb() : document.addEventListener('DOMContentLoaded', cb, {once: true}))(() => {
+  const el = doc.body.firstElementChild;
+  App.isImageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
+  App.enabled = cfg.imgtab || !App.isImageTab;
+});
 
 GM_registerMenuCommand('MPIV: configure', setup);
 doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
