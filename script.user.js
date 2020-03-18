@@ -236,8 +236,8 @@ const App = {
     } else if (ai.rule.q && !Array.isArray(ai.urls)) {
       App.startFromQ();
     } else {
-      Ruler.runC();
       Popup.create(ai.url);
+      Ruler.runC();
     }
   },
 
@@ -247,7 +247,6 @@ const App = {
       const url = Ruler.runQ(responseText, doc, finalUrl);
       if (!url)
         throw 'The "q" rule did not produce any URL.';
-      Ruler.runC(responseText, doc);
       if (RuleMatcher.isFollowableUrl(url, ai.rule)) {
         const info = RuleMatcher.find(url, ai.node, {noHtml: true});
         if (!info || !info.url)
@@ -256,6 +255,7 @@ const App = {
         App.startSingle();
       } else {
         Popup.create(url, finalUrl);
+        Ruler.runC(responseText, doc);
       }
     } catch (e) {
       App.handleError(e);
@@ -1823,24 +1823,31 @@ const Ruler = {
   },
 
   runC(text, doc = document) {
-    switch (typeof ai.rule.c) {
-      case 'function':
-        // not specifying as a parameter's default value to get the html only when needed
-        if (!text) text = doc.documentElement.outerHTML;
-        ai.caption = ai.rule.c(text, doc, ai.node, ai.rule);
-        break;
-      case 'string': {
-        const el = $many(ai.rule.c, doc);
-        ai.caption = !el ? '' :
-          el.getAttribute('content') ||
-          el.getAttribute('title') ||
-          el.textContent;
-        break;
-      }
-      default:
-        ai.caption = (ai.tooltip || 0).text || ai.node.alt || $propUp(ai.node, 'title') ||
-                     Remoting.getFileName(ai.node.src || $propUp(ai.node, 'href'));
-    }
+    const fn = Ruler.runCHandler[typeof ai.rule.c] || Ruler.runCHandler.default;
+    ai.caption = fn(text, doc);
+  },
+
+  runCHandler: {
+    function: (text, doc) => {
+      // not specifying as a parameter's default value to get the html only when needed
+      if (!text) text = doc.documentElement.outerHTML;
+      return ai.rule.c(text, doc, ai.node, ai.rule);
+    },
+    string: (text, doc) => {
+      const el = $many(ai.rule.c, doc);
+      return !el ? '' :
+        el.getAttribute('content') ||
+        el.getAttribute('title') ||
+        el.textContent;
+    },
+    default: () =>
+      (ai.tooltip || 0).text ||
+      ai.node.alt ||
+      $propUp(ai.node, 'title') ||
+      Remoting.getFileName(
+        ai.node.tagName === ai.popup.tagName
+          ? ai.url
+          : ai.node.src || $propUp(ai.node, 'href')),
   },
 
   runQ(text, doc, docUrl) {
