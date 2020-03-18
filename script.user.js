@@ -136,9 +136,8 @@ const App = {
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
     if (willMove)
       Popup.move();
-    Bar.updateTitle();
-    if (!ai.bar)
-      Bar.updateFileInfo();
+    Bar.updateName();
+    Bar.updateDetails();
     ai.large = ai.nwidth > p.clientWidth + ai.extras.w ||
                ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large)
@@ -302,10 +301,8 @@ const App = {
     if (ai.zooming)
       p.classList.add(`${PREFIX}zooming`);
     Popup.move();
-    Bar.updateTitle();
+    Bar.updateDetails();
     Status.set(ai.zoomed ? 'zoom' : false);
-    if (!ai.zoomed)
-      Bar.updateFileInfo();
     return ai.zoomed;
   },
 
@@ -328,7 +325,7 @@ const Bar = {
     }
     if (!b) b = ai.bar = $create('div', {id: `${PREFIX}bar`});
     App.updateStyles();
-    Bar.updateTitle();
+    Bar.updateDetails();
     Bar.show();
     b.innerHTML = label;
     if (!b.parentNode) {
@@ -344,7 +341,7 @@ const Bar = {
     ai.timerBar = setTimeout(() => ai.bar && $css(ai.bar, {opacity: 0}), 3000);
   },
 
-  updateFileInfo() {
+  updateName() {
     const {gItems: gi, gIndex: i, gNum: n} = ai;
     if (gi) {
       const item = gi[i];
@@ -363,7 +360,7 @@ const Bar = {
     }
   },
 
-  updateTitle() {
+  updateDetails() {
     if (!ai.bar) return;
     const zoom = ai.nwidth && `${
       Math.round(ai.scale * 100)
@@ -875,14 +872,13 @@ const Events = {
         return;
       }
       ai.zoomed = false;
-      Bar.updateFileInfo();
     } else {
       ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
     }
     if (ai.zooming)
       ai.popup.classList.add(`${PREFIX}zooming`);
     Popup.move();
-    Bar.updateTitle();
+    Bar.updateDetails();
   },
 };
 
@@ -924,7 +920,7 @@ const Gallery = {
     }
     Popup.destroy();
     App.startSingle();
-    Bar.updateFileInfo();
+    Bar.updateName();
     Gallery.preload(dir);
   },
 
@@ -1037,8 +1033,6 @@ const Popup = {
   onLoad() {
     this.setAttribute('loaded', '');
     ai.popupLoaded = true;
-    if (!ai.bar)
-      Bar.updateFileInfo();
   },
 
   onZoom() {
