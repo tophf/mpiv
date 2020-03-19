@@ -647,7 +647,7 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
   xhr: true,
   zoom: 'context',
   zoomOut: 'auto',
-  zoomStep: 150,
+  zoomStep: 133,
 });
 
 const Events = {
