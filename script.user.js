@@ -1043,22 +1043,16 @@ const Popup = {
 const PopupVideo = {
   create() {
     const p = $create('video');
+    p.autoplay = true;
+    p.muted = p.controls = new AudioContext().state === 'suspended';
     p.loop = true;
     p.volume = 0.5;
-    p.controls = false;
     p.addEventListener('progress', PopupVideo.progress);
-    p.addEventListener('canplay', PopupVideo.autoplay, {once: true});
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
+    p.addEventListener('canplay', PopupVideo.revealControls, {once: true});
     ai.bufBar = false;
     ai.bufStart = now();
     return p;
-  },
-
-  autoplay() {
-    this.play().catch(() => {
-      this.muted = this.controls = ai.controlled = ai.zoomed = true;
-      this.play().catch(() => {});
-    });
   },
 
   progress() {
@@ -1075,6 +1069,11 @@ const PopupVideo = {
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
       Bar.set(false);
     Popup.onLoad.call(this);
+  },
+
+  revealControls() {
+    ai.controlled = ai.zoomed =
+      this.muted && (isFF ? this.mozHasAudio : this.webkitAudioDecodedByteCount > 0);
   },
 };
 
