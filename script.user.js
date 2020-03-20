@@ -1044,7 +1044,7 @@ const PopupVideo = {
   create() {
     const p = $create('video');
     p.autoplay = true;
-    p.muted = p.controls = new AudioContext().state === 'suspended';
+    p.muted = p.controls = !window.AudioContext || new AudioContext().state === 'suspended';
     p.loop = true;
     p.volume = clamp(GM_getValue('volume') || .5, 0, 1);
     p.addEventListener('progress', PopupVideo.progress);
