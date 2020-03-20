@@ -3296,21 +3296,21 @@ ${App.popupStyleBase = `
   cursor: default !important;
 }
 ` : String.raw`
-[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]) {
-  cursor: progress !important;
+#\mpiv-popup[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]) {
+  cursor: progress;
 }
 #\mpiv-popup[\mpiv-status~="edge"] {
-  cursor: default !important;
+  cursor: default;
 }
-[\mpiv-status~="error"] {
-  cursor: not-allowed !important;
+#\mpiv-popup[\mpiv-status~="error"] {
+  cursor: not-allowed;
 }
-[\mpiv-status~="ready"],
-[\mpiv-status~="large"] {
-  cursor: zoom-in !important;
+#\mpiv-popup[\mpiv-status~="ready"],
+#\mpiv-popup[\mpiv-status~="large"] {
+  cursor: zoom-in;
 }
-[\mpiv-status~="shift"] {
-  cursor: default !important;
+#\mpiv-popup[\mpiv-status~="shift"] {
+  cursor: default;
 }
 `)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
   App.popupStyleBase = App.popupStyleBase.replace(/;/g, '!important;');
