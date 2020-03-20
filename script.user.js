@@ -1044,12 +1044,11 @@ const PopupVideo = {
   create() {
     const p = $create('video');
     p.autoplay = true;
-    p.muted = p.controls = !window.AudioContext || new AudioContext().state === 'suspended';
+    p.muted = p.controls = AudioContext && new AudioContext().state === 'suspended';
     p.loop = true;
     p.volume = clamp(GM_getValue('volume') || .5, 0, 1);
     p.addEventListener('progress', PopupVideo.progress);
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
-    p.addEventListener('canplay', PopupVideo.revealControls, {once: true});
     p.addEventListener('volumechange', PopupVideo.rememberVolume);
     ai.bufBar = false;
     ai.bufStart = now();
@@ -1074,11 +1073,6 @@ const PopupVideo = {
 
   rememberVolume() {
     GM_setValue('volume', this.volume);
-  },
-
-  revealControls() {
-    ai.controlled = ai.zoomed =
-      this.muted && (isFF ? this.mozHasAudio : this.webkitAudioDecodedByteCount > 0);
   },
 };
 
@@ -3350,6 +3344,7 @@ const $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) &&
 const $remove = node => node && node.remove();
 
 const isFF = CSS.supports('-moz-appearance', 'none');
+const AudioContext = typeof window.AudioContext === 'function' && window.AudioContext;
 
 //#endregion
 
