@@ -1046,10 +1046,11 @@ const PopupVideo = {
     p.autoplay = true;
     p.muted = p.controls = new AudioContext().state === 'suspended';
     p.loop = true;
-    p.volume = 0.5;
+    p.volume = clamp(GM_getValue('volume') || .5, 0, 1);
     p.addEventListener('progress', PopupVideo.progress);
     p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
     p.addEventListener('canplay', PopupVideo.revealControls, {once: true});
+    p.addEventListener('volumechange', PopupVideo.rememberVolume);
     ai.bufBar = false;
     ai.bufStart = now();
     return p;
@@ -1069,6 +1070,10 @@ const PopupVideo = {
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
       Bar.set(false);
     Popup.onLoad.call(this);
+  },
+
+  rememberVolume() {
+    GM_setValue('volume', this.volume);
   },
 
   revealControls() {
