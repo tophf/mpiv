@@ -1015,7 +1015,6 @@ const Popup = {
     if (!ai.lazyUnload) {
       if (p.src.startsWith('blob:'))
         URL.revokeObjectURL(p.src);
-      p.src = '';
     }
     p.remove();
     ai.zoomed = ai.popup = ai.popupLoaded = null;
