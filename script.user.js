@@ -3037,6 +3037,16 @@ function createConfigHtml() {
     a {
       color: deepskyblue;
     }
+    button {
+      background: linear-gradient(-5deg, #333, #555);
+      border: 1px solid #000;
+      box-shadow: 0 2px 6px #181818;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: linear-gradient(-5deg, #333, #666);
+    }
     textarea, input, select {
       background: #111;
       color: #BBB;
