@@ -1042,17 +1042,19 @@ const Popup = {
 
 const PopupVideo = {
   create() {
-    const p = $create('video');
-    p.autoplay = true;
-    p.muted = p.controls = AudioContext && new AudioContext().state === 'suspended';
-    p.loop = true;
-    p.volume = clamp(GM_getValue('volume') || .5, 0, 1);
-    p.addEventListener('progress', PopupVideo.progress);
-    p.addEventListener('canplaythrough', PopupVideo.progressDone, {once: true});
-    p.addEventListener('volumechange', PopupVideo.rememberVolume);
     ai.bufBar = false;
     ai.bufStart = now();
-    return p;
+    const shouldMute = new AudioContext().state === 'suspended';
+    return $create('video', {
+      autoplay: true,
+      controls: shouldMute,
+      muted: shouldMute,
+      loop: true,
+      volume: clamp(+GM_getValue('volume') || .5, 0, 1),
+      onprogress: PopupVideo.progress,
+      oncanplaythrough: PopupVideo.progressDone,
+      onvolumechange: PopupVideo.rememberVolume,
+    });
   },
 
   progress() {
@@ -1065,7 +1067,7 @@ const PopupVideo = {
   },
 
   progressDone() {
-    this.removeEventListener('progress', PopupVideo.progress);
+    this.onprogress = this.oncanplaythrough = null;
     if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
       Bar.set(false);
     Popup.onLoad.call(this);
@@ -3317,38 +3319,69 @@ ${App.popupStyleBase = `
 }
 
 //#region Global utilities
+const clamp = (v, min, max) =>
+  v < min ? min : v > max ? max : v;
 
-const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
-const compareNumbers = (a, b) => a - b;
-const flattenHtml = str => str.trim().replace(/\n\s*/g, '').replace(/\x20?([:>])\x20/g, '$1');
-const dropEvent = e => (e.preventDefault(), e.stopPropagation());
-const ensureArray = v => Array.isArray(v) ? v : [v];
-const modKeyPressed = e => e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
-const now = () => performance.now();
-const sumProps = (...props) => props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+const compareNumbers = (a, b) =>
+  a - b;
+
+const flattenHtml = str =>
+  str.trim()
+    .replace(/\n\s*/g, '')
+    .replace(/\x20?([:>])\x20/g, '$1');
+
+const dropEvent = e =>
+  (e.preventDefault(), e.stopPropagation());
+
+const ensureArray = v =>
+  Array.isArray(v) ? v : [v];
+
+const modKeyPressed = e =>
+  e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
+
+const now = performance.now.bind(performance);
+
+const sumProps = (...props) =>
+  props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+
 const tryCatch = function (fn, ...args) {
   try {
     return fn.apply(this, args);
   } catch (e) {}
 };
 
-const $ = (sel, node = doc) => node.querySelector(sel) || false;
-const $$ = (sel, node = doc) => node.querySelectorAll(sel);
-const $create = (tag, props) => Object.assign(document.createElement(tag), props);
-const $css = (el, props) => Object.entries(props).forEach(([k, v]) =>
-  el.style.setProperty(k, v, 'important'));
-const $many = (q, doc) => q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
-const $prop = (sel, prop, node = doc) => (node = $(sel, node)) && node[prop] || '';
-const $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) &&
-  (prop.startsWith('data-') ? node.getAttribute(prop) : node[prop]) || '';
-const $remove = node => node && node.remove();
+const $ = (sel, node = doc) =>
+  node.querySelector(sel) || false;
 
-const isFF = CSS.supports('-moz-appearance', 'none');
-const AudioContext = typeof window.AudioContext === 'function' && window.AudioContext;
+const $$ = (sel, node = doc) =>
+  node.querySelectorAll(sel);
 
+const $create = (tag, props) =>
+  Object.assign(doc.createElement(tag), props);
+
+const $css = (el, props) =>
+  Object.entries(props).forEach(([k, v]) =>
+    el.style.setProperty(k, v, 'important'));
+
+const $many = (q, doc) =>
+  q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
+
+const $prop = (sel, prop, node = doc) =>
+  (node = $(sel, node)) && node[prop] || '';
+
+const $propUp = (node, prop) =>
+  (node = node.closest(`[${prop}]`)) &&
+  (prop.startsWith('data-') ? node.getAttribute(prop) : node[prop]) ||
+  '';
+
+const $remove = node =>
+  node && node.remove();
 //#endregion
 
 //#region Init
+const isFF = CSS.supports('-moz-appearance', 'none');
+const AudioContext = window.AudioContext || function () {};
+
 cfg = new Config({save: true});
 
 App.enabled = true;

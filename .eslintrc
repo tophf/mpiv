@@ -150,7 +150,7 @@ rules:
   no-path-concat: [2]
   no-process-exit: [0]
   no-proto: [2]
-  no-redeclare: [2]
+  no-redeclare: [2, {builtinGlobals: false}]
   no-regex-spaces: [2]
   no-restricted-imports: [0]
   no-restricted-modules: [2, domain, freelist, smalloc, sys]
