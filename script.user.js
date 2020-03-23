@@ -2546,11 +2546,16 @@ function setup({rule} = {}) {
   }
 
   function checkRule({target: el}) {
-    let json, error;
+    let json, error, title;
     const prev = el.previousElementSibling;
     if (el.value) {
       json = Ruler.parse(el.value);
       error = json instanceof Error && (json.message || String(json));
+      const invalidDomain = !error && json && typeof json.d === 'string' &&
+        !/^[-.a-z0-9]*$/i.test(json.d);
+      title = [invalidDomain && 'Disabled due to invalid characters in "d"', error]
+        .filter(Boolean).join('\n');
+      el.classList.toggle('invalid-domain', invalidDomain);
       if (!prev)
         el.insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
     } else if (prev) {
@@ -2558,7 +2563,7 @@ function setup({rule} = {}) {
       el.remove();
     }
     el[RULE] = !error && json;
-    el.title = error || '';
+    el.title = title;
     el.setCustomValidity(error || '');
   }
 
@@ -2985,9 +2990,11 @@ function createConfigHtml() {
     animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
     animation-fill-mode: both;
   }
-  #rules input,
-  #rules textarea {
+  #rules > * {
     word-break: break-all;
+  }
+  .invalid-domain {
+    opacity: .5;
   }
   #x {
     position: absolute;
@@ -3185,8 +3192,10 @@ function createConfigHtml() {
       </div>
     </li>
     <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
-      <div id=rules class=column>
-        ${isFF ? '<input spellcheck=false>' : '<textarea rows=1 spellcheck=false></textarea>'}
+      <div id=rules class=column>${
+  isFF && /win/i.test(navigator.platform)
+    ? '<input spellcheck=false>' // textareas in FF+Windows are like 100x slower than inputs
+    : '<textarea rows=1 spellcheck=false></textarea>'}
       </div>
     </li>
     <li>
