@@ -871,7 +871,6 @@ const Events = {
         App.deactivate({wait: true});
         return;
       }
-      ai.zoomed = false;
     } else {
       ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
     }
