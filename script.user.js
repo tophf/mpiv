@@ -1130,24 +1130,22 @@ const Ruler = {
         s: '$1',
         html: true,
       },
-      dotDomain.endsWith('.deviantart.com') && {
+      ...dotDomain.endsWith('.deviantart.com') && [{
         e: '[data-super-full-img] *, img[src*="/th/"]',
         s: (m, node) =>
           $propUp(node, 'data-super-full-img') ||
           (node = node.dataset.embedId && node.nextElementSibling) &&
           node.dataset.embedId && node.src,
-      },
-      dotDomain.endsWith('.deviantart.com') && {
+      }, {
         e: '.dev-view-deviation img',
         s: () => [
           $('.dev-page-download').href,
           $('.dev-content-full').src,
         ].filter(Boolean),
-      },
-      dotDomain.endsWith('.deviantart.com') && {
-        u: ',strp/',
-        s: '/\\/v1\\/.*//',
-      },
+      }, {
+        e: 'a[data-hook=deviation_link]',
+        q: 'link[as=image]',
+      }] || [],
       dotDomain.endsWith('.dropbox.com') && {
         r: /(.+?&size_mode)=\d+(.*)/,
         s: '$1=5$2',
