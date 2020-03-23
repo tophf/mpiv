@@ -67,21 +67,17 @@ const App = {
 
   activate(info, event) {
     const {match, node, rule, url} = info;
-    const force = event.ctrlKey;
-    const scale = !force && Calc.scaleGain(url, node.parentNode);
-    if (elConfig) console.info(Object.assign({node, rule, url, match}, scale && {scale}));
-    if (scale && scale < cfg.scale)
-      return;
-    if (ai.node)
-      App.deactivate();
+    if (elConfig) console.info({node, rule, url, match});
+    if (ai.node) App.deactivate();
     ai = info;
+    ai.force = event.ctrlKey;
     ai.gNum = 0;
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressTooltip();
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
-    if (force) {
+    if (ai.force) {
       App.start();
     } else if (cfg.start === 'auto' && !rule.manual) {
       App.belate();
@@ -107,6 +103,11 @@ const App = {
       const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
       const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
       if (h) {
+        const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
+        if (scale && scale < cfg.scale) {
+          App.deactivate();
+          return 'abort';
+        }
         App.stopTimers();
         const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
         if (wait > 0) {
@@ -149,6 +150,8 @@ const App = {
 
   deactivate({wait} = {}) {
     App.stopTimers();
+    if (ai.popup)
+      ai.popup.removeEventListener('load', Popup.onLoad);
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
@@ -494,19 +497,6 @@ const Calc = {
   scaleForFirstZoom(keepScale) {
     const z = ai.scaleZoom;
     return keepScale || z !== ai.scale ? z : ai.scales.find(x => x > z);
-  },
-
-  scaleGain(url, parent) {
-    const imgs = $$('img, video', parent);
-    for (let i = imgs.length, img; (img = imgs[--i]);) {
-      if ((img.currentSrc || img.src) !== url || img.sizes)
-        continue;
-      const scaleX = (img.naturalWidth || img.videoWidth) / img.offsetWidth;
-      const scaleY = (img.naturalHeight || img.videoHeight) / img.offsetHeight;
-      const s = Math.max(scaleX, scaleY);
-      if (isFinite(s))
-        return s;
-    }
   },
 
   updateExtras() {
@@ -998,7 +988,8 @@ const Popup = {
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
-    App.checkProgress({start: true});
+    if (App.checkProgress({start: true}) === 'abort')
+      return;
     if (p.complete)
       Popup.onLoad.call(ai.popup);
     else if (!isVideo)
