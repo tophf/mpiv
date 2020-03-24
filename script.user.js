@@ -178,6 +178,8 @@ const App = {
       App.startSingle();
       return;
     }
+    if (rule && rule.onerror === 'skip')
+      return;
     const fe = Util.formatError(e, rule);
     if (!rule || !ai.urls || !ai.urls.length)
       console.warn(fe.consoleFormat, ...fe.consoleArgs);
@@ -1273,6 +1275,7 @@ const Ruler = {
         r: /[/?=](https?[^&]+)/,
         s: '$1',
         follow: true,
+        onerror: 'skip',
       },
       {
         u: [
