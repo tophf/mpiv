@@ -2205,7 +2205,7 @@ const UrlMatcher = (() => {
   // string-to-regexp escaped chars
   const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
   // rx for '^' symbol in simple url match
-  const RX_SEP = /[^\w%._-]/g;
+  const RX_SEP = /[^\w%._-]/y;
   const RXS_SEP = RX_SEP.source;
   return match => {
     const results = [];
@@ -2216,7 +2216,7 @@ const UrlMatcher = (() => {
       let fn;
       let needle = s.slice(pinDomain * 2 + pinStart, -endSep || undefined);
       if (needle.includes('^')) {
-        const plain = findLongestPart(needle);
+        const plain = needle.split('^').reduce(getLongest);
         const rx = new RegExp(
           (pinStart ? '^' : '') +
           (pinDomain ? '^(([^/:]+:)?//)?([^./]*\\.)*?' : '') +
@@ -2248,19 +2248,23 @@ const UrlMatcher = (() => {
   function checkArrayItem(item) {
     return item.fn.call(item.this, this);
   }
-  function equals(s) {
-    return s.startsWith(this) && (
-      s.length === this.length ||
-      s.length === this.length + 1 && endsWithSep(s));
-  }
-  function starts(s) {
-    return s.startsWith(this);
-  }
   function ends(s) {
     return s.endsWith(this) || (
       s.length > this.length &&
       s.indexOf(this, s.length - this.length - 1) >= 0 &&
       endsWithSep(s));
+  }
+  function endsWithSep(s, pos = s.length - 1) {
+    RX_SEP.lastIndex = pos;
+    return RX_SEP.test(s);
+  }
+  function equals(s) {
+    return s.startsWith(this) && (
+      s.length === this.length ||
+      s.length === this.length + 1 && endsWithSep(s));
+  }
+  function getLongest(max, part) {
+    return part.length > max.length ? part : max;
   }
   function has(s) {
     return s.includes(this);
@@ -2268,17 +2272,18 @@ const UrlMatcher = (() => {
   function regexp(s) {
     return s.includes(this[0]) && this[1].test(s);
   }
-  function endsWithSep(s) {
-    RX_SEP.lastIndex = s.length - 1;
-    return RX_SEP.test(s);
+  function starts(s) {
+    return s.startsWith(this);
   }
   function startsDomainPrescreen(url) {
     return url.includes(this[0]) && startsDomain.call(this, url);
   }
   function startsDomain(url) {
-    const [p, gap, host] = url.split('/', 3);
-    if (gap || p && !p.endsWith(':'))
+    let hostStart = url.indexOf('//');
+    if (hostStart && url[hostStart - 1] !== ':')
       return;
+    hostStart = hostStart < 0 ? 0 : hostStart + 2;
+    const host = url.slice(hostStart, (url.indexOf('/', hostStart) + 1 || url.length + 1) - 1);
     const [needle, domain, pinDomainEnd, endSep] = this;
     let start = pinDomainEnd ? host.length - domain.length : 0;
     for (; ; start++) {
@@ -2288,24 +2293,11 @@ const UrlMatcher = (() => {
       if (!start || host[start - 1] === '.')
         break;
     }
-    start += p.length + 2;
-    return url.lastIndexOf(needle, start) === start &&
-           (!endSep || start + needle.length === url.length);
-  }
-  function findLongestPart(s) {
-    const len = s.length;
-    let maxLen = 0;
-    let start;
-    for (let i = 0, j; i < len; i = j + 1) {
-      j = s.indexOf('^', i);
-      if (j < 0)
-        j = len;
-      if (j - i > maxLen) {
-        maxLen = j - i;
-        start = i;
-      }
-    }
-    return maxLen < len ? s.substr(start, maxLen) : s;
+    start += hostStart;
+    if (url.lastIndexOf(needle, start) !== start)
+      return;
+    const end = start + needle.length;
+    return !endSep || end === host.length || end === url.length || endsWithSep(url, end);
   }
 })();
 
