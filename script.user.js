@@ -2497,7 +2497,7 @@ function setup({rule} = {}) {
       css: UI.css.value.trim(),
       delay: UI.delay.valueAsNumber * 1000,
       hosts: collectRules(),
-      scale: Math.max(1, UI.scale.valueAsNumber || 0),
+      scale: clamp(UI.scale.valueAsNumber / 100, 0, 1) + 1,
       scales: UI.scales.value
         .trim()
         .split(/[,;]*\s+/)
@@ -2738,7 +2738,8 @@ function setup({rule} = {}) {
       el.oninput();
     for (const el of $$('a[href^="http"]', root))
       Object.assign(el, {target: '_blank', rel: 'noreferrer noopener external'});
-    UI.delay.value = config.delay / 1000;
+    UI.delay.valueAsNumber = config.delay / 1000;
+    UI.scale.valueAsNumber = Math.round(clamp(config.scale - 1, 0, 1) * 100);
   }
 }
 
@@ -3083,8 +3084,8 @@ function createConfigHtml() {
         </select>
       </label>
       <label>after, sec<input id=delay type=number min=0.05 max=10 step=0.05 title=seconds></label>
-      <label title="Activate only if the full version of the hovered image is that many times larger">
-        if larger <input id=scale type=number min=1 max=100 step=.05>
+      <label title="(if the full version of the hovered image is ...% larger)">
+        if larger, %<input id=scale type=number min=0 max=100 step=1>
       </label>
       <label>Zoom activates on
         <select id=zoom>
