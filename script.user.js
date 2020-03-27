@@ -3395,7 +3395,8 @@ App.enabled = true;
   App.enabled = cfg.imgtab || !App.isImageTab;
 });
 
-GM_registerMenuCommand('MPIV: configure', setup);
+if (window === top)
+  GM_registerMenuCommand('MPIV: configure', setup);
 doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 
 if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname)) {
