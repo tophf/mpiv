@@ -2096,13 +2096,17 @@ const Remoting = {
         .dispatchEvent(new MouseEvent('click'));
     } else {
       Status.set('+loading');
+      const onload = () => Status.set('-loading');
       GM_download({
         url,
         name,
         headers: {Referer: url},
-        onerror: () => Bar.set(`Could not download ${name}.`, 'error'),
-        onload: () => Status.set('-loading'),
+        onerror: e => {
+          Bar.set(`Could not download ${name}: ${e.error || e.message || e}.`, 'error');
+          onload();
+        },
         onprogress: Remoting.getImageProgress,
+        onload,
       });
     }
   },
