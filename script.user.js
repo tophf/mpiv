@@ -272,7 +272,8 @@ const App = {
       const startUrl = ai.url;
       const p = ai.rule.s === 'gallery' ? {} : await Remoting.getDoc(startUrl);
       const items = await new Promise(resolve => {
-        const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, resolve);
+        const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node,
+          resolve);
         if (Array.isArray(it))
           resolve(it);
       });
@@ -876,10 +877,12 @@ const Events = {
 
 const Gallery = {
 
+  functionParams: ['text', 'doc', 'url', 'm', 'rule', 'node', 'cb'],
+
   makeParser(g) {
     return (
       typeof g === 'function' ? g :
-        typeof g === 'string' ? Util.newFunction('text', 'doc', 'url', 'm', 'rule', 'cb', g) :
+        typeof g === 'string' ? Util.newFunction(...Gallery.functionParams, g) :
           Gallery.defaultParser
     );
   },
@@ -1552,7 +1555,7 @@ const Ruler = {
           '||imgur.com/gallery/',
           '||imgur.com/t/',
         ],
-        g: async (text, doc, url, m, rule, cb) => {
+        g: async (text, doc, url, m, rule, node, cb) => {
           // simplified extraction of JSON as it occupies only one line
           if (!/(?:mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()[\s\S]*?[,\s{"'](?:image|album)\s*:\s*({[^\r\n]+?}),?[\r\n]/.test(text))
             return;
