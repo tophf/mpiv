@@ -1566,8 +1566,8 @@ const Ruler = {
           const info = JSON.parse(RegExp.$1);
           let images = info.is_album ? info.album_images.images : [info];
           if (info.num_images > images.length) {
-            const url = `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`;
-            images = JSON.parse((await Remoting.gmXhr(url)).responseText).data.images;
+            const u = `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`;
+            images = JSON.parse((await Remoting.gmXhr(u)).responseText).data.images;
           }
           const items = [];
           for (const img of images || []) {
