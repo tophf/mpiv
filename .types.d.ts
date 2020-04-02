@@ -168,8 +168,10 @@ declare namespace mpiv {
   }
 
   type GalleryItemsArray = GalleryItem[] & {
-    // e.g. arr=[GalleryItem, GalleryItem] arr.title='foo'
+    // e.g. let g=[GalleryItem, GalleryItem]; g.title='foo'
     title?: string
+    //
+    index?: IndexFunction | string | number
   }
 
   type GalleryLoader = {
@@ -199,11 +201,20 @@ declare namespace mpiv {
   type GalleryFunction = {
     (
       text: string,
+      doc: Document,
       url: string,
       m: string[],
       rule: HostRule,
+      node: Node,
       cb: { (items: GalleryItemsArray): void },
     ): GalleryItemsArray
+  }
+
+  type IndexFunction = {
+    (
+      items: GalleryItemsArray,
+      node: Node,
+    ): string
   }
 
   type QuerySelectorFunction = {
