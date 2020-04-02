@@ -950,6 +950,8 @@ const Gallery = {
     items.index = RX_HAS_CODE.test(g.index)
       ? Util.newFunction('items', 'node', g.index)(items, ai.node)
       : g.index;
+    if (typeof items.index === 'string')
+      items.index = items.findIndex(x => x.url === items.index);
     return items;
 
     function processEntry(entry) {
