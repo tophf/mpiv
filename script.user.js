@@ -1975,7 +1975,7 @@ const RuleMatcher = {
   makeInfo(urls, node, rule, m) {
     const url = urls[0];
     const xhr = cfg.xhr && rule.xhr;
-    const info = {
+    return {
       node,
       rule,
       url,
@@ -1985,14 +1985,6 @@ const RuleMatcher = {
       post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
       xhr: xhr != null ? xhr : isSecureContext && !`${url}`.startsWith(location.protocol),
     };
-    if (
-      dotDomain.endsWith('.twitter.com') && !/(facebook|google|twimg|twitter)\.com\//.test(url) ||
-      dotDomain.endsWith('.github.com') && !/github/.test(url) ||
-      dotDomain.endsWith('.facebook.com') && /\bimgur\.com/.test(url)
-    ) {
-      info.xhr = 'data';
-    }
-    return info;
   },
 
   isFollowableUrl(url, rule) {
@@ -2062,9 +2054,9 @@ const Remoting = {
     if (!b) throw 'Empty response';
     if (b.type !== type)
       b = b.slice(0, b.size, type);
-    return ai.xhr === 'data' ?
-      Remoting.blobToDataUrl(b) :
-      URL.createObjectURL(b);
+    return ai.xhr === 'blob'
+      ? URL.createObjectURL(b)
+      : Remoting.blobToDataUrl(b);
   },
 
   getImageProgress(e) {
