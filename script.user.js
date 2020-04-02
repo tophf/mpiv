@@ -948,7 +948,7 @@ const Gallery = {
       .filter(Boolean);
     items.title = processTitle();
     items.index = RX_HAS_CODE.test(g.index)
-      ? Util.newFunction('items', g.index)(items)
+      ? Util.newFunction('items', 'node', g.index)(items, ai.node)
       : g.index;
     return items;
 
