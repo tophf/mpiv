@@ -1973,7 +1973,7 @@ const RuleMatcher = {
 
   /** @returns mpiv.RuleMatchInfo */
   makeInfo(urls, node, rule, m) {
-    const url = urls[0];
+    const url = (`${urls[0]}`.startsWith('//') ? location.protocol : '') + urls[0];
     const xhr = cfg.xhr && rule.xhr;
     return {
       node,
@@ -1983,7 +1983,7 @@ const RuleMatcher = {
       match: m,
       gallery: rule.g && Gallery.makeParser(rule.g),
       post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
-      xhr: xhr != null ? xhr : isSecureContext && !`${url}`.startsWith(location.protocol),
+      xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol),
     };
   },
 
