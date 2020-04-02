@@ -949,9 +949,12 @@ const Gallery = {
       .map(processEntry)
       .filter(Boolean);
     items.title = processTitle();
-    items.index = RX_HAS_CODE.test(g.index)
-      ? Util.newFunction('items', 'node', g.index)(items, ai.node)
-      : g.index;
+    items.index =
+      typeof g.index === 'string' &&
+        Remoting.findImageUrl(tryCatch($, g.index, doc), docUrl) ||
+      RX_HAS_CODE.test(g.index) &&
+        Util.newFunction('items', 'node', g.index)(items, ai.node) ||
+      g.index;
     return items;
 
     function processEntry(entry) {
@@ -1854,7 +1857,7 @@ const Ruler = {
       }
     } else {
       const el = $many(ai.rule.q, doc);
-      url = el && Remoting.findImageUrl(el, docUrl);
+      url = Remoting.findImageUrl(el, docUrl);
     }
     return url;
   },
@@ -2147,6 +2150,7 @@ const Remoting = {
   },
 
   findImageUrl(n, url) {
+    if (!n) return;
     let html;
     const path =
       n.getAttribute('src') ||
