@@ -282,8 +282,10 @@ const App = {
       ai.gNum = items.length;
       ai.gItems = items.length && items;
       if (ai.gItems) {
-        const i = items.index | 0;
-        ai.gIndex = i === items.index && items[i] ? i : Gallery.findIndex(ai.url);
+        const i = items.index;
+        ai.gIndex = i === (i | 0) && items[i] ? i | 0 :
+          typeof i === 'string' ? clamp(items.findIndex(x => x.url === i), 0) :
+            Gallery.findIndex(ai.url);
         setTimeout(Gallery.next);
       } else {
         throw 'Empty gallery';
@@ -950,8 +952,6 @@ const Gallery = {
     items.index = RX_HAS_CODE.test(g.index)
       ? Util.newFunction('items', 'node', g.index)(items, ai.node)
       : g.index;
-    if (typeof items.index === 'string')
-      items.index = items.findIndex(x => x.url === items.index);
     return items;
 
     function processEntry(entry) {
