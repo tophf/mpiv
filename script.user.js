@@ -1,4 +1,4 @@
-//#region Meta
+/*
 // ==UserScript==
 // @name        Mouseover Popup Image Viewer
 // @namespace   https://github.com/tophf
@@ -27,7 +27,7 @@
 // @homepage    https://w9p.co/userscripts/mpiv/
 // @icon        https://w9p.co/userscripts/mpiv/icon.png
 // ==/UserScript==
-//#endregion
+*/
 
 'use strict';
 
