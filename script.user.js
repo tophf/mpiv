@@ -1037,7 +1037,8 @@ const Popup = {
 
   onLoad() {
     this.setAttribute('loaded', '');
-    ai.popupLoaded = true;
+    if (ai.popup === this)
+      ai.popupLoaded = true;
   },
 
   onZoom() {
