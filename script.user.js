@@ -99,29 +99,30 @@ const App = {
 
   checkProgress({start} = {}) {
     const p = ai.popup;
-    if (p) {
-      const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
-      const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
-      if (h) {
-        const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
-        if (scale && scale < cfg.scale) {
-          App.deactivate();
-          return 'abort';
-        }
-        App.stopTimers();
-        const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
-        if (wait > 0) {
-          ai.timer = setTimeout(App.checkProgress, wait);
-        } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
-          App.handleError({type: 'error'});
-        } else {
-          App.commit();
-        }
-        return;
+    if (!p) return;
+    const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
+    const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
+    if (h) {
+      const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
+      if (scale && scale < cfg.scale) {
+        App.deactivate();
+        return 'abort';
       }
+      App.stopTimers();
+      const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
+      if (wait > 0) {
+        ai.timer = setTimeout(App.checkProgress, wait);
+      } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
+        App.handleError({type: 'error'});
+      } else {
+        App.commit();
+      }
+      return;
     }
-    if (start)
+    if (start) {
+      clearInterval(ai.timerProgress);
       ai.timerProgress = setInterval(App.checkProgress, 150);
+    }
   },
 
   async commit() {
