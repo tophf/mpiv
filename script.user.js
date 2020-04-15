@@ -1244,7 +1244,6 @@ const Ruler = {
         },
         c: (html, doc, node, rule) =>
           tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
-        anonymous: true,
         follow: true,
         _g(text, doc, url, m, rule) {
           const media = JSON.parse(text).graphql.shortcode_media;
