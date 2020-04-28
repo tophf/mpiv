@@ -17,7 +17,7 @@
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 
-// @version     1.1.10
+// @version     1.1.11
 // @author      tophf
 
 // @original-version 2017.9.29
