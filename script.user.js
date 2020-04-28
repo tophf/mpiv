@@ -3198,10 +3198,8 @@ function createConfigHtml() {
       </div>
     </li>
     <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
-      <div id=rules class=column>${
-  isFF && /win/i.test(navigator.platform)
-    ? '<input spellcheck=false>' // textareas in FF+Windows are like 100x slower than inputs
-    : '<textarea rows=1 spellcheck=false></textarea>'}
+      <div id=rules class=column>
+        <textarea rows=1 spellcheck=false></textarea>
       </div>
     </li>
     <li>
