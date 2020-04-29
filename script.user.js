@@ -1,33 +1,31 @@
-/*
 // ==UserScript==
 // @name        Mouseover Popup Image Viewer
 // @namespace   https://github.com/tophf
 // @description Shows images and videos behind links and thumbnails.
-
+//
 // @include     *
 // @connect     *
-
+//
 // allow rule installer in config dialog https://w9p.co/userscripts/mpiv/more_host_rules.html
 // @connect     w9p.co
-
+//
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
 // @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
-
+//
 // @version     1.1.11
 // @author      tophf
-
+//
 // @original-version 2017.9.29
 // @original-author  kuehlschrank
-
+//
 // @supportURL  https://github.com/tophf/mpiv/issues
 // @homepage    https://w9p.co/userscripts/mpiv/
 // @icon        https://w9p.co/userscripts/mpiv/icon.png
 // ==/UserScript==
-*/
 
 'use strict';
 
@@ -46,6 +44,8 @@ const hostname = location.hostname;
 const dotDomain = '.' + hostname;
 const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
+const isFF = CSS.supports('-moz-appearance', 'none');
+const AudioContext = window.AudioContext || function () {};
 
 const PREFIX = 'mpiv-';
 const STATUS_ATTR = `${PREFIX}status`;
@@ -64,6 +64,11 @@ const ZOOM_MAX = 16;
 //#endregion
 
 const App = {
+
+  enabled: true,
+  imageTab: false,
+  globalStyle: '',
+  popupStyleBase: '',
 
   activate(info, event) {
     const {match, node, rule, url} = info;
@@ -134,7 +139,7 @@ const App = {
     Calc.updateExtras();
     Calc.updateScales();
     Status.set(false);
-    const willZoom = cfg.zoom === 'auto' || App.isImageTab && cfg.imgtab;
+    const willZoom = cfg.zoom === 'auto' || App.imageTab && cfg.imgtab;
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
     if (willMove)
       Popup.move();
@@ -2469,7 +2474,6 @@ const Util = {
 function setup({rule} = {}) {
   if (window !== top) return;
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
-  // FF is superslow with textareas, bugzil.la/190147
   let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
@@ -2750,6 +2754,22 @@ function setup({rule} = {}) {
       Object.assign(el, {target: '_blank', rel: 'noreferrer noopener external'});
     UI.delay.valueAsNumber = config.delay / 1000;
     UI.scale.valueAsNumber = Math.round(clamp(config.scale - 1, 0, 1) * 100);
+  }
+}
+
+function setupClickedRule(event) {
+  const el = event.target.closest('blockquote, code, pre');
+  const text = el && el.textContent.trim() || '';
+  if (!event.button &&
+      !modKeyPressed(event) &&
+      text.startsWith('{') &&
+      text.endsWith('}') &&
+      /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
+    const rule = tryCatch(JSON.parse, text);
+    if (Object.keys(rule).some(k => /^[degqrsu]$/.test(k))) {
+      dropEvent(event);
+      setup({rule});
+    }
   }
 }
 
@@ -3391,37 +3411,22 @@ const $remove = node =>
 //#endregion
 
 //#region Init
-const isFF = CSS.supports('-moz-appearance', 'none');
-const AudioContext = window.AudioContext || function () {};
 
 cfg = new Config({save: true});
 
-App.enabled = true;
 (cb => doc.body ? cb() : document.addEventListener('DOMContentLoaded', cb, {once: true}))(() => {
   const el = doc.body.firstElementChild;
-  App.isImageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
-  App.enabled = cfg.imgtab || !App.isImageTab;
+  App.imageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
+  App.enabled = cfg.imgtab || !App.imageTab;
 });
 
 if (window === top)
   GM_registerMenuCommand('MPIV: configure', setup);
+
 doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 
-if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname)) {
-  doc.addEventListener('click', e => {
-    const el = e.target.closest('blockquote, code, pre');
-    const text = el && el.textContent.trim() || '';
-    let rule;
-    if (!e.button && !modKeyPressed(e) &&
-        text.startsWith('{') && text.endsWith('}') &&
-        /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text) &&
-        (rule = tryCatch(JSON.parse, text)) &&
-        Object.keys(rule).some(k => /^[degqrsu]$/.test(k))) {
-      setup({rule});
-      dropEvent(e);
-    }
-  });
-}
+if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname))
+  doc.addEventListener('click', setupClickedRule, {passive: true});
 
 window.addEventListener('message', App.onMessage);
 //#endregion
