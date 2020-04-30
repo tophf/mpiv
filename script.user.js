@@ -69,6 +69,8 @@ const App = {
   imageTab: false,
   globalStyle: '',
   popupStyleBase: '',
+  /** @type boolean | 'data' | 'blob' */
+  xhr: null,
 
   activate(info, event) {
     const {match, node, rule, url} = info;
@@ -82,6 +84,8 @@ const App = {
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
+    if (cfg.xhr && App.xhr == null && isSecureContext)
+      App.sniffCSP();
     if (ai.force) {
       App.start();
     } else if (cfg.start === 'auto' && !rule.manual) {
@@ -178,12 +182,6 @@ const App = {
   },
 
   handleError(e, rule = ai.rule) {
-    if (isGoogleImages && cfg.xhr && !ai.xhr) {
-      ai.xhr = true;
-      console.debug('Retrying in XHR mode', ai.url);
-      App.startSingle();
-      return;
-    }
     if (rule && rule.onerror === 'skip')
       return;
     const fe = Util.formatError(e, rule);
@@ -223,6 +221,32 @@ const App = {
       const [w, h] = e.data.split(':').slice(1).map(parseFloat);
       if (w && h) ai.view = {w, h};
     }
+  },
+
+  sniffCSP() {
+    App.xhr = new Promise(resolve => {
+      GM_xmlhttpRequest({
+        url: location.origin,
+        method: 'HEAD',
+        onload(r) {
+          const csp = r.responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
+          if (csp) {
+            const src = {};
+            const rx = /[\s;](default|img|media)-src ([^;]+)/g;
+            for (let m; (m = rx.exec(csp[1]));)
+              src[m[1]] = m[2].trim().split(/\s+/);
+            const def = src.default || [];
+            const {img = def, media = def} = src;
+            const some = str => img.includes(str) || media.includes(str);
+            const every = str => img.includes(str) && media.includes(str);
+            App.xhr = (some("'none'") || !every('*')) && (every('blob:') ? 'blob' : 'data');
+          } else {
+            App.xhr = false;
+          }
+          resolve(App.xhr);
+        },
+      });
+    });
   },
 
   start() {
@@ -997,6 +1021,8 @@ const Popup = {
   async create(src, pageUrl) {
     Popup.destroy();
     ai.imageUrl = src;
+    if (!ai.xhr)
+      ai.xhr = await App.xhr;
     if (ai.xhr && src)
       src = await Remoting.getImage(src, pageUrl).catch(App.handleError);
     if (!src) return;
