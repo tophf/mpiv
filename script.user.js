@@ -1290,7 +1290,7 @@ const Ruler = {
 
     const main = [
       {
-        r: /[/?=](https?[^&]+)/,
+        r: /[/?=](https?%3A%2F%2F[^&]+)/i,
         s: '$1',
         follow: true,
         onerror: 'skip',
