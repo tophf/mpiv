@@ -1848,7 +1848,7 @@ const Ruler = {
       ai.node.alt ||
       $propUp(ai.node, 'title') ||
       Remoting.getFileName(
-        ai.node.tagName === ai.popup.tagName
+        ai.node.tagName === (ai.popup || 0).tagName
           ? ai.url
           : ai.node.src || $propUp(ai.node, 'href')),
   },
