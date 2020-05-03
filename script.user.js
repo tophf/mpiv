@@ -1475,13 +1475,9 @@ const Ruler = {
           '||googleusercontent.com/',
           '||ggpht.com/',
         ],
-        s: (m, node) =>
-          m.input.includes('webcache.') ||
-          node.outerHTML.match(/favicons\?|\b(Ol Rf Ep|Ol Zb ag|Zb HPb|Zb Gtb|Rf Pg|ho PQc|Uk wi hE|go wi Wh|we D0b|Bea)\b/) ||
-          node.matches('.g-hovercard *, a[href*="profile_redirector"] > img') ?
-            '' :
-            m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0')
-              .replace(/=[-\w]+([&#].*|$)/, ''),
+        s: m => m.input.includes('webcache.') ? '' :
+          m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, '/s0')
+            .replace(/([&?]sz)?=[-\w]+([&#].*)?/, ''),
       },
       {
         u: '||gravatar.com/',
