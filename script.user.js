@@ -2495,6 +2495,11 @@ const Util = {
 
 function setup({rule} = {}) {
   if (window !== top) return;
+  if (typeof doc.body.attachShadow !== 'function') {
+    alert('Cannot show MPIV config dialog: the browser is probably too old.\n' +
+          'You can edit the script\'s storage directly in your userscript manager.');
+    return;
+  }
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
   let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
