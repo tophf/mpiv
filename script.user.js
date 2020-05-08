@@ -85,7 +85,7 @@ const App = {
     Events.toggle(true);
     Events.trackMouse(event);
     if (cfg.xhr && App.xhr == null && isSecureContext)
-      App.sniffCSP();
+      CspSniffer.init();
     if (ai.force) {
       App.start();
     } else if (cfg.start === 'auto' && !rule.manual) {
@@ -221,32 +221,6 @@ const App = {
       const [w, h] = e.data.split(':').slice(1).map(parseFloat);
       if (w && h) ai.view = {w, h};
     }
-  },
-
-  sniffCSP() {
-    App.xhr = new Promise(resolve => {
-      GM_xmlhttpRequest({
-        url: location.origin,
-        method: 'HEAD',
-        onload(r) {
-          const csp = r.responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
-          if (csp) {
-            const src = {};
-            const rx = /[\s;](default|img|media)-src ([^;]+)/g;
-            for (let m; (m = rx.exec(csp[1]));)
-              src[m[1]] = m[2].trim().split(/\s+/);
-            const def = src.default || [];
-            const {img = def, media = def} = src;
-            const some = str => img.includes(str) || media.includes(str);
-            const every = str => img.includes(str) && media.includes(str);
-            App.xhr = (some("'none'") || !every('*')) && (every('blob:') ? 'blob' : 'data');
-          } else {
-            App.xhr = false;
-          }
-          resolve(App.xhr);
-        },
-      });
-    });
   },
 
   start() {
@@ -676,6 +650,67 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
   zoomStep: 133,
 });
 
+const CspSniffer = {
+
+  busy: null,
+  csp: null,
+  selfUrl: location.origin + '/',
+
+  init() {
+    this.busy = new Promise(resolve => {
+      GM_xmlhttpRequest({
+        url: this.selfUrl,
+        method: 'HEAD',
+        onload: r => {
+          const csp = r.responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
+          if (csp) {
+            const src = {};
+            const rx = /[\s;](default|img|media)-src ([^;]+)/g;
+            for (let m; (m = rx.exec(csp[1]));)
+              src[m[1]] = m[2].trim().split(/\s+/);
+            if (!src.img) src.img = src.default || [];
+            if (!src.media) src.media = src.default || [];
+            for (const set of [src.img, src.media]) {
+              set.forEach((item, i) => {
+                if (item !== '*' && item.includes('*')) {
+                  set[i] = new RegExp(item
+                    .replace(/[.+?^$|()[\]{}]/g, '\\$&')
+                    .replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) =>
+                      `${a ? '\\.?' : ''}[^:/]*${c ? '\\.?' : ''}`)
+                    .replace(/[^/]$/, '$&/'),
+                  'y');
+                }
+              });
+            }
+            this.csp = src;
+          }
+          this.busy = null;
+          resolve();
+        },
+      });
+    });
+  },
+
+  check(url) {
+    const isVideo = Util.isVideoUrl(url);
+    let mode = ai.xhr;
+    if (!mode && this.csp) {
+      const src = this.csp[isVideo ? 'media' : 'img'];
+      if (!src.some(this._srcMatches, url))
+        mode = src.includes('blob:') && 'blob' || src.includes('data:') && 'data';
+    }
+    return [mode, isVideo];
+  },
+
+  /** @this string */
+  _srcMatches(src) {
+    return src instanceof RegExp ? src.test(this) :
+      src === '*' ||
+      src && this.startsWith(src) && (src.endsWith('/') || this[src.length] === '/') ||
+      src === "'self'" && this.startsWith(CspSniffer.selfUrl);
+  },
+};
+
 const Events = {
 
   hoverData: [],
@@ -1021,12 +1056,11 @@ const Popup = {
   async create(src, pageUrl) {
     Popup.destroy();
     ai.imageUrl = src;
-    if (!ai.xhr)
-      ai.xhr = await App.xhr;
-    if (ai.xhr && src)
-      src = await Remoting.getImage(src, pageUrl).catch(App.handleError);
     if (!src) return;
-    const isVideo = Util.isVideoUrl(src);
+    await CspSniffer.busy;
+    let [xhr, isVideo] = CspSniffer.check(src);
+    if (xhr)
+      [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError);
     const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
@@ -2068,14 +2102,14 @@ const Remoting = {
     return r;
   },
 
-  async getImage(url, pageUrl) {
+  async getImage(url, pageUrl, xhr = ai.xhr) {
     ai.bufBar = false;
     ai.bufStart = now();
     const response = await Remoting.gmXhr(url, {
       responseType: 'blob',
       headers: {
         Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
-        Referer: pageUrl || (typeof ai.xhr === 'function' ? ai.xhr() : url),
+        Referer: pageUrl || (typeof xhr === 'function' ? xhr() : url),
       },
       onprogress: Remoting.getImageProgress,
     });
@@ -2085,9 +2119,10 @@ const Remoting = {
     if (!b) throw 'Empty response';
     if (b.type !== type)
       b = b.slice(0, b.size, type);
-    return ai.xhr === 'blob'
-      ? URL.createObjectURL(b)
-      : Remoting.blobToDataUrl(b);
+    return [
+      xhr === 'blob' ? URL.createObjectURL(b) : await Remoting.blobToDataUrl(b),
+      type.startsWith('video'),
+    ];
   },
 
   getImageProgress(e) {
