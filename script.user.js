@@ -659,7 +659,7 @@ const CspSniffer = {
   init() {
     this.busy = new Promise(resolve => {
       GM_xmlhttpRequest({
-        url: this.selfUrl,
+        url: location.href,
         method: 'HEAD',
         onload: r => {
           const csp = r.responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
