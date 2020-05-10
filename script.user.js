@@ -69,8 +69,6 @@ const App = {
   imageTab: false,
   globalStyle: '',
   popupStyleBase: '',
-  /** @type boolean | 'data' | 'blob' */
-  xhr: null,
 
   activate(info, event) {
     const {match, node, rule, url} = info;
@@ -84,7 +82,7 @@ const App = {
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
-    if (cfg.xhr && App.xhr == null && isSecureContext)
+    if (cfg.xhr && CspSniffer.init && location.protocol === 'https:')
       CspSniffer.init();
     if (ai.force) {
       App.start();
@@ -652,46 +650,29 @@ Config.DEFAULTS = Object.assign(Object.create(null), {
 
 const CspSniffer = {
 
-  busy: null,
+  /** @type {?Object<string,string[]>} */
   csp: null,
+  /** @type {?Promise<void>} */
+  initPending: null,
   selfUrl: location.origin + '/',
 
+  // will be null when done
   init() {
-    this.busy = new Promise(resolve => {
+    this.initPending = new Promise(resolve => {
       GM_xmlhttpRequest({
         url: location.href,
         method: 'HEAD',
-        onload: r => {
-          const csp = r.responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
-          if (csp) {
-            const src = {};
-            const rx = /[\s;](default|img|media)-src ([^;]+)/g;
-            for (let m; (m = rx.exec(csp[1]));)
-              src[m[1]] = m[2].trim().split(/\s+/);
-            if (!src.img) src.img = src.default || [];
-            if (!src.media) src.media = src.default || [];
-            for (const set of [src.img, src.media]) {
-              set.forEach((item, i) => {
-                if (item !== '*' && item.includes('*')) {
-                  set[i] = new RegExp(item
-                    .replace(/[.+?^$|()[\]{}]/g, '\\$&')
-                    .replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) =>
-                      `${a ? '\\.?' : ''}[^:/]*${c ? '\\.?' : ''}`)
-                    .replace(/[^/]$/, '$&/'),
-                  'y');
-                }
-              });
-            }
-            this.csp = src;
-          }
-          this.busy = null;
+        onload: response => {
+          this.csp = this._parse(response);
+          this.init = this.initPending = null;
           resolve();
         },
       });
     });
   },
 
-  check(url) {
+  async check(url) {
+    await this.initPending;
     const isVideo = Util.isVideoUrl(url);
     let mode = ai.xhr;
     if (!mode && this.csp) {
@@ -700,6 +681,30 @@ const CspSniffer = {
         mode = src.includes('blob:') && 'blob' || src.includes('data:') && 'data';
     }
     return [mode, isVideo];
+  },
+
+  _parse({responseHeaders}) {
+    const csp = responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
+    if (!csp) return;
+    const src = {};
+    const rx = /[\s;](default|img|media)-src ([^;]+)/g;
+    for (let m; (m = rx.exec(csp[1]));)
+      src[m[1]] = m[2].trim().split(/\s+/);
+    if (!src.img) src.img = src.default || [];
+    if (!src.media) src.media = src.default || [];
+    for (const set of [src.img, src.media]) {
+      set.forEach((item, i) => {
+        if (item !== '*' && item.includes('*')) {
+          set[i] = new RegExp(item
+            .replace(/[.+?^$|()[\]{}]/g, '\\$&')
+            .replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) =>
+              `${a ? '\\.?' : ''}[^:/]*${c ? '\\.?' : ''}`)
+            .replace(/[^/]$/, '$&/'),
+          'y');
+        }
+      });
+    }
+    return src;
   },
 
   /** @this string */
@@ -1057,8 +1062,7 @@ const Popup = {
     Popup.destroy();
     ai.imageUrl = src;
     if (!src) return;
-    await CspSniffer.busy;
-    let [xhr, isVideo] = CspSniffer.check(src);
+    let [xhr, isVideo] = await CspSniffer.check(src);
     if (xhr)
       [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError);
     const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
