@@ -1894,7 +1894,7 @@ const Ruler = {
 
   runCHandler: {
     function: (text, doc) =>
-      ai.rule.c(doc.documentElement.outerHTML, doc, ai.node, ai.rule),
+      ai.rule.c(text || doc.documentElement.outerHTML, doc, ai.node, ai.rule),
     string: (text, doc) => {
       const el = $many(ai.rule.c, doc);
       return !el ? '' :
