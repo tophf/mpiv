@@ -2630,6 +2630,7 @@ function setup({rule} = {}) {
       title = [invalidDomain && 'Disabled due to invalid characters in "d"', error]
         .filter(Boolean).join('\n');
       el.classList.toggle('invalid-domain', invalidDomain);
+      el.classList.toggle('matching-domain', !!json.d && hostname.includes(json.d));
       if (!prev)
         el.insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
     } else if (prev) {
@@ -3087,6 +3088,10 @@ function createConfigHtml() {
   .invalid-domain {
     opacity: .5;
   }
+  .matching-domain {
+    border-color: #56b8ff;
+    background: #d7eaff;
+  }
   #x {
     position: absolute;
     top: 0;
@@ -3157,6 +3162,11 @@ function createConfigHtml() {
     }
     .range-edit {
       box-shadow: 0 .5em 1em .5em #000;
+    }
+    .matching-domain {
+      border-color: #0065af;
+      background: #032b58;
+      color: #ddd;
     }
     #cssApp {
       color: darkseagreen;
