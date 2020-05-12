@@ -2783,8 +2783,8 @@ function setup({rule} = {}) {
   function initRules(config) {
     const rules = UI.rules;
     rules.addEventListener('input', checkRule);
-    if (!isFF) rules.addEventListener('focusin', focusRule);
-    if (!isFF) rules.addEventListener('paste', focusRule);
+    rules.addEventListener('focusin', focusRule);
+    rules.addEventListener('paste', focusRule);
     blankRuleElement =
       setup.blankRuleElement =
         setup.blankRuleElement || rules.firstElementChild.cloneNode();
