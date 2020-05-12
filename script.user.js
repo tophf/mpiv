@@ -38,7 +38,6 @@ let ai = {rule: {}};
 /** @type Element */
 let elConfig;
 
-const undefined = void 0; // eslint-disable-line no-shadow-restricted-names, no-redeclare
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
