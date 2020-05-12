@@ -108,27 +108,30 @@ const App = {
     if (!p) return;
     const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
     const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
-    if (h) {
-      const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
-      if (scale && scale < cfg.scale) {
-        App.deactivate();
-        return 'abort';
-      }
-      App.stopTimers();
-      const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
-      if (wait > 0) {
-        ai.timer = setTimeout(App.checkProgress, wait);
-      } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
-        App.handleError({type: 'error'});
-      } else {
-        App.commit();
-      }
-      return;
-    }
+    if (h)
+      return App.canCommit(w, h);
     if (start) {
       clearInterval(ai.timerProgress);
       ai.timerProgress = setInterval(App.checkProgress, 150);
     }
+  },
+
+  canCommit(w, h) {
+    const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
+    if (scale && scale < cfg.scale) {
+      App.deactivate();
+      return false;
+    }
+    App.stopTimers();
+    const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
+    if (wait > 0) {
+      ai.timer = setTimeout(App.checkProgress, wait);
+    } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
+      App.handleError({type: 'error'});
+    } else {
+      App.commit();
+    }
+    return true;
   },
 
   async commit() {
@@ -1072,7 +1075,7 @@ const Popup = {
       p.addEventListener('transitionend', Popup.onZoom);
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
-    if (App.checkProgress({start: true}) === 'abort')
+    if (App.checkProgress({start: true}) === false)
       return;
     if (p.complete)
       Popup.onLoad.call(ai.popup);
@@ -1890,11 +1893,8 @@ const Ruler = {
   },
 
   runCHandler: {
-    function: (text, doc) => {
-      // not specifying as a parameter's default value to get the html only when needed
-      if (!text) text = doc.documentElement.outerHTML;
-      return ai.rule.c(text, doc, ai.node, ai.rule);
-    },
+    function: (text, doc) =>
+      ai.rule.c(doc.documentElement.outerHTML, doc, ai.node, ai.rule),
     string: (text, doc) => {
       const el = $many(ai.rule.c, doc);
       return !el ? '' :
