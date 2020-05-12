@@ -3174,6 +3174,28 @@ function createConfigHtml() {
     #installHint {
       color: greenyellow;
     }
+    ::-webkit-scrollbar {
+      width: 14px;
+      height: 14px;
+      background: #333;
+    }
+    ::-webkit-scrollbar-button:single-button {
+      background: radial-gradient(circle at center, #555 40%, #333 40%)
+    }
+    ::-webkit-scrollbar-track-piece {
+      background: #444;
+      border: 4px solid #333;
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      border: 3px solid #333;
+      border-radius: 8px;
+      background: #666;
+    }
+    ::-webkit-resizer {
+      background: #111 linear-gradient(-45deg, transparent 3px, #888 3px, #888 4px, transparent 4px, transparent 6px, #888 6px, #888 7px, transparent 7px) no-repeat;
+      border: 2px solid transparent;
+    }
   }
 </style>
 <main>
