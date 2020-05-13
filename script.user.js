@@ -105,7 +105,8 @@ const App = {
 
   checkProgress({start} = {}) {
     const p = ai.popup;
-    if (!p) return;
+    if (!p)
+      return;
     const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
     const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
     if (h)
@@ -151,11 +152,12 @@ const App = {
     Bar.updateDetails();
     ai.large = ai.nwidth > p.clientWidth + ai.extras.w ||
                ai.nheight > p.clientHeight + ai.extras.h;
-    if (ai.large)
+    if (ai.large) {
       Status.set('large');
-    // FF renders a blank bg+border first; I couldn't find a proper solution
-    if (p.complete && isFF && ai.large)
-      p.style.backgroundImage = `url('${p.src}')`;
+      // FF renders a blank bg+border first; I couldn't find a proper solution
+      if (isFF && p.complete)
+        p.style.backgroundImage = `url('${p.src}')`;
+    }
   },
 
   deactivate({wait} = {}) {
