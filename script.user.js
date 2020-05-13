@@ -129,6 +129,8 @@ const App = {
       ai.timer = setTimeout(App.checkProgress, wait);
     } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
       App.handleError({type: 'error'});
+    } else if (!ai.rect) {
+      console.warn('Buggy invocation'); // TODO: figure out the exact repro sequence
     } else {
       App.commit();
     }
@@ -162,8 +164,6 @@ const App = {
 
   deactivate({wait} = {}) {
     App.stopTimers();
-    if (ai.popup)
-      ai.popup.removeEventListener('load', Popup.onLoad);
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     if (ai.tooltip)
@@ -1088,9 +1088,10 @@ const Popup = {
   destroy() {
     const p = ai.popup;
     if (!p) return;
+    p.removeEventListener('load', Popup.onLoad);
     p.removeEventListener('error', App.handleError);
     if (typeof p.pause === 'function')
-      p.pause();
+      p.pause().catch(() => {});
     if (!ai.lazyUnload) {
       if (p.src.startsWith('blob:'))
         URL.revokeObjectURL(p.src);
