@@ -1091,7 +1091,7 @@ const Popup = {
     p.removeEventListener('load', Popup.onLoad);
     p.removeEventListener('error', App.handleError);
     if (typeof p.pause === 'function')
-      p.pause().catch(() => {});
+      p.pause();
     if (!ai.lazyUnload) {
       if (p.src.startsWith('blob:'))
         URL.revokeObjectURL(p.src);
