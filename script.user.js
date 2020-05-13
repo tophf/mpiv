@@ -117,8 +117,8 @@ const App = {
   },
 
   canCommit(w, h) {
-    const scale = !ai.force && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1));
-    if (scale && scale < cfg.scale) {
+    if (!ai.force && ai.rect &&
+        Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1)) < cfg.scale) {
       App.deactivate();
       return false;
     }
