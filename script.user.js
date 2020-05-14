@@ -676,13 +676,13 @@ const CspSniffer = {
   async check(url) {
     await this.initPending;
     const isVideo = Util.isVideoUrl(url);
-    let mode = ai.xhr;
-    if (typeof mode !== 'string' && this.csp) {
+    let mode;
+    if (this.csp) {
       const src = this.csp[isVideo ? 'media' : 'img'];
       if (!src.some(this._srcMatches, url))
-        mode = src.includes('blob:') && 'blob' || src.includes('data:') && 'data' || mode;
+        mode = [mode, 'blob', 'data'].find(m => src.includes(`${m}:`));
     }
-    return [mode, isVideo];
+    return [mode || ai.xhr, isVideo];
   },
 
   _parse({responseHeaders}) {
