@@ -660,7 +660,7 @@ const CspSniffer = {
 
   // will be null when done
   init() {
-    this.initPending = new Promise(resolve => {
+    this.initPending = this.initPending || new Promise(resolve => {
       GM_xmlhttpRequest({
         url: location.href,
         method: 'HEAD',
