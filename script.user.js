@@ -129,8 +129,6 @@ const App = {
       ai.timer = setTimeout(App.checkProgress, wait);
     } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
       App.handleError({type: 'error'});
-    } else if (!ai.rect) {
-      console.warn('Buggy invocation'); // TODO: figure out the exact repro sequence
     } else {
       App.commit();
     }
@@ -1065,10 +1063,16 @@ const Popup = {
   async create(src, pageUrl) {
     Popup.destroy();
     ai.imageUrl = src;
-    if (!src) return;
+    if (!src)
+      return;
+    const myAi = ai;
     let [xhr, isVideo] = await CspSniffer.check(src);
+    if (ai !== myAi)
+      return;
     if (xhr)
       [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError);
+    if (ai !== myAi)
+      return;
     const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
