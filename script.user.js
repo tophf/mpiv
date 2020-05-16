@@ -2872,6 +2872,7 @@ async function setupRuleInstaller(e) {
     requestAnimationFrame(() => {
       const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
       selector.scrollTo(0, optY - selector.offsetHeight / 2);
+      selector.focus();
     });
   } catch (e) {
     parent.textContent = 'Error loading rules: ' + (e.message || e);
