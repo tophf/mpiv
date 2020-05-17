@@ -374,6 +374,8 @@ const Bar = {
     const zoom = ai.nwidth && `${
       Math.round(ai.scale * 100)
     }%, ${
+      ai.rotate ? (ai.rotate > 180 ? ai.rotate - 360 : ai.rotate) + '°, ' : ''
+    } ${
       ai.nwidth
     } x ${
       ai.nheight
@@ -823,6 +825,13 @@ const Events = {
         Remoting.saveFile();
         break;
       }
+      case 'KeyL':
+      case 'KeyR':
+        if (!ai.popup) return;
+        ai.rotate = ((ai.rotate || 0) + 90 * (e.code === 'KeyL' ? -1 : 1) + 360) % 360;
+        Bar.updateDetails();
+        Popup.move();
+        break;
       case 'KeyT':
         ai.lazyUnload = true;
         GM_openInTab(Util.tabFixUrl() || ai.popup.src);
@@ -1063,8 +1072,11 @@ const Popup = {
     const {cx, cy, extras, view} = ai;
     const vw = view.w - extras.outw;
     const vh = view.h - extras.outh;
-    const w = ai.scale * ai.nwidth + extras.inw;
-    const h = ai.scale * ai.nheight + extras.inh;
+    const w0 = ai.scale * ai.nwidth + extras.inw;
+    const h0 = ai.scale * ai.nheight + extras.inh;
+    const isSwapped = ai.rotate % 180;
+    const w = isSwapped ? h0 : w0;
+    const h = isSwapped ? w0 : h0;
     if (!ai.zoomed && ai.gNum < 2 && !cfg.center) {
       const r = ai.rect;
       const rx = (r.left + r.right) / 2;
@@ -1083,12 +1095,13 @@ const Popup = {
       x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
     if (y == null)
       y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
-    x += extras.o;
-    y += extras.o;
+    const diff = isSwapped ? (w0 - h0) / 2 : 0;
+    x += extras.o - diff;
+    y += extras.o + diff;
     $css(ai.popup, {
-      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)`,
-      width: `${Math.round(w)}px`,
-      height: `${Math.round(h)}px`,
+      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px) rotate(${ai.rotate || 0}deg)`,
+      width: `${Math.round(w0)}px`,
+      height: `${Math.round(h0)}px`,
     });
   },
 
@@ -3370,7 +3383,7 @@ ${App.popupStyleBase = `
   left: 0;
   width: auto;
   height: auto;
-  transform-origin: top left;
+  transform-origin: center;
   max-width: none;
   max-height: none;
 `}

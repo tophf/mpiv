@@ -145,6 +145,7 @@ declare namespace mpiv {
     // is mouse still over PopupInfo.rect
     rectHovered: boolean
     req: { abort: VoidFunction }
+    rotate: number
     scale: number
     scales: number[]
     // scale fit-to-window factor
@@ -157,7 +158,6 @@ declare namespace mpiv {
     timerStatus: number
     tooltip: { node: Node, text: string }
     view: { w: number, h: number }
-    xwidth: number
     zoomed: boolean
     zooming: boolean
   };
