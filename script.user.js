@@ -788,30 +788,10 @@ const Events = {
         Status.set('+shift');
         if (ai.popup && 'controls' in ai.popup)
           ai.popup.controls = true;
-        break;
+        return;
       case '^Control':
         if (!ai.popup && (cfg.start !== 'auto' || ai.rule.manual))
           App.start();
-        break;
-    }
-  },
-
-  onKeyUp(e) {
-    switch (describeKey(e)) {
-      case 'Shift':
-        Status.set('-shift');
-        if ((ai.popup || {}).controls)
-          ai.popup.controls = false;
-        if (ai.controlled) {
-          ai.controlled = false;
-          return;
-        }
-        if (ai.popup && (ai.zoomed || ai.rectHovered !== false))
-          App.toggleZoom();
-        else
-          App.deactivate({wait: true});
-        return;
-      case 'Control':
         return;
       case 'ArrowRight':
       case 'KeyJ':
@@ -839,11 +819,27 @@ const Events = {
       case 'Escape':
         App.deactivate({wait: true});
         break;
+      case '!Alt':
+        return;
       default:
         App.deactivate({wait: true});
         return;
     }
     dropEvent(e);
+  },
+
+  onKeyUp(e) {
+    if (e.key === 'Shift') {
+      Status.set('-shift');
+      if ((ai.popup || {}).controls)
+        ai.popup.controls = false;
+      if (ai.controlled)
+        ai.controlled = false;
+      else if (ai.popup && (ai.zoomed || ai.rectHovered !== false))
+        App.toggleZoom();
+      else
+        App.deactivate({wait: true});
+    }
   },
 
   onContext(e) {
