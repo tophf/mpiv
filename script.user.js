@@ -783,7 +783,8 @@ const Events = {
   },
 
   onKeyDown(e) {
-    switch (describeKey(e)) {
+    const key = eventModifiers(e) + (e.key.length > 1 ? e.key : e.code);
+    switch (key) {
       case '+Shift':
         Status.set('+shift');
         if (ai.popup && 'controls' in ai.popup)
@@ -807,7 +808,7 @@ const Events = {
       case 'KeyL':
       case 'KeyR':
         if (!ai.popup) return;
-        ai.rotate = ((ai.rotate || 0) + 90 * (e.code === 'KeyL' ? -1 : 1) + 360) % 360;
+        ai.rotate = ((ai.rotate || 0) + 90 * (key === 'KeyL' ? -1 : 1) + 360) % 360;
         Bar.updateDetails();
         Popup.move();
         break;
@@ -2818,7 +2819,7 @@ function setupClickedRule(event) {
   const el = event.target.closest('blockquote, code, pre');
   const text = el && el.textContent.trim() || '';
   if (!event.button &&
-      !modKeyPressed(event) &&
+      !eventModifiers(event) &&
       text.startsWith('{') &&
       text.endsWith('}') &&
       /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
@@ -2909,7 +2910,7 @@ async function setupRuleInstaller(e) {
   }
 
   function maybeSetup(e) {
-    if (!modKeyPressed(e))
+    if (!eventModifiers(e))
       setup({rule: rules[e.currentTarget.selectedIndex]});
   }
 }
@@ -3458,11 +3459,12 @@ const dropEvent = e =>
 const ensureArray = v =>
   Array.isArray(v) ? v : [v];
 
-const describeKey = ({altKey: a, ctrlKey: c, shiftKey: s, key, code}) =>
-  `${a ? '!' : ''}${c ? '^' : ''}${s ? '+' : ''}${key && key.length > 1 ? key : code}`;
-
-const modKeyPressed = e =>
-  e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
+/** @param {KeyboardEvent} e */
+const eventModifiers = e =>
+  (e.altKey ? '!' : '') +
+  (e.ctrlKey ? '^' : '') +
+  (e.metaKey ? '#' : '') +
+  (e.shiftKey ? '+' : '');
 
 const now = performance.now.bind(performance);
 
