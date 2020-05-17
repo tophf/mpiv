@@ -781,7 +781,7 @@ const Events = {
   },
 
   onKeyDown(e) {
-    switch (e.key) {
+    switch (describeKey(e)) {
       case 'Shift':
         Status.set('+shift');
         if (ai.popup && 'controls' in ai.popup)
@@ -795,7 +795,7 @@ const Events = {
   },
 
   onKeyUp(e) {
-    switch (e.key.length > 1 ? e.key : e.code) {
+    switch (describeKey(e)) {
       case 'Shift':
         Status.set('-shift');
         if ((ai.popup || {}).controls)
@@ -808,24 +808,18 @@ const Events = {
           App.toggleZoom();
         else
           App.deactivate({wait: true});
-        break;
+        return;
       case 'Control':
-        break;
-      case 'Escape':
-        App.deactivate({wait: true});
-        break;
+        return;
       case 'ArrowRight':
       case 'KeyJ':
-        dropEvent(e);
         Gallery.next(1);
         break;
       case 'ArrowLeft':
       case 'KeyK':
-        dropEvent(e);
         Gallery.next(-1);
         break;
       case 'KeyD': {
-        dropEvent(e);
         Remoting.saveFile();
         break;
       }
@@ -834,9 +828,11 @@ const Events = {
         GM_openInTab(Util.tabFixUrl() || ai.popup.src);
         App.deactivate();
         break;
+      case 'Escape':
       default:
         App.deactivate({wait: true});
     }
+    dropEvent(e);
   },
 
   onContext(e) {
@@ -3456,6 +3452,9 @@ const dropEvent = e =>
 
 const ensureArray = v =>
   Array.isArray(v) ? v : [v];
+
+const describeKey = ({altKey: a, ctrlKey: c, shiftKey: s, key, code}) =>
+  `${a ? '!' : ''}${c ? '^' : ''}${s ? '+' : ''}${key && key.length > 1 ? key : code}`;
 
 const modKeyPressed = e =>
   e.altKey || e.shiftKey || e.ctrlKey || e.metaKey;
