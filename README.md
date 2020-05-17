@@ -9,19 +9,20 @@ A fork of [MPIV](https://greasyfork.org/en/scripts/404-mouseover-popup-image-vie
 
 Action | Trigger
 ---|---
-**activate** | move mouse cursor over thumbnail
-**deactivate** | move cursor off thumbnail, or click, or zoom out fully
-**prevent/freeze** | hold down <code>Shift</code> while entering/leaving thumbnail
-**force-activate<br>(for small pics)** | hold <code>Ctrl</code> while entering image element
+**Activate** | move mouse cursor over thumbnail
+**Deactivate** | move cursor off thumbnail, or click, or zoom out fully
+**Prevent/freeze** | hold down <code>Shift</code> while entering/leaving thumbnail
+**Force-activate<br>(for small pics)** | hold <code>Ctrl</code> while entering image element
 &nbsp; |
-**start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
-**zoom** | mouse wheel
-**flip through album** | mouse wheel, <code>j</code> / <code>k</code> or <code>left</code> / <code>right</code> keys
+**Start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
+**Zoom** | mouse wheel
+**Flip through album** | mouse wheel, <code>j</code> / <code>k</code> or <code>left</code> / <code>right</code> keys
+**Rotate** | <code>L</code> and <code>R</code> keys
 &nbsp; |
-**open in tab** | press <code>t</code> while popup is visible
-**download** | press <code>d</code> while popup is visible
+**Open in tab** | press <code>t</code> while popup is visible
+**Download** | press <code>d</code> while popup is visible
 &nbsp; |
-**change settings** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
+**Configure** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
 
 ![config UI screenshot](https://i.imgur.com/ZAEj8N8.png)
 
