@@ -784,12 +784,12 @@ const Events = {
 
   onKeyDown(e) {
     switch (describeKey(e)) {
-      case 'Shift':
+      case '+Shift':
         Status.set('+shift');
         if (ai.popup && 'controls' in ai.popup)
           ai.popup.controls = true;
         break;
-      case 'Control':
+      case '^Control':
         if (!ai.popup && (cfg.start !== 'auto' || ai.rule.manual))
           App.start();
         break;
