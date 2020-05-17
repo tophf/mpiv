@@ -821,10 +821,9 @@ const Events = {
       case 'KeyK':
         Gallery.next(-1);
         break;
-      case 'KeyD': {
+      case 'KeyD':
         Remoting.saveFile();
         break;
-      }
       case 'KeyL':
       case 'KeyR':
         if (!ai.popup) return;
@@ -838,8 +837,11 @@ const Events = {
         App.deactivate();
         break;
       case 'Escape':
+        App.deactivate({wait: true});
+        break;
       default:
         App.deactivate({wait: true});
+        return;
     }
     dropEvent(e);
   },
