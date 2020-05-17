@@ -949,24 +949,13 @@ const Gallery = {
       ai.urls = null;
       ai.url = item.url;
     }
-    Popup.destroy();
+    ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir || 1)].url)[0];
     App.startSingle();
     Bar.updateName();
-    Gallery.preload(dir);
   },
 
   nextIndex(dir) {
     return (ai.gIndex + dir + ai.gNum) % ai.gNum;
-  },
-
-  preload(dir) {
-    if (!ai.popup || !dir) return;
-    ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir)].url)[0];
-    ai.popup.addEventListener('load', Gallery.preloadOnLoad, {once: true});
-  },
-
-  preloadOnLoad() {
-    $create('img', {src: ai.preloadUrl});
   },
 
   defaultParser(text, doc, docUrl, m, rule) {
@@ -1104,9 +1093,14 @@ const Popup = {
   },
 
   onLoad() {
-    this.setAttribute('loaded', '');
-    if (ai.popup === this)
+    if (this === ai.popup) {
+      this.setAttribute('loaded', '');
       ai.popupLoaded = true;
+      if (ai.preloadUrl) {
+        $create('img', {src: ai.preloadUrl});
+        ai.preloadUrl = null;
+      }
+    }
   },
 
   onZoom() {
