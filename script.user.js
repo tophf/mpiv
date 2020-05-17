@@ -137,13 +137,9 @@ const App = {
 
   async commit() {
     App.updateStyles();
-    Calc.naturalSize();
-    const p = ai.popup;
-    p.className = `${PREFIX}show`;
-    p.removeAttribute('style');
-    Calc.updateExtras();
-    Calc.updateScales();
+    Calc.measurePopup();
     Status.set(false);
+    const p = ai.popup;
     const willZoom = cfg.zoom === 'auto' || App.imageTab && cfg.imgtab;
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
     if (willMove)
@@ -419,7 +415,7 @@ const Calc = {
     return arr;
   },
 
-  naturalSize() {
+  measurePopup() {
     let {popup: p, nwidth: nw, nheight: nh} = ai;
     // overriding custom CSS to detect an unrestricted SVG that scales to the entire page
     p.setAttribute('style', 'display:inline !important;' + App.popupStyleBase);
@@ -429,6 +425,44 @@ const Calc = {
       nw = ai.nwidth = w;
       p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
     }
+    p.className = `${PREFIX}show`;
+    p.removeAttribute('style');
+    const s = getComputedStyle(p);
+    const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
+    const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
+    const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
+    const outw = o2 + sumProps(s.marginLeft, s.marginRight);
+    const outh = o2 + sumProps(s.marginTop, s.marginBottom);
+    ai.extras = {
+      inw, inh,
+      outw, outh,
+      o: o2 / 2,
+      w: inw + outw,
+      h: inh + outh,
+    };
+    const fit = Math.min(
+      (ai.view.w - ai.extras.w) / ai.nwidth,
+      (ai.view.h - ai.extras.h) / ai.nheight) || 1;
+    const isCustom = !cfg.fit && cfg.scales.length;
+    let cutoff = Math.min(1, fit);
+    let scaleZoom = cfg.fit === 'all' && fit || cfg.fit === 'no' && 1 || cutoff;
+    if (isCustom) {
+      const dst = [];
+      for (const scale of cfg.scales) {
+        const val = parseFloat(scale) || fit;
+        dst.push(val);
+        if (isCustom && typeof scale === 'string') {
+          if (scale.includes('!')) cutoff = val;
+          if (scale.includes('*')) scaleZoom = val;
+        }
+      }
+      ai.scales = dst.sort(compareNumbers).filter(Calc.scaleBiggerThan, cutoff);
+    } else {
+      ai.scales = Calc.generateScales(fit);
+    }
+    ai.scale = cfg.zoom === 'auto' ? scaleZoom : Math.min(1, fit);
+    ai.scaleFit = fit;
+    ai.scaleZoom = scaleZoom;
   },
 
   rect() {
@@ -449,40 +483,6 @@ const Calc = {
       }
     }
     return maxBounds;
-  },
-
-  placement() {
-    if (!ai.popup) return;
-    let x, y;
-    const {cx, cy, extras, view} = ai;
-    const vw = view.w - extras.outw;
-    const vh = view.h - extras.outh;
-    const w = ai.scale * ai.nwidth + extras.inw;
-    const h = ai.scale * ai.nheight + extras.inh;
-    if (!ai.zoomed && ai.gNum < 2 && !cfg.center) {
-      const r = ai.rect;
-      const rx = (r.left + r.right) / 2;
-      const ry = (r.top + r.bottom) / 2;
-      if (vw - r.right - 40 > w || w < r.left - 40) {
-        if (h < vh - 60)
-          y = clamp(ry - h / 2, 30, vh - h - 30);
-        x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
-      } else if (vh - r.bottom - 40 > h || h < r.top - 40) {
-        if (w < vw - 60)
-          x = clamp(rx - w / 2, 30, vw - w - 30);
-        y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
-      }
-    }
-    if (x == null)
-      x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
-    if (y == null)
-      y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
-    return {
-      x: Math.round(x + extras.o),
-      y: Math.round(y + extras.o),
-      w: Math.round(w),
-      h: Math.round(h),
-    };
   },
 
   scaleBiggerThan(scale, i, arr) {
@@ -507,48 +507,6 @@ const Calc = {
   scaleForFirstZoom(keepScale) {
     const z = ai.scaleZoom;
     return keepScale || z !== ai.scale ? z : ai.scales.find(x => x > z);
-  },
-
-  updateExtras() {
-    const s = getComputedStyle(ai.popup);
-    const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
-    const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
-    const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
-    const outw = o2 + sumProps(s.marginLeft, s.marginRight);
-    const outh = o2 + sumProps(s.marginTop, s.marginBottom);
-    ai.extras = {
-      inw, inh,
-      outw, outh,
-      o: o2 / 2,
-      w: inw + outw,
-      h: inh + outh,
-    };
-  },
-
-  updateScales() {
-    const fit = Math.min(
-      (ai.view.w - ai.extras.w) / ai.nwidth,
-      (ai.view.h - ai.extras.h) / ai.nheight) || 1;
-    const isCustom = !cfg.fit && cfg.scales.length;
-    let cutoff = Math.min(1, fit);
-    let scaleZoom = cfg.fit === 'all' && fit || cfg.fit === 'no' && 1 || cutoff;
-    if (isCustom) {
-      const dst = [];
-      for (const scale of cfg.scales) {
-        const val = parseFloat(scale) || fit;
-        dst.push(val);
-        if (isCustom && typeof scale === 'string') {
-          if (scale.includes('!')) cutoff = val;
-          if (scale.includes('*')) scaleZoom = val;
-        }
-      }
-      ai.scales = dst.sort(compareNumbers).filter(Calc.scaleBiggerThan, cutoff);
-    } else {
-      ai.scales = Calc.generateScales(fit);
-    }
-    ai.scale = cfg.zoom === 'auto' ? scaleZoom : Math.min(1, fit);
-    ai.scaleFit = fit;
-    ai.scaleZoom = scaleZoom;
   },
 
   updateViewSize() {
@@ -1105,11 +1063,36 @@ const Popup = {
   },
 
   move() {
-    const p = Calc.placement();
+    let x, y;
+    const {cx, cy, extras, view} = ai;
+    const vw = view.w - extras.outw;
+    const vh = view.h - extras.outh;
+    const w = ai.scale * ai.nwidth + extras.inw;
+    const h = ai.scale * ai.nheight + extras.inh;
+    if (!ai.zoomed && ai.gNum < 2 && !cfg.center) {
+      const r = ai.rect;
+      const rx = (r.left + r.right) / 2;
+      const ry = (r.top + r.bottom) / 2;
+      if (vw - r.right - 40 > w || w < r.left - 40) {
+        if (h < vh - 60)
+          y = clamp(ry - h / 2, 30, vh - h - 30);
+        x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
+      } else if (vh - r.bottom - 40 > h || h < r.top - 40) {
+        if (w < vw - 60)
+          x = clamp(rx - w / 2, 30, vw - w - 30);
+        y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
+      }
+    }
+    if (x == null)
+      x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
+    if (y == null)
+      y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
+    x += extras.o;
+    y += extras.o;
     $css(ai.popup, {
-      transform: `translate(${p.x}px, ${p.y}px)`,
-      width: `${p.w}px`,
-      height: `${p.h}px`,
+      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px)`,
+      width: `${Math.round(w)}px`,
+      height: `${Math.round(h)}px`,
     });
   },
 
