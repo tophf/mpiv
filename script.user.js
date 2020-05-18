@@ -371,11 +371,14 @@ const Bar = {
 
   updateDetails() {
     if (!ai.bar) return;
+    const r = ai.rotate;
     const zoom = ai.nwidth && `${
       Math.round(ai.scale * 100)
-    }%, ${
-      ai.rotate ? (ai.rotate > 180 ? ai.rotate - 360 : ai.rotate) + '°, ' : ''
-    } ${
+    }%${
+      ai.flipped ? ', ⇆' : ''
+    }${
+      r ? ', ' + (r > 180 ? r - 360 : r) + '°' : ''
+    }, ${
       ai.nwidth
     } x ${
       ai.nheight
@@ -805,10 +808,15 @@ const Events = {
       case 'KeyD':
         Remoting.saveFile();
         break;
+      case 'KeyF':
       case 'KeyL':
       case 'KeyR':
-        if (!ai.popup) return;
-        ai.rotate = ((ai.rotate || 0) + 90 * (key === 'KeyL' ? -1 : 1) + 360) % 360;
+        if (!ai.popup)
+          return;
+        if (key === 'KeyF')
+          ai.flipped = !ai.flipped;
+        else
+          ai.rotate = ((ai.rotate || 0) + 90 * (key === 'KeyL' ? -1 : 1) + 360) % 360;
         Bar.updateDetails();
         Popup.move();
         break;
@@ -1087,7 +1095,9 @@ const Popup = {
     x += extras.o - diff;
     y += extras.o + diff;
     $css(ai.popup, {
-      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px) rotate(${ai.rotate || 0}deg)`,
+      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px) ` +
+                 `rotate(${ai.rotate || 0}deg) ` +
+                 `scaleX(${ai.flipped ? -1 : 1})`,
       width: `${Math.round(w0)}px`,
       height: `${Math.round(h0)}px`,
     });

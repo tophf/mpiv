@@ -16,8 +16,9 @@ Action | Trigger
 &nbsp; |
 **Start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
 **Zoom** | mouse wheel
-**Flip through album** | mouse wheel, <code>j</code> / <code>k</code> or <code>left</code> / <code>right</code> keys
 **Rotate** | <code>L</code> and <code>R</code> keys
+**Flip horizontally** | <code>F</code> key; to flip vertically press <code>F</code> and rotate twice
+**Previous/next in album** | mouse wheel, <code>j</code> / <code>k</code> or <code>left</code> / <code>right</code> keys
 &nbsp; |
 **Open in tab** | press <code>t</code> while popup is visible
 **Download** | press <code>d</code> while popup is visible

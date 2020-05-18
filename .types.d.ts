@@ -124,6 +124,7 @@ declare namespace mpiv {
       // outline offset + thickness
       o: number,
     }
+    flipped: boolean
     force: boolean
     gIndex: number
     gItems: GalleryItemsArray
