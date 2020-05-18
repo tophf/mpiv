@@ -138,7 +138,6 @@ const App = {
   async commit() {
     App.updateStyles();
     Calc.measurePopup();
-    Status.set(false);
     const p = ai.popup;
     const willZoom = cfg.zoom === 'auto' || App.imageTab && cfg.imgtab;
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
@@ -146,10 +145,11 @@ const App = {
       Popup.move();
     Bar.updateName();
     Bar.updateDetails();
+    Status.set(!ai.popupLoaded && 'loading');
     ai.large = ai.nwidth > p.clientWidth + ai.extras.w ||
                ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large) {
-      Status.set('large');
+      Status.set('+large');
       // FF renders a blank bg+border first; I couldn't find a proper solution
       if (isFF && p.complete)
         p.style.backgroundImage = `url('${p.src}')`;
@@ -1110,6 +1110,7 @@ const Popup = {
     if (this === ai.popup) {
       this.setAttribute('loaded', '');
       ai.popupLoaded = true;
+      Status.set('-loading');
       if (ai.preloadUrl) {
         $create('img', {src: ai.preloadUrl});
         ai.preloadUrl = null;
@@ -3417,36 +3418,37 @@ ${App.popupStyleBase = `
   }
 }
 ` + (cfg.globalStatus ? String.raw`
-.\mpiv-loading:not(.\mpiv-preloading) * {
+:root.\mpiv-loading:not(.\mpiv-preloading) *:hover {
   cursor: progress !important;
 }
-.\mpiv-edge #\mpiv-popup {
+:root.\mpiv-edge #\mpiv-popup {
   cursor: default;
 }
-.\mpiv-error * {
+:root.\mpiv-error *:hover {
   cursor: not-allowed !important;
 }
-.\mpiv-ready *, .\mpiv-large * {
+:root.\mpiv-ready *:hover,
+:root.\mpiv-large *:hover {
   cursor: zoom-in !important;
 }
-.\mpiv-shift * {
+:root.\mpiv-shift *:hover {
   cursor: default !important;
 }
 ` : String.raw`
-#\mpiv-popup[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]) {
+[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]):hover {
   cursor: progress;
 }
-#\mpiv-popup[\mpiv-status~="edge"] {
+[\mpiv-status~="edge"]:hover {
   cursor: default;
 }
-#\mpiv-popup[\mpiv-status~="error"] {
+[\mpiv-status~="error"]:hover {
   cursor: not-allowed;
 }
-#\mpiv-popup[\mpiv-status~="ready"],
-#\mpiv-popup[\mpiv-status~="large"] {
+[\mpiv-status~="ready"]:hover,
+[\mpiv-status~="large"]:hover {
   cursor: zoom-in;
 }
-#\mpiv-popup[\mpiv-status~="shift"] {
+[\mpiv-status~="shift"]:hover {
   cursor: default;
 }
 `)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
