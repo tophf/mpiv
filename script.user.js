@@ -885,7 +885,7 @@ const Events = {
     onOff.call(doc, 'mouseout', Events.onMouseOut, passive);
     onOff.call(doc, 'mousedown', Events.onMouseDown, passive);
     onOff.call(doc, 'contextmenu', Events.onContext);
-    onOff.call(doc, 'keydown', Events.onKeyDown);
+    onOff.call(doc, 'keydown', Events.onKeyDown, true); // override normal page listeners
     onOff.call(doc, 'keyup', Events.onKeyUp);
     onOff.call(doc, WHEEL_EVENT, Events.onMouseScroll, enable ? {passive: false} : undefined);
   },
