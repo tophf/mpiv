@@ -662,12 +662,13 @@ const CspSniffer = {
     for (const set of [src.img, src.media]) {
       set.forEach((item, i) => {
         if (item !== '*' && item.includes('*')) {
-          set[i] = new RegExp(item
+          set[i] = new RegExp(
+            (/^\w+:/.test(item) ? '^' : '^\\w+://') +
+            item
             .replace(/[.+?^$|()[\]{}]/g, '\\$&')
             .replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) =>
               `${a ? '\\.?' : ''}[^:/]*${c ? '\\.?' : ''}`)
-            .replace(/[^/]$/, '$&/'),
-          'y');
+            .replace(/[^/]$/, '$&/'));
         }
       });
     }
