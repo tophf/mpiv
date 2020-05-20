@@ -58,7 +58,9 @@ const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 const SETTLE_TIME = 50;
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
+const RX_MEDIA_URL = /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|web[mp])($|\?)/i;
 const ZOOM_MAX = 16;
+const SYM_U = Symbol('u');
 
 //#endregion
 
@@ -1843,7 +1845,7 @@ const Ruler = {
         follow: true,
       },
       {
-        r: /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|web[mp])($|\?)/i,
+        r: RX_MEDIA_URL,
       },
     ];
 
@@ -1933,6 +1935,7 @@ const Ruler = {
     return url;
   },
 
+  /** @returns {?Array} if falsy then the rule should be skipped */
   runS(node, rule, m) {
     let urls = [];
     for (const s of ensureArray(rule.s))
@@ -1942,13 +1945,12 @@ const Ruler = {
             s);
     if (rule.q && urls.length > 1) {
       console.warn('Rule discarded: "s" array is not allowed with "q"\n%o', rule);
-      return {skipRule: true};
+      return;
     }
     if (Array.isArray(urls[0]))
       urls = urls[0];
-    // `false` returned by "s" property means "skip this rule"
-    // any other falsy value (like say "") means "stop all rules"
-    return urls[0] === false ? {skipRule: true} : urls.map(Util.decodeUrl);
+    // `false` returned by "s" property means "skip this rule", "" means "stop all rules"
+    return urls[0] !== false && urls.map(Util.decodeUrl);
   },
 
   substituteSingle(s, m) {
@@ -1995,70 +1997,62 @@ const RuleMatcher = {
     const tn = node.tagName;
     const isPic = tn === 'IMG' || tn === 'VIDEO';
     const isPicOrLink = isPic || tn === 'A';
-    let m, html, urls;
+    let m, html;
     for (const rule of Ruler.rules) {
-      const {e} = rule;
-      if (e && !node.matches(e) || skipRules && skipRules.includes(rule))
+      const u = rule[SYM_U] || rule.u && (rule[SYM_U] = UrlMatcher(rule.u));
+      if (u && (!url || !u.fn.call(u.data, url)) ||
+          rule.e && !node.matches(rule.e) ||
+          skipRules && skipRules.includes(rule))
         continue;
-      const {r, u} = rule;
-      if (r && !noHtml && rule.html && (isPicOrLink || e))
-        m = r.exec(html || (html = node.outerHTML));
-      else if (r || u)
-        m = url && RuleMatcher.makeUrlMatch(url, node, rule, r, u);
+      if (rule.r)
+        m = !noHtml && rule.html && (isPicOrLink || rule.e)
+          ? rule.r.exec(html || (html = node.outerHTML))
+          : url && rule.r.exec(url);
+      else if (url)
+        m = Object.assign([url], {index: 0, input: url});
       else
-        m = url ? RuleMatcher.makeDummyMatch(url) : [];
+        m = [];
       if (!m)
         continue;
-      const {s} = rule;
-      let hasS = s !== undefined;
+      if (rule.s === '')
+        return {};
+      let hasS = rule.s != null;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
       if (isPic && !hasS && !skipRules)
         continue;
-      if (s === '')
-        return {};
-      hasS &= s !== 'gallery';
-      urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
-      if (!urls.skipRule) {
-        const url = urls[0];
-        return !url ? {} :
-          hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule) &&
-            RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]}) ||
-            RuleMatcher.makeInfo(urls, node, rule, m);
-      }
+      hasS &= rule.s !== 'gallery';
+      const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
+      if (urls)
+        return RuleMatcher.makeInfo(hasS, rule, m, node, skipRules, urls);
     }
   },
 
-  makeUrlMatch(url, node, rule, r, u) {
-    let m;
-    if (u) {
-      u = rule._u || (rule._u = UrlMatcher(u));
-      m = u.fn.call(u.this, url) && (r || RuleMatcher.makeDummyMatch(url));
+  /** @returns ?mpiv.RuleMatchInfo */
+  makeInfo(hasS, rule, match, node, skipRules, urls) {
+    let info;
+    let url = `${urls[0]}`;
+    const follow = url && hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule);
+    if (!url)
+      info = {};
+    if (follow)
+      info = RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]});
+    if (!info && (!follow || RX_MEDIA_URL.test(url))) {
+      const xhr = cfg.xhr && rule.xhr;
+      if (url.startsWith('//'))
+        url = location.protocol + url;
+      info = {
+        match,
+        node,
+        rule,
+        url,
+        urls: urls.length > 1 ? urls.slice(1) : null,
+        gallery: rule.g && Gallery.makeParser(rule.g),
+        post: typeof rule.post === 'function' ? rule.post(match) : rule.post,
+        xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol),
+      };
     }
-    return (m || !u) && r ? r.exec(url) : m;
-  },
-
-  makeDummyMatch(url) {
-    const m = [url];
-    m.index = 0;
-    m.input = url;
-    return m;
-  },
-
-  /** @returns mpiv.RuleMatchInfo */
-  makeInfo(urls, node, rule, m) {
-    const url = (`${urls[0]}`.startsWith('//') ? location.protocol : '') + urls[0];
-    const xhr = cfg.xhr && rule.xhr;
-    return {
-      node,
-      rule,
-      url,
-      urls: urls.length > 1 ? urls.slice(1) : null,
-      match: m,
-      gallery: rule.g && Gallery.makeParser(rule.g),
-      post: typeof rule.post === 'function' ? rule.post(m) : rule.post,
-      xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol),
-    };
+    return info;
   },
 
   isFollowableUrl(url, rule) {
@@ -2317,17 +2311,17 @@ const UrlMatcher = (() => {
       } else {
         fn = has;
       }
-      results.push({fn, this: needle});
+      results.push({fn, data: needle});
     }
     return results.length > 1 ?
-      {fn: checkArray, this: results} :
+      {fn: checkArray, data: results} :
       results[0];
   };
   function checkArray(s) {
     return this.some(checkArrayItem, s);
   }
   function checkArrayItem(item) {
-    return item.fn.call(item.this, this);
+    return item.fn.call(item.data, this);
   }
   function ends(s) {
     return s.endsWith(this) || (
