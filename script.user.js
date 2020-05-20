@@ -15,6 +15,7 @@
 // @grant       GM_download
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
+// @grant       GM_setClipboard
 //
 // @version     1.1.15
 // @author      tophf
@@ -66,8 +67,8 @@ const SYM_U = Symbol('u');
 
 const App = {
 
-  enabled: true,
-  imageTab: false,
+  isEnabled: true,
+  isImageTab: false,
   globalStyle: '',
   popupStyleBase: '',
 
@@ -103,6 +104,12 @@ const App = {
     } else {
       ai.timer = setTimeout(App.start, cfg.delay);
     }
+  },
+
+  checkImageTab() {
+    const el = doc.body.firstElementChild;
+    App.isImageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
+    App.isEnabled = cfg.imgtab || !App.isImageTab;
   },
 
   checkProgress({start} = {}) {
@@ -141,7 +148,7 @@ const App = {
     App.updateStyles();
     Calc.measurePopup();
     const p = ai.popup;
-    const willZoom = cfg.zoom === 'auto' || App.imageTab && cfg.imgtab;
+    const willZoom = cfg.zoom === 'auto' || App.isImageTab && cfg.imgtab;
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
     if (willMove)
       Popup.move();
@@ -169,14 +176,14 @@ const App = {
     Events.toggle(false);
     Popup.destroy();
     if (wait) {
-      App.enabled = false;
+      App.isEnabled = false;
       setTimeout(App.enable, 200);
     }
     ai = {rule: {}};
   },
 
   enable() {
-    App.enabled = true;
+    App.isEnabled = true;
   },
 
   handleError(e, rule = ai.rule) {
@@ -540,7 +547,7 @@ class Config {
       c = tryCatch(JSON.parse, c);
     if (typeof c !== 'object' || !c)
       c = {};
-    const {DEFAULTS} = Config;
+    const {/** @type mpiv.Config */ DEFAULTS} = Config;
     c.fit = ['all', 'large', 'no', ''].includes(c.fit) ? c.fit :
       !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? 'large' :
         '';
@@ -572,8 +579,7 @@ class Config {
   }
 }
 
-/** @type mpiv.Config */
-Config.DEFAULTS = Object.assign(Object.create(null), {
+Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   center: false,
   css: '',
   delay: 500,
@@ -690,7 +696,7 @@ const Events = {
   hoverTimer: 0,
 
   onMouseOver(e) {
-    if (!App.enabled || e.shiftKey || ai.zoomed)
+    if (!App.isEnabled || e.shiftKey || ai.zoomed)
       return;
     let node = e.target;
     if (node === ai.popup ||
@@ -769,7 +775,7 @@ const Events = {
       // we ignore RMB and Shift
     } else {
       App.deactivate({wait: true});
-      document.addEventListener('mouseup', App.enable, {once: true});
+      doc.addEventListener('mouseup', App.enable, {once: true});
     }
   },
 
@@ -1288,7 +1294,7 @@ const Ruler = {
           const a2 = $('a[jsaction*="mousedown"]', a.closest('[data-tbnid]')) || a;
           new MutationObserver((_, mo) => {
             mo.disconnect();
-            App.enabled = true;
+            App.isEnabled = true;
             a.alt = a2.innerText;
             const {left, top} = a.getBoundingClientRect();
             Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
@@ -2528,18 +2534,18 @@ const Util = {
       <body class=fit>
         <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
       </body>
-    `).replace(/#/g, '%23');
+    `).replace(/\x20?([:>])\x20/g, '$1').replace(/#/g, '%23');
   },
 };
 
 function setup({rule} = {}) {
-  if (window !== top) return;
   if (typeof doc.body.attachShadow !== 'function') {
     alert('Cannot show MPIV config dialog: the browser is probably too old.\n' +
           'You can edit the script\'s storage directly in your userscript manager.');
     return;
   }
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
+  let uiCfg;
   let root = (elConfig || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
@@ -2553,147 +2559,16 @@ function setup({rule} = {}) {
   if (rule)
     installRule(rule);
 
-  function closeSetup(event) {
-    const isApply = this.id === 'apply';
-    if (event && (this.id === 'ok' || isApply)) {
-      cfg = collectConfig({save: true, clone: isApply});
-      Ruler.init();
-      if (isApply) {
-        renderCustomScales(cfg);
-        return;
-      }
-    }
-    $remove(elConfig);
-    elConfig = null;
-  }
-
-  function collectConfig({save, clone} = {}) {
-    let data = {};
-    for (const el of $$('input[id], select[id]', root))
-      data[el.id] = el.type === 'checkbox' ? el.checked :
-        (el.type === 'number' || el.type === 'range') ? el.valueAsNumber :
-          el.value || '';
-    Object.assign(data, {
-      css: UI.css.value.trim(),
-      delay: UI.delay.valueAsNumber * 1000,
-      hosts: collectRules(),
-      scale: clamp(UI.scale.valueAsNumber / 100, 0, 1) + 1,
-      scales: UI.scales.value
-        .trim()
-        .split(/[,;]*\s+/)
-        .map(x => x.replace(',', '.'))
-        .filter(x => !isNaN(parseFloat(x))),
-    });
-    if (clone)
-      data = JSON.parse(JSON.stringify(data));
-    return new Config({data, save});
-  }
-
-  function collectRules() {
-    return [...UI.rules.children]
-      .map(el => [el.value.trim(), el[RULE]])
-      .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
-      .map(([s, json]) => json || s)
-      .filter(Boolean);
-  }
-
-  function exportSettings(e) {
-    dropEvent(e);
-    const txt = $create('textarea', {
-      style: 'opacity:0; position:absolute',
-      value: JSON.stringify(collectConfig(), null, '  '),
-    });
-    root.appendChild(txt);
-    txt.select();
-    txt.focus();
-    document.execCommand('copy');
-    e.target.focus();
-    txt.remove();
-    UI.exportNotification.hidden = false;
-    setTimeout(() => (UI.exportNotification.hidden = true), 1000);
-  }
-
-  function importSettings(e) {
-    dropEvent(e);
-    const s = prompt('Paste settings:');
-    if (s)
-      init(new Config({data: s}));
-  }
-
-  function checkRule({target: el}) {
-    let json, error, title;
-    const prev = el.previousElementSibling;
-    if (el.value) {
-      json = Ruler.parse(el.value);
-      error = json instanceof Error && (json.message || String(json));
-      const invalidDomain = !error && json && typeof json.d === 'string' &&
-        !/^[-.a-z0-9]*$/i.test(json.d);
-      title = [invalidDomain && 'Disabled due to invalid characters in "d"', error]
-        .filter(Boolean).join('\n');
-      el.classList.toggle('invalid-domain', invalidDomain);
-      el.classList.toggle('matching-domain', !!json.d && hostname.includes(json.d));
-      if (!prev)
-        el.insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
-    } else if (prev) {
-      prev.focus();
-      el.remove();
-    }
-    el[RULE] = !error && json;
-    el.title = title;
-    el.setCustomValidity(error || '');
-  }
-
-  function focusRule({type, target: el, relatedTarget: from}) {
-    if (el === this)
-      return;
-    if (type === 'paste') {
-      setTimeout(() => focusRule.call(this, {target: el}));
-      return;
-    }
-    if (el[RULE])
-      el.value = Ruler.format(el[RULE], {expand: true});
-    const h = clamp(el.scrollHeight, 15, elConfig.clientHeight / 4);
-    if (h > el.offsetHeight)
-      el.style.minHeight = h + 'px';
-    if (!this.contains(from))
-      from = [...$$('[style*="height"]', this)].find(_ => _ !== el);
-    if (from) {
-      from.style.minHeight = '';
-      if (from[RULE])
-        from.value = Ruler.format(from[RULE]);
-    }
-  }
-
-  function installRule(rule) {
-    const inputs = UI.rules.children;
-    let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
-    if (!el) {
-      el = inputs[0];
-      el[RULE] = rule;
-      el.value = Ruler.format(rule);
-      el.hidden = false;
-      const i = Math.max(0, collectRules().indexOf(rule));
-      inputs[i].insertAdjacentElement('afterend', el);
-      inputs[0].insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
-    }
-    const rect = el.getBoundingClientRect();
-    if (rect.bottom < 0 ||
-        rect.bottom > el.parentNode.offsetHeight)
-      el.scrollIntoView();
-    el.classList.add('highlight');
-    el.addEventListener('animationend', () => el.classList.remove('highlight'), {once: true});
-    el.focus();
-  }
-
-  function init(config) {
+  function init(data) {
+    uiCfg = data;
     $remove(elConfig);
     elConfig = $create('div', {contentEditable: true});
     root = elConfig.attachShadow({mode: 'open'});
     root.innerHTML = createConfigHtml();
     initEvents();
-    renderValues(config);
-    renderCustomScales(config);
-    initRules(config);
+    renderAll();
+    renderCustomScales();
+    renderRules();
     doc.body.appendChild(elConfig);
     requestAnimationFrame(() => {
       UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elConfig.clientHeight / 4) + 'px';
@@ -2702,8 +2577,18 @@ function setup({rule} = {}) {
 
   function initEvents() {
     UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
-    UI.export.onclick = exportSettings;
-    UI.import.onclick = importSettings;
+    UI.export.onclick = e => {
+      dropEvent(e);
+      GM_setClipboard(JSON.stringify(collectConfig(), null, '  '));
+      UI.exportNotification.hidden = false;
+      setTimeout(() => (UI.exportNotification.hidden = true), 1000);
+    };
+    UI.import.onclick = e => {
+      dropEvent(e);
+      const s = prompt('Paste settings:');
+      if (s)
+        init(new Config({data: s}));
+    };
     UI.install.onclick = setupRuleInstaller;
     const {/** @type {HTMLTextAreaElement} */ cssApp} = UI;
     UI.reveal.onclick = e => {
@@ -2781,7 +2666,116 @@ function setup({rule} = {}) {
     root.addEventListener('keydown', e => !e.altKey && !e.metaKey && e.stopPropagation(), true);
   }
 
-  function initRules(config) {
+  function closeSetup(event) {
+    const isApply = this.id === 'apply';
+    if (event && (this.id === 'ok' || isApply)) {
+      cfg = uiCfg = collectConfig({save: true, clone: isApply});
+      Ruler.init();
+      if (isApply) {
+        renderCustomScales();
+        return;
+      }
+    }
+    $remove(elConfig);
+    elConfig = null;
+  }
+
+  function collectConfig({save, clone} = {}) {
+    let data = {};
+    for (const el of $$('input[id], select[id]', root))
+      data[el.id] = el.type === 'checkbox' ? el.checked :
+        (el.type === 'number' || el.type === 'range') ? el.valueAsNumber :
+          el.value || '';
+    Object.assign(data, {
+      css: UI.css.value.trim(),
+      delay: UI.delay.valueAsNumber * 1000,
+      hosts: collectRules(),
+      scale: clamp(UI.scale.valueAsNumber / 100, 0, 1) + 1,
+      scales: UI.scales.value
+        .trim()
+        .split(/[,;]*\s+/)
+        .map(x => x.replace(',', '.'))
+        .filter(x => !isNaN(parseFloat(x))),
+    });
+    if (clone)
+      data = JSON.parse(JSON.stringify(data));
+    return new Config({data, save});
+  }
+
+  function collectRules() {
+    return [...UI.rules.children]
+      .map(el => [el.value.trim(), el[RULE]])
+      .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
+      .map(([s, json]) => json || s)
+      .filter(Boolean);
+  }
+
+  function checkRule({target: el}) {
+    let json, error, title;
+    const prev = el.previousElementSibling;
+    if (el.value) {
+      json = Ruler.parse(el.value);
+      error = json instanceof Error && (json.message || String(json));
+      const invalidDomain = !error && json && typeof json.d === 'string' &&
+        !/^[-.a-z0-9]*$/i.test(json.d);
+      title = [invalidDomain && 'Disabled due to invalid characters in "d"', error]
+        .filter(Boolean).join('\n');
+      el.classList.toggle('invalid-domain', invalidDomain);
+      el.classList.toggle('matching-domain', !!json.d && hostname.includes(json.d));
+      if (!prev)
+        el.insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
+    } else if (prev) {
+      prev.focus();
+      el.remove();
+    }
+    el[RULE] = !error && json;
+    el.title = title;
+    el.setCustomValidity(error || '');
+  }
+
+  function focusRule({type, target: el, relatedTarget: from}) {
+    if (el === this)
+      return;
+    if (type === 'paste') {
+      setTimeout(() => focusRule.call(this, {target: el}));
+      return;
+    }
+    if (el[RULE])
+      el.value = Ruler.format(el[RULE], {expand: true});
+    const h = clamp(el.scrollHeight, 15, elConfig.clientHeight / 4);
+    if (h > el.offsetHeight)
+      el.style.minHeight = h + 'px';
+    if (!this.contains(from))
+      from = [...$$('[style*="height"]', this)].find(_ => _ !== el);
+    if (from) {
+      from.style.minHeight = '';
+      if (from[RULE])
+        from.value = Ruler.format(from[RULE]);
+    }
+  }
+
+  function installRule(rule) {
+    const inputs = UI.rules.children;
+    let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
+    if (!el) {
+      el = inputs[0];
+      el[RULE] = rule;
+      el.value = Ruler.format(rule);
+      el.hidden = false;
+      const i = Math.max(0, collectRules().indexOf(rule));
+      inputs[i].insertAdjacentElement('afterend', el);
+      inputs[0].insertAdjacentElement('beforebegin', blankRuleElement.cloneNode());
+    }
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom < 0 ||
+        rect.bottom > el.parentNode.offsetHeight)
+      el.scrollIntoView();
+    el.classList.add('highlight');
+    el.addEventListener('animationend', () => el.classList.remove('highlight'), {once: true});
+    el.focus();
+  }
+
+  function renderRules() {
     const rules = UI.rules;
     rules.addEventListener('input', checkRule);
     rules.addEventListener('focusin', focusRule);
@@ -2789,7 +2783,7 @@ function setup({rule} = {}) {
     blankRuleElement =
       setup.blankRuleElement =
         setup.blankRuleElement || rules.firstElementChild.cloneNode();
-    for (const rule of config.hosts || []) {
+    for (const rule of uiCfg.hosts || []) {
       const el = blankRuleElement.cloneNode();
       el.value = typeof rule === 'string' ? rule : Ruler.format(rule);
       rules.appendChild(el);
@@ -2807,20 +2801,20 @@ function setup({rule} = {}) {
       search.oninput();
   }
 
-  function renderCustomScales(config) {
-    UI.scales.value = config.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
+  function renderCustomScales() {
+    UI.scales.value = uiCfg.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
   }
 
-  function renderValues(config) {
+  function renderAll() {
     for (const el of $$('input[id], select[id], textarea[id]', root))
-      if (el.id in config)
-        el[el.type === 'checkbox' ? 'checked' : 'value'] = config[el.id];
+      if (el.id in uiCfg)
+        el[el.type === 'checkbox' ? 'checked' : 'value'] = uiCfg[el.id];
     for (const el of $$('input[type="range"]', root))
       el.oninput();
     for (const el of $$('a[href^="http"]', root))
       Object.assign(el, {target: '_blank', rel: 'noreferrer noopener external'});
-    UI.delay.valueAsNumber = config.delay / 1000;
-    UI.scale.valueAsNumber = Math.round(clamp(config.scale - 1, 0, 1) * 100);
+    UI.delay.valueAsNumber = uiCfg.delay / 1000;
+    UI.scale.valueAsNumber = Math.round(clamp(uiCfg.scale - 1, 0, 1) * 100);
   }
 }
 
@@ -3324,8 +3318,8 @@ function createConfigHtml() {
     </li>
     <li>
       <div hidden id=installLoading>Loading...</div>
-      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it.
-        Click <code>Apply</code> or <code>Save</code> to confirm.</div>
+      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it
+        . Click <code>Apply</code> or <code>Save</code> to confirm.</div>
       <a href="${MPIV_BASE_URL}more_host_rules.html" id=install>Install rule from repository...</a>
     </li>
   </ul>
@@ -3452,6 +3446,7 @@ ${App.popupStyleBase = `
 }
 
 //#region Global utilities
+
 const clamp = (v, min, max) =>
   v < min ? min : v > max ? max : v;
 
@@ -3459,9 +3454,7 @@ const compareNumbers = (a, b) =>
   a - b;
 
 const flattenHtml = str =>
-  str.trim()
-    .replace(/\n\s*/g, '')
-    .replace(/\x20?([:>])\x20/g, '$1');
+  str.trim().replace(/\n\s*/g, '');
 
 const dropEvent = e =>
   (e.preventDefault(), e.stopPropagation());
@@ -3513,25 +3506,21 @@ const $propUp = (node, prop) =>
 
 const $remove = node =>
   node && node.remove();
-//#endregion
 
+//#endregion
 //#region Init
 
 cfg = new Config({save: true});
 
-(cb => doc.body ? cb() : document.addEventListener('DOMContentLoaded', cb, {once: true}))(() => {
-  const el = doc.body.firstElementChild;
-  App.imageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
-  App.enabled = cfg.imgtab || !App.imageTab;
-});
-
 if (window === top)
   GM_registerMenuCommand('MPIV: configure', setup);
 
-doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
+if (doc.body) App.checkImageTab();
+else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
+doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname))
   doc.addEventListener('click', setupClickedRule, {passive: true});
-
 window.addEventListener('message', App.onMessage);
+
 //#endregion
