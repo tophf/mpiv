@@ -1684,7 +1684,7 @@ const Ruler = {
       },
       {
         u: '||imgur.com/',
-        r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.([a-z]+))/i,
+        r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.(mp4|[a-z]+))/i,
         s: (m, node) => {
           if (/memegen|random|register|search|signin/.test(m.input))
             return '';
