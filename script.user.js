@@ -696,10 +696,11 @@ const Events = {
   hoverTimer: 0,
 
   onMouseOver(e) {
-    if (!App.isEnabled || e.shiftKey || ai.zoomed)
-      return;
     let node = e.target;
-    if (node === ai.popup ||
+    if (!App.isEnabled ||
+        e.shiftKey ||
+        ai.zoomed ||
+        node === ai.popup ||
         node === doc.body ||
         node === doc.documentElement ||
         node === elConfig ||
@@ -717,9 +718,7 @@ const Events = {
     // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
     const wait = start + SETTLE_TIME - now();
     Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
-    if (Events.hoverTimer)
-      return;
-    if (!node.closest(':hover'))
+    if (Events.hoverTimer || !node.closest(':hover'))
       return;
     if (!Ruler.rules)
       Ruler.init();
