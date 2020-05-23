@@ -84,7 +84,7 @@ const App = {
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
-    if (cfg.xhr && CspSniffer.init && location.protocol === 'https:')
+    if (CspSniffer.init && location.protocol === 'https:')
       CspSniffer.init();
     if (ai.force) {
       App.start();
