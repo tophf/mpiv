@@ -14,6 +14,7 @@ declare namespace mpiv {
     globalStatus: boolean
     hosts: HostRule[]
     imgtab: boolean
+    mute: boolean
     preload: boolean
     scale: number
     scales: (string | number)[]
@@ -23,6 +24,7 @@ declare namespace mpiv {
     uiBorderColor: string,
     uiBorderOpacity: number,
     uiBorder: number,
+    uiFadein: boolean
     uiShadowColor: string,
     uiShadowOpacity: number,
     uiShadow: number,

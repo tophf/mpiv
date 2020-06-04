@@ -600,6 +600,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
     s: '',
   }],
   imgtab: false,
+  mute: false,
   preload: false,
   scale: 1.25,
   scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
@@ -609,6 +610,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   uiBorderColor: '#000000',
   uiBorderOpacity: 100,
   uiBorder: 0,
+  uiFadein: true,
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
   uiShadow: 20,
@@ -795,14 +797,15 @@ const Events = {
 
   onKeyDown(e) {
     const key = eventModifiers(e) + (e.key.length > 1 ? e.key : e.code);
+    const p = ai.popup;
     switch (key) {
       case '+Shift':
         Status.set('+shift');
-        if (ai.popup && 'controls' in ai.popup)
-          ai.popup.controls = true;
+        if (p && p.tagName === 'VIDEO')
+          p.controls = true;
         return;
       case '^Control':
-        if (!ai.popup && (cfg.start !== 'auto' || ai.rule.manual))
+        if (!p && (cfg.start !== 'auto' || ai.rule.manual))
           App.start();
         return;
       case 'ArrowRight':
@@ -820,7 +823,7 @@ const Events = {
       case 'KeyV': // flip vertically
       case 'KeyL': // rotate left
       case 'KeyR': // rotate right
-        if (!ai.popup)
+        if (!p)
           return;
         if (key === 'KeyH' || key === 'KeyV') {
           const side = !!(ai.rotate % 180) ^ (key === 'KeyH') ? 'flipX' : 'flipY';
@@ -831,9 +834,13 @@ const Events = {
         Bar.updateDetails();
         Popup.move();
         break;
+      case 'KeyM':
+        if (p && p.tagName === 'VIDEO')
+          p.muted = !p.muted;
+        break;
       case 'KeyT':
         ai.lazyUnload = true;
-        GM_openInTab(Util.tabFixUrl() || ai.popup.src);
+        GM_openInTab(Util.tabFixUrl() || p.src);
         App.deactivate();
         break;
       case 'Escape':
@@ -1135,7 +1142,7 @@ const PopupVideo = {
   create() {
     ai.bufBar = false;
     ai.bufStart = now();
-    const shouldMute = new AudioContext().state === 'suspended';
+    const shouldMute = cfg.mute || new AudioContext().state === 'suspended';
     return $create('video', {
       autoplay: true,
       controls: shouldMute,
@@ -3251,13 +3258,15 @@ function createConfigHtml() {
     </li>
     <li class="options row">
       <label><input type=checkbox id=center>Always centered</label>
-      <label title="Disable only if you spoof the HTTP headers yourself">
-        <input type=checkbox id=xhr>Anti-hotlinking workaround
-      </label>
-      <label><input type=checkbox id=preload>Start preloading immediately</label>
+      <label><input type=checkbox id=preload>Preload on hover</label>
+      <label><input type=checkbox id=uiFadein>Fade-in animation</label>
+      <label><input type=checkbox id=mute>Mute videos</label>
       <label><input type=checkbox id=imgtab>Run in image tabs</label>
-      <label title="Don't enable unless you explicitly use it in your custom CSS">
-        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt; node (may cause slowdowns)
+      <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
+        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;*
+      </label>
+      <label title="Disable only if you spoof the HTTP headers yourself">
+        <input type=checkbox id=xhr>Spoof hotlinking
       </label>
     </li>
     <li class="options stretch">
@@ -3365,8 +3374,10 @@ function createGlobalStyle() {
 #\mpiv-popup {
   display: none;
   cursor: none;
+${cfg.uiFadein ? String.raw`
   animation: .2s \mpiv-fadein both;
   transition: box-shadow .25s, background-color .25s;
+  ` : ''}
 ${App.popupStyleBase = `
   border: none;
   box-sizing: border-box;

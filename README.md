@@ -20,8 +20,9 @@ Action | Trigger
 **Flip/mirror** | <code>h</code> <code>v</code> keys (horizontally or vertically)
 **Previous/next in album** | mouse wheel, <code>j</code> <code>k</code> or <code>←</code> <code>→</code> keys
 &nbsp; |
-**Open in tab** | <code>t</code> key while popup is visible
 **Download** | <code>d</code> key while popup is visible
+**Mute/unmute video** | <code>m</code> key while popup is visible
+**Open in tab** | <code>t</code> key while popup is visible
 &nbsp; |
 **Configure** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
 
