@@ -3086,6 +3086,8 @@ function createConfigHtml() {
   }
   #rules > * {
     word-break: break-all;
+  }
+  #rules > :not(:focus) {
     overflow: hidden; /* prevents wrapping in FF */
   }
   .invalid-domain {
