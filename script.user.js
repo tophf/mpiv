@@ -1867,7 +1867,7 @@ const Ruler = {
   },
 
   format(rule, {expand} = {}) {
-    const s = JSON.stringify(rule, null, ' ');
+    const s = Util.stringify(rule, null, ' ');
     return expand ?
       /* {"a": ...,
           "b": ...,
@@ -2304,7 +2304,10 @@ const UrlMatcher = (() => {
       let fn;
       let needle = s.slice(pinDomain * 2 + pinStart, -endSep || undefined);
       if (needle.includes('^')) {
-        const plain = needle.split('^').reduce(getLongest);
+        let plain = '';
+        for (const part of needle.split('^'))
+          if (part.length > plain.length)
+            plain = part;
         const rx = new RegExp(
           (pinStart ? '^' : '') +
           (pinDomain ? '^(([^/:]+:)?//)?([^./]*\\.)*?' : '') +
@@ -2350,9 +2353,6 @@ const UrlMatcher = (() => {
     return s.startsWith(this) && (
       s.length === this.length ||
       s.length === this.length + 1 && endsWithSep(s));
-  }
-  function getLongest(max, part) {
-    return part.length > max.length ? part : max;
   }
   function has(s) {
     return s.includes(this);
@@ -2496,6 +2496,15 @@ const Util = {
     }
   },
 
+  stringify(...args) {
+    const p = Array.prototype;
+    const {toJSON} = p;
+    if (toJSON) p.toJSON = null; // eslint-disable-line no-extend-native
+    const res = JSON.stringify(...args);
+    if (toJSON) p.toJSON = toJSON; // eslint-disable-line no-extend-native
+    return res;
+  },
+
   suppressTooltip() {
     for (const node of [
       ai.node.parentNode,
@@ -2585,7 +2594,7 @@ function setup({rule} = {}) {
     UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
     UI.export.onclick = e => {
       dropEvent(e);
-      GM_setClipboard(JSON.stringify(collectConfig(), null, '  '));
+      GM_setClipboard(Util.stringify(collectConfig(), null, '  '));
       UI.exportNotification.hidden = false;
       setTimeout(() => (UI.exportNotification.hidden = true), 1000);
     };
@@ -2704,7 +2713,7 @@ function setup({rule} = {}) {
         .filter(x => !isNaN(parseFloat(x))),
     });
     if (clone)
-      data = JSON.parse(JSON.stringify(data));
+      data = JSON.parse(Util.stringify(data));
     return new Config({data, save});
   }
 
@@ -2885,12 +2894,18 @@ async function setupRuleInstaller(e) {
 
   function findMatchingRuleIndex() {
     const dottedHost = `.${hostname}.`;
-    const weighParts = (n, part) => n + (dottedHost.includes(`.${part}.`) && part.length);
-    const weighName = name => name.toLowerCase().split(/[^a-z\d.-]+/i).reduce(weighParts, 0);
-    return rules.reduce((max, {d, name}, index) => {
-      const count = !!(d && hostname.includes(d)) * 10 + weighName(name);
-      return count > max.count ? {count, index} : max;
-    }, {count: 0, index: 0}).index;
+    let maxCount = 0, maxIndex = 0, index = 0;
+    for (const {d, name} of rules) {
+      let count = !!(d && hostname.includes(d)) * 10;
+      for (const part of name.toLowerCase().split(/[^a-z\d.-]+/i))
+        count += dottedHost.includes(`.${part}.`) && part.length;
+      if (count > maxCount) {
+        maxCount = count;
+        maxIndex = index;
+      }
+      index++;
+    }
+    return maxIndex;
   }
 
   function renderRule(r) {
@@ -3483,8 +3498,12 @@ const eventModifiers = e =>
 
 const now = performance.now.bind(performance);
 
-const sumProps = (...props) =>
-  props.reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+const sumProps = (...props) => {
+  let sum = 0;
+  for (const p of props)
+    sum += parseFloat(p) || 0;
+  return sum;
+};
 
 const tryCatch = function (fn, ...args) {
   try {
@@ -3505,8 +3524,13 @@ const $css = (el, props) =>
   Object.entries(props).forEach(([k, v]) =>
     el.style.setProperty(k, v, 'important'));
 
-const $many = (q, doc) =>
-  q && ensureArray(q).reduce((el, sel) => el || $(sel, doc), null);
+const $many = (q, doc) => {
+  for (const selector of ensureArray(q)) {
+    const el = selector && $(selector, doc);
+    if (el)
+      return el;
+  }
+};
 
 const $prop = (sel, prop, node = doc) =>
   (node = $(sel, node)) && node[prop] || '';
