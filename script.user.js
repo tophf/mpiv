@@ -3058,7 +3058,6 @@ function createConfigHtml() {
     resize: vertical;
     margin: 1px 0;
     font: 11px/1.25 Consolas, monospace;
-    overflow: hidden; /* prevents wrapping in FF */
   }
   :invalid {
     background-color: #f002;
@@ -3087,6 +3086,7 @@ function createConfigHtml() {
   }
   #rules > * {
     word-break: break-all;
+    overflow: hidden; /* prevents wrapping in FF */
   }
   .invalid-domain {
     opacity: .5;
