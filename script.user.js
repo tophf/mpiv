@@ -3102,6 +3102,7 @@ function createConfigHtml() {
   kbd {
     padding: 1px 6px;
     font-weight: bold;
+    font-family: Consolas, monospace;
     border: 1px solid #888;
     border-radius: 3px;
     box-shadow: inset 1px 1px 5px #8888, .25px .5px 2px #0008;
