@@ -3099,6 +3099,13 @@ function createConfigHtml() {
     padding: .2em 1em;
     margin: 0 1em;
   }
+  kbd {
+    padding: 1px 6px;
+    font-weight: bold;
+    border: 1px solid #888;
+    border-radius: 3px;
+    box-shadow: inset 1px 1px 5px #8888, .25px .5px 2px #0008;
+  }
   .column {
     display: flex;
     flex-direction: column;
@@ -3181,6 +3188,9 @@ function createConfigHtml() {
     input[type=range]:hover {
       filter: invert(1);
     }
+    kbd {
+      border-color: #666;
+    }
     @supports (-moz-appearance: none) {
       input[type=checkbox],
       input[type=range],
@@ -3229,6 +3239,28 @@ function createConfigHtml() {
 <main>
   <div id=_x>x</div>
   <ul class=column>
+    <details style="margin: -2em 0 1em">
+      <summary style="cursor:pointer"><b>Click to view help & hotkeys</b></summary>
+      <table style="text-align:left">
+        <tr><th>Activate</th><td>move mouse cursor over thumbnail</td></tr>
+        <tr><th>Deactivate</th><td>move cursor off thumbnail, or click, or zoom out fully</td></tr>
+        <tr><th>Prevent/freeze</th><td>hold down <kbd>Shift</kbd> while entering/leaving thumbnail</td></tr>
+        <tr><th>Force-activate<br>(for small pics)</th>
+          <td>hold <kbd>Ctrl</kbd> while entering image element</td></tr>
+        <tr><td>&nbsp;</td></tr>
+        <tr><th>Start zooming</th>
+          <td>configurable: automatic or via right-click / <kbd>Shift</kbd> while popup is visible</td></tr>
+        <tr><th>Zoom</th><td>mouse wheel</td></tr>
+        <tr><th>Rotate</th><td><kbd>L</kbd> <kbd>r</kbd> keys (left or right)</td></tr>
+        <tr><th>Flip/mirror</th><td><kbd>h</kbd> <kbd>v</kbd> keys (horizontally or vertically)</td></tr>
+        <tr><th>Previous/next<br>in album</th>
+          <td>mouse wheel, <kbd>j</kbd> <kbd>k</kbd> or <kbd>←</kbd> <kbd>→</kbd> keys</td></tr>
+        <tr><td>&nbsp;</td></tr>
+        <tr><th>Download</th><td><kbd>d</kbd> key while popup is visible</td></tr>
+        <tr><th>Mute/unmute</th><td><kbd>m</kbd> key while popup is visible</td></tr>
+        <tr><th>Open in tab</th><td><kbd>t</kbd> key while popup is visible</td></tr>
+      </table>
+    </details>
     <li class=options>
       <label>Popup shows on
         <select id=start>
