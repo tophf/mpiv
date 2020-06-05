@@ -2599,22 +2599,22 @@ function setup({rule} = {}) {
   }
 
   function initEvents() {
-    UI.apply.onclick = UI.cancel.onclick = UI.ok.onclick = UI.x.onclick = closeSetup;
-    UI.export.onclick = e => {
+    UI._apply.onclick = UI._cancel.onclick = UI._ok.onclick = UI._x.onclick = closeSetup;
+    UI._export.onclick = e => {
       dropEvent(e);
       GM_setClipboard(Util.stringify(collectConfig(), null, '  '));
-      UI.exportNotification.hidden = false;
-      setTimeout(() => (UI.exportNotification.hidden = true), 1000);
+      UI._exportNotification.hidden = false;
+      setTimeout(() => (UI._exportNotification.hidden = true), 1000);
     };
-    UI.import.onclick = e => {
+    UI._import.onclick = e => {
       dropEvent(e);
       const s = prompt('Paste settings:');
       if (s)
         init(new Config({data: s}));
     };
-    UI.install.onclick = setupRuleInstaller;
-    const {/** @type {HTMLTextAreaElement} */ cssApp} = UI;
-    UI.reveal.onclick = e => {
+    UI._install.onclick = setupRuleInstaller;
+    const /** @type {HTMLTextAreaElement} */ cssApp = UI._cssApp;
+    UI._reveal.onclick = e => {
       e.preventDefault();
       cssApp.hidden = !cssApp.hidden;
       if (!cssApp.hidden) {
@@ -2690,8 +2690,8 @@ function setup({rule} = {}) {
   }
 
   function closeSetup(event) {
-    const isApply = this.id === 'apply';
-    if (event && (this.id === 'ok' || isApply)) {
+    const isApply = this.id === '_apply';
+    if (event && (this.id === '_ok' || isApply)) {
       cfg = uiCfg = collectConfig({save: true, clone: isApply});
       Ruler.init();
       if (isApply) {
@@ -2726,7 +2726,7 @@ function setup({rule} = {}) {
   }
 
   function collectRules() {
-    return [...UI.rules.children]
+    return [...UI._rules.children]
       .map(el => [el.value.trim(), el[RULE]])
       .sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
       .map(([s, json]) => json || s)
@@ -2778,7 +2778,7 @@ function setup({rule} = {}) {
   }
 
   function installRule(rule) {
-    const inputs = UI.rules.children;
+    const inputs = UI._rules.children;
     let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
     if (!el) {
       el = inputs[0];
@@ -2799,7 +2799,7 @@ function setup({rule} = {}) {
   }
 
   function renderRules() {
-    const rules = UI.rules;
+    const rules = UI._rules;
     rules.addEventListener('input', checkRule);
     rules.addEventListener('focusin', focusRule);
     rules.addEventListener('paste', focusRule);
@@ -2812,7 +2812,7 @@ function setup({rule} = {}) {
       rules.appendChild(el);
       checkRule({target: el});
     }
-    const search = UI.search;
+    const search = UI._search;
     search.oninput = () => {
       setup.search = search.value;
       const s = search.value.toLowerCase();
@@ -3075,7 +3075,7 @@ function createConfigHtml() {
     box-shadow: 0 0.25em 1em #000;
     z-index: 99;
   }
-  #rules input,
+  #_rules input,
   textarea {
     flex: 1;
     resize: vertical;
@@ -3107,10 +3107,10 @@ function createConfigHtml() {
     animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
     animation-fill-mode: both;
   }
-  #rules > * {
+  #_rules > * {
     word-break: break-all;
   }
-  #rules > :not(:focus) {
+  #_rules > :not(:focus) {
     overflow: hidden; /* prevents wrapping in FF */
   }
   .invalid-domain {
@@ -3120,7 +3120,7 @@ function createConfigHtml() {
     border-color: #56b8ff;
     background: #d7eaff;
   }
-  #x {
+  #_x {
     position: absolute;
     top: 0;
     right: 0;
@@ -3128,13 +3128,13 @@ function createConfigHtml() {
     cursor: pointer;
     user-select: none;
   }
-  #x:hover {
+  #_x:hover {
     background-color: #8884;
   }
-  #cssApp {
+  #_cssApp {
     color: seagreen;
   }
-  #exportNotification {
+  #_exportNotification {
     color: green;
     font-weight: bold;
     position: absolute;
@@ -3142,7 +3142,7 @@ function createConfigHtml() {
     right: 0;
     bottom: 2px;
   }
-  #installHint {
+  #_installHint {
     color: green;
   }
   @keyframes fade-in {
@@ -3196,10 +3196,10 @@ function createConfigHtml() {
       background: #032b58;
       color: #ddd;
     }
-    #cssApp {
+    #_cssApp {
       color: darkseagreen;
     }
-    #installHint {
+    #_installHint {
       color: greenyellow;
     }
     ::-webkit-scrollbar {
@@ -3227,8 +3227,7 @@ function createConfigHtml() {
   }
 </style>
 <main>
-  <a href="${MPIV_BASE_URL}">${GM_info.script.name}</a>
-  <div id=x>x</div>
+  <div id=_x>x</div>
   <ul class=column>
     <li class=options>
       <label>Popup shows on
@@ -3329,12 +3328,12 @@ function createConfigHtml() {
     <li>
       <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>&nbsp;
       e.g. <b>#mpiv-popup { animation: none !important }</b>
-      <a href="#" id=reveal style="float: right"
+      <a href="#" id=_reveal style="float: right"
          title="You can copy parts of it to override them in your custom CSS">
          View the built-in CSS</a>
       <div class=column>
         <textarea id=css spellcheck=false></textarea>
-        <textarea id=cssApp spellcheck=false hidden readonly rows=30></textarea>
+        <textarea id=_cssApp spellcheck=false hidden readonly rows=30></textarea>
       </div>
     </li>
     <li style="display: flex; justify-content: space-between;">
@@ -3344,28 +3343,28 @@ function createConfigHtml() {
         in "d" value, for example <code>"d": "!foo.com"</code>
       </div>
       <div>
-        <input id=search type=search placeholder=Search style="width: 10em; margin-left: 1em">
+        <input id=_search type=search placeholder=Search style="width: 10em; margin-left: 1em">
       </div>
     </li>
     <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
-      <div id=rules class=column>
+      <div id=_rules class=column>
         <textarea rows=1 spellcheck=false></textarea>
       </div>
     </li>
     <li>
-      <div hidden id=installLoading>Loading...</div>
-      <div hidden id=installHint>Double-click the rule (or select and press Enter) to add it
+      <div hidden id=_installLoading>Loading...</div>
+      <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
         . Click <code>Apply</code> or <code>Save</code> to confirm.</div>
-      <a href="${MPIV_BASE_URL}more_host_rules.html" id=install>Install rule from repository...</a>
+      <a href="${MPIV_BASE_URL}more_host_rules.html" id=_install>Install rule from repository...</a>
     </li>
   </ul>
   <div style="text-align:center">
-    <button id=ok accesskey=s>Save</button>
-    <button id=apply accesskey=a>Apply</button>
-    <button id=import style="margin-right: 0">Import</button>
-    <button id=export style="margin-left: 0">Export</button>
-    <button id=cancel>Cancel</button>
-    <div id=exportNotification hidden>Copied to clipboard.</div>
+    <button id=_ok accesskey=s>Save</button>
+    <button id=_apply accesskey=a>Apply</button>
+    <button id=_import style="margin-right: 0">Import</button>
+    <button id=_export style="margin-left: 0">Export</button>
+    <button id=_cancel>Cancel</button>
+    <div id=_exportNotification hidden>Copied to clipboard.</div>
   </div>
 </main>`);
 }
