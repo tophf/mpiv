@@ -31,6 +31,7 @@ declare namespace mpiv {
     uiPadding: number,
     uiMargin: number,
     version: number
+    waitLoad: boolean
     xhr: boolean
     zoom: 'context' | 'wheel' | 'shift' | 'auto'
     zoomOut: 'close' | 'stay' | 'auto'

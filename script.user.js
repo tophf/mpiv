@@ -145,9 +145,15 @@ const App = {
   },
 
   async commit() {
+    const p = ai.popup;
+    const isDecoded = cfg.waitLoad && typeof p.decode === 'function';
+    if (isDecoded) {
+      await p.decode();
+      if (p !== ai.popup)
+        return;
+    }
     App.updateStyles();
     Calc.measurePopup();
-    const p = ai.popup;
     const willZoom = cfg.zoom === 'auto' || App.isImageTab && cfg.imgtab;
     const willMove = !willZoom || App.toggleZoom({keepScale: true}) === undefined;
     if (willMove)
@@ -159,8 +165,8 @@ const App = {
                ai.nheight > p.clientHeight + ai.extras.h;
     if (ai.large) {
       Status.set('+large');
-      // FF renders a blank bg+border first; I couldn't find a proper solution
-      if (isFF && p.complete)
+      // prevent a blank bg+border in FF
+      if (isFF && p.complete && !isDecoded)
         p.style.backgroundImage = `url('${p.src}')`;
     }
   },
@@ -617,6 +623,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   uiPadding: 0,
   uiMargin: 0,
   version: 6,
+  waitLoad: false,
   xhr: true,
   zoom: 'context',
   zoomOut: 'auto',
@@ -3274,14 +3281,17 @@ function createConfigHtml() {
       </label>
     </li>
     <li class="options row">
-      <label><input type=checkbox id=center>Always centered</label>
-      <label><input type=checkbox id=preload>Preload on hover</label>
+      <label title="...or try to keep the original link/thumbnail unobscured by the popup">
+        <input type=checkbox id=center>Always centered</label>
+      <label title="Provides smoother experience but increases network traffic">
+        <input type=checkbox id=preload>Preload on hover</label>
+      <label title="...or show a partial image while still loading">
+        <input type=checkbox id=waitLoad>Show when fully loaded</label>
       <label><input type=checkbox id=uiFadein>Fade-in animation</label>
       <label><input type=checkbox id=mute>Mute videos</label>
       <label><input type=checkbox id=imgtab>Run in image tabs</label>
       <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
-        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;*
-      </label>
+        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;</label>
       <label title="Disable only if you spoof the HTTP headers yourself">
         <input type=checkbox id=xhr>Spoof hotlinking
       </label>
