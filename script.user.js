@@ -1704,7 +1704,8 @@ const Ruler = {
           const a = node.closest('a');
           if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
             return false;
-          const id = m[3].replace(/(.{7})[bhm]$/, '$1');
+          // postfixes: huge, large, medium, thumbnail, big square, small square
+          const id = m[3].replace(/(.{7})[hlmtbs]$/, '$1');
           const ext = m[5] ? m[5].replace(/gifv?/, 'webm') : 'jpg';
           const u = `https://i.${(m[1] || '').replace('www.', '')}imgur.com/${id}.`;
           return ext === 'webm' ?
