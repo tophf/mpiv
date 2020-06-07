@@ -2860,7 +2860,7 @@ function setupClickedRule(event) {
 async function setupRuleInstaller(e) {
   dropEvent(e);
   const parent = this.parentElement;
-  parent.children.installLoading.hidden = false;
+  parent.children._installLoading.hidden = false;
   this.remove();
   let rules;
 
@@ -2877,8 +2877,8 @@ async function setupRuleInstaller(e) {
     // remove "name" since the installed rules don't need it
     for (const r of rules)
       delete r.name;
-    parent.children.installLoading.remove();
-    parent.children.installHint.hidden = false;
+    parent.children._installLoading.remove();
+    parent.children._installHint.hidden = false;
     parent.appendChild(selector);
     requestAnimationFrame(() => {
       const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
