@@ -3315,19 +3315,18 @@ function createConfigHtml() {
     </li>
     <li class="options row">
       <label title="...or try to keep the original link/thumbnail unobscured by the popup">
-        <input type=checkbox id=center>Always centered</label>
+        <input type=checkbox id=center>Centered*</label>
       <label title="Provides smoother experience but increases network traffic">
-        <input type=checkbox id=preload>Preload on hover</label>
+        <input type=checkbox id=preload>Preload on hover*</label>
       <label title="...or show a partial image while still loading">
-        <input type=checkbox id=waitLoad>Show when fully loaded</label>
-      <label><input type=checkbox id=uiFadein>Fade-in animation</label>
+        <input type=checkbox id=waitLoad>Show when fully loaded*</label>
+      <label><input type=checkbox id=uiFadein>Fade-in transition</label>
       <label><input type=checkbox id=mute>Mute videos</label>
       <label><input type=checkbox id=imgtab>Run in image tabs</label>
       <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
-        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;</label>
+        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;*</label>
       <label title="Disable only if you spoof the HTTP headers yourself">
-        <input type=checkbox id=xhr>Spoof hotlinking
-      </label>
+        <input type=checkbox id=xhr>Spoof hotlinking*</label>
     </li>
     <li class="options stretch">
       <label>Background
