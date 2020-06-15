@@ -1617,8 +1617,8 @@ const Ruler = {
         xhr: true,
       },
       {
-        u: '||imagevenue.com/img.php',
-        q: '#thepic',
+        u: '||imagevenue.com',
+        q: 'a[data-toggle="full"] img',
       },
       {
         u: '||imagezilla.net/show/',
