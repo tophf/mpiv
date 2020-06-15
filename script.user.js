@@ -1617,7 +1617,7 @@ const Ruler = {
         xhr: true,
       },
       {
-        u: '||imagevenue.com',
+        u: '||imagevenue.com/',
         q: 'a[data-toggle="full"] img',
       },
       {
