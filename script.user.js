@@ -2507,9 +2507,9 @@ const Util = {
   stringify(...args) {
     const p = Array.prototype;
     const {toJSON} = p;
-    if (toJSON) p.toJSON = null; // eslint-disable-line no-extend-native
+    if (toJSON) p.toJSON = null;
     const res = JSON.stringify(...args);
-    if (toJSON) p.toJSON = toJSON; // eslint-disable-line no-extend-native
+    if (toJSON) p.toJSON = toJSON;
     return res;
   },
 
