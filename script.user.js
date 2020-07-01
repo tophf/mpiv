@@ -1331,8 +1331,8 @@ const Ruler = {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
             data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]);
           }
-          rule.q = data && data.is_video && !data.video_url && 'meta[property="og:video"]';
-          rule.g = a && $('[class*="Carousel"]', a) && rule._g;
+          Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
+          Ruler.toggle(rule, 'g', a && $('[class*="Carousel"]', a));
           rule.follow = !data && !rule.g;
           rule._data = data;
           rule._img = img;
@@ -1344,6 +1344,7 @@ const Ruler = {
         c: (html, doc, node, rule) =>
           tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
         follow: true,
+        _q: 'meta[property="og:video"]',
         _g(text, doc, url, m, rule) {
           const media = JSON.parse(text).graphql.shortcode_media;
           const items = media.edge_sidecar_to_children.edges.map(e => ({
@@ -1554,9 +1555,9 @@ const Ruler = {
       },
       {
         u: '//gyazo.com/',
-        r: /\.com\/\w{32,}/,
-        q: 'meta[name="twitter:image"]',
-        xhr: true,
+        r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
+        s: (m, _, rule) => Ruler.toggle(rule, 'q', !m[1]) ? m.input : `https://i.${m[0]}`,
+        _q: 'meta[name="twitter:image"]',
       },
       {
         u: '||hostingkartinok.com/show-image.php',
@@ -1994,6 +1995,11 @@ const Ruler = {
       });
     }
     return s;
+  },
+
+  toggle(rule, prop, condition) {
+    rule[prop] = condition ? rule[`_${prop}`] : null;
+    return condition;
   },
 };
 
