@@ -2955,7 +2955,7 @@ async function setupRuleInstaller(e) {
 
 function createConfigHtml() {
   const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
-  const scalesHint = 'Leave it empty and click Apply or Save to restore the default values.';
+  const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const trimLeft = s => s.trim().replace(/\n\s+/g, '\r');
   return flattenHtml(`
 <style>
@@ -3392,12 +3392,12 @@ function createConfigHtml() {
     <li>
       <div hidden id=_installLoading>Loading...</div>
       <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
-        . Click <code>Apply</code> or <code>Save</code> to confirm.</div>
+        . Click <code>Apply</code> or <code>OK</code> to confirm.</div>
       <a href="${MPIV_BASE_URL}more_host_rules.html" id=_install>Install rule from repository...</a>
     </li>
   </ul>
   <div style="text-align:center">
-    <button id=_ok accesskey=s>Save</button>
+    <button id=_ok accesskey=s>OK</button>
     <button id=_apply accesskey=a>Apply</button>
     <button id=_import style="margin-right: 0">Import</button>
     <button id=_export style="margin-left: 0">Export</button>
