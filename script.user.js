@@ -921,6 +921,11 @@ const Events = {
       cy > r.top - 2 && cy < r.bottom + 2;
   },
 
+  triggerHover(element, rect = element) {
+    const {left, top} = rect.getBoundingClientRect();
+    Events.onMouseOver({target: element, clientX: left, clientY: top});
+  },
+
   zoomInOut(dir) {
     const i = Calc.scaleIndex(dir);
     const n = ai.scales.length;
@@ -1309,8 +1314,7 @@ const Ruler = {
             mo.disconnect();
             App.isEnabled = true;
             a.alt = a2.innerText;
-            const {left, top} = a.getBoundingClientRect();
-            Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
+            Events.triggerHover($('img', a), a);
           }).observe(a, {attributes: true, attributeFilter: ['href']});
           a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
         },
@@ -3606,5 +3610,10 @@ doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname))
   doc.addEventListener('click', setupClickedRule, {passive: true});
 window.addEventListener('message', App.onMessage);
+window.addEventListener('load', () => {
+  const hovered = [...$$(':hover')].pop();
+  if (hovered)
+    Events.triggerHover(hovered);
+}, {once: true});
 
 //#endregion
