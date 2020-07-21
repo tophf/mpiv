@@ -1793,8 +1793,11 @@ const Ruler = {
       },
       {
         u: '||radikal.ru/',
-        r: /\.ru\/(fp|.+\.html)/,
-        q: text => text.match(/http:\/\/[a-z0-9]+\.radikal\.ru[a-z0-9/]+\.(jpg|gif|png)/i)[0],
+        r: /\.ru\/(fp|.+?\.html)|^(.+?)t\.jpg/,
+        s: (m, node, rule) =>
+          m[2] && /radikal\.ru[\w%/]+?(\.\w+)/.test($propUp(node, 'href')) ? m[2] + RegExp.$1 :
+            Ruler.toggle(rule, 'q', m[1]) ? m.input : [m[2] + '.jpg', m[2] + '.png'],
+        _q: text => text.match(/https?:\/\/\w+\.radikal\.ru[\w/]+\.(jpg|gif|png)/i)[0],
       },
       {
         u: '||tumblr.com',
