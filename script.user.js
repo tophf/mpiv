@@ -1443,22 +1443,8 @@ const Ruler = {
             m.input.replace(/~~60_\d+/, '~~60_57'),
       },
       {
-        u: [
-          '||fastpic.ru/big',
-          '||fastpic.ru/thumb',
-        ],
-        r: /\/\/(?:i(\d+)\.)?([^/]+\/)(big|thumb|view)\/([^.]+?)\.(\w+)/,
-        s: (m, node, rule) => {
-          const a = node.closest('[href*="fastpic.ru"]');
-          const am = a && rule.r.exec(decodeURIComponent(a.href)) || [];
-          const p = a && am[4].split('/');
-          return `https://i${am[1] || m[1] || am[3] === 'view' && p[0]}.${m[2]}big/${
-            am[3] === 'big' ? am[4] : m[4]}.${am[5] || m[5]}?noht=1`;
-        },
-        xhr: () => 'https://fastpic.ru',
-      },
-      {
-        u: '||fastpic.ru/view/',
+        u: '||fastpic.ru',
+        e: 'a',
         q: 'img[src*="/big/"]',
         xhr: true,
       },
