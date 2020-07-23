@@ -1054,8 +1054,8 @@ const Popup = {
     if (ai !== myAi)
       return;
     if (xhr)
-      [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError);
-    if (ai !== myAi)
+      [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
+    if (ai !== myAi || !src)
       return;
     const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
     p.id = `${PREFIX}popup`;
