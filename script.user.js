@@ -1798,7 +1798,7 @@ const Ruler = {
       {
         u: '||twimg.com/media/',
         r: /.+?format=(jpe?g|png|gif)/i,
-        s: '$0&name=4096x4096',
+        s: '$0&name=orig',
       },
       {
         u: '||twimg.com/1/proxy',
