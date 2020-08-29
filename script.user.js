@@ -236,7 +236,7 @@ const App = {
 
   start() {
     // check explicitly as the cursor may have moved into an iframe so mouseout wasn't reported
-    if (!ai.node.closest(':hover')) {
+    if (!Util.isHovered(ai.node)) {
       App.deactivate();
       return;
     }
@@ -727,7 +727,7 @@ const Events = {
     // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
     const wait = start + SETTLE_TIME - now();
     Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
-    if (Events.hoverTimer || !node.closest(':hover'))
+    if (Events.hoverTimer || !Util.isHovered(node))
       return;
     if (!Ruler.rules)
       Ruler.init();
@@ -2471,6 +2471,11 @@ const Util = {
       consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
       consoleArgs: m.map(([, v]) => v),
     };
+  },
+
+  isHovered(el) {
+    // doesn't work in image tabs, browser bug?
+    return App.isImageTab || el.closest(':hover');
   },
 
   isVideoUrl(url) {
