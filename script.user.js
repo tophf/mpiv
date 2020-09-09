@@ -17,7 +17,7 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
 //
-// @version     1.1.17
+// @version     1.1.18
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1645,21 +1645,14 @@ const Ruler = {
         u: [
           '||imgur.com/a/',
           '||imgur.com/gallery/',
-          '||imgur.com/t/',
         ],
         g: async (text, doc, url, m, rule, node, cb) => {
-          // simplified extraction of JSON as it occupies only one line
-          if (!/(?:mergeConfig\('gallery',\s*|Imgur\.Album\.getInstance\()[\s\S]*?[,\s{"'](?:image|album)\s*:\s*({[^\r\n]+?}),?[\r\n]/.test(text))
-            return;
-          const info = JSON.parse(RegExp.$1);
-          let images = info.is_album ? info.album_images.images : [info];
-          if (info.num_images > images.length) {
-            const u = `https://imgur.com/ajaxalbums/getimages/${info.hash}/hit.json?all=true`;
-            images = JSON.parse((await Remoting.gmXhr(u)).responseText).data.images;
-          }
+          let u = `https://imgur.com/ajaxalbums/getimages/${url.split(/[/?#]/)[4]}/hit.json?all=true`;
+          const info = tryCatch(JSON.parse, (await Remoting.gmXhr(u)).responseText);
+          const images = ((info || 0).data || 0).images;
           const items = [];
           for (const img of images || []) {
-            const u = `https://i.imgur.com/${img.hash}`;
+            u = `https://i.imgur.com/${img.hash}`;
             items.push({
               url: img.ext === '.gif' && img.animated !== false ?
                 [`${u}.webm`, `${u}.mp4`, u] :
@@ -1667,7 +1660,7 @@ const Ruler = {
               desc: [img.title, img.description].filter(Boolean).join(' - '),
             });
           }
-          if (images && info.is_album && !`${items[0].desc || ''}`.includes(info.title))
+          if (items[0] && info.title && !`${items[0].desc || ''}`.includes(info.title))
             items.title = info.title;
           cb(items);
         },
