@@ -1810,10 +1810,6 @@ const Ruler = {
         s: 'https://twitpic.com/show/large/$2',
       },
       {
-        u: '||upix.me/files',
-        s: '/#//',
-      },
-      {
         u: '||wiki',
         r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
         s: '/\\/thumb(?=\\/)|' +
