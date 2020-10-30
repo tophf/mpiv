@@ -17,7 +17,7 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
 //
-// @version     1.1.18
+// @version     1.1.19
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1313,6 +1313,7 @@ const Ruler = {
             Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
           }).observe(a, {attributes: true, attributeFilter: ['href']});
           a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
+          a2.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
         },
       },
       dotDomain.endsWith('.instagram.com') && {
