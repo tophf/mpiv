@@ -15,7 +15,7 @@ Action | Trigger
 **Force-activate<br>(for small pics)** | hold <code>Ctrl</code> while entering image element
 &nbsp; |
 **Start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
-**Zoom** | mouse wheel
+**Zoom** | mouse wheel / <code>-</code> <code>=</code> keys (minus or equals)
 **Rotate** | <code>L</code> <code>r</code> keys (left or right)
 **Flip/mirror** | <code>h</code> <code>v</code> keys (horizontally or vertically)
 **Previous/next in album** | mouse wheel, <code>j</code> <code>k</code> or <code>←</code> <code>→</code> keys
