@@ -851,6 +851,7 @@ const Events = {
         App.deactivate();
         break;
       case 'Minus':
+      case 'NumpadSubtract':
         if (ai.zoomed) {
           Events.zoomInOut(-1);
         } else {
@@ -858,6 +859,7 @@ const Events = {
         }
         break;
       case 'Equal':
+      case 'NumpadAdd':
         if (ai.zoomed) {
           Events.zoomInOut(1);
         } else {
