@@ -850,6 +850,20 @@ const Events = {
         GM_openInTab(Util.tabFixUrl() || p.src);
         App.deactivate();
         break;
+      case 'Minus':
+        if (ai.zoomed) {
+          Events.zoomInOut(-1);
+        } else {
+          App.toggleZoom();
+        }
+        break;
+      case 'Equal':
+        if (ai.zoomed) {
+          Events.zoomInOut(1);
+        } else {
+          App.toggleZoom();
+        }
+        break;
       case 'Escape':
         App.deactivate({wait: true});
         break;
