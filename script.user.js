@@ -21,7 +21,7 @@
 // @original-author  kuehlschrank
 //
 // @supportURL  https://github.com/tophf/mpiv/issues
-// @icon        https://github.com/tophf/mpiv/icon.png
+// @icon        https://github.com/tophf/mpiv/raw/master/icon.png
 // ==/UserScript==
 
 'use strict';
