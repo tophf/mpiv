@@ -6,9 +6,6 @@
 // @include     *
 // @connect     *
 //
-// allow rule installer in config dialog https://w9p.co/userscripts/mpiv/more_host_rules.html
-// @connect     w9p.co
-//
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
@@ -17,15 +14,14 @@
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
 //
-// @version     1.1.19
+// @version     1.1.20
 // @author      tophf
 //
 // @original-version 2017.9.29
 // @original-author  kuehlschrank
 //
 // @supportURL  https://github.com/tophf/mpiv/issues
-// @homepage    https://w9p.co/userscripts/mpiv/
-// @icon        https://w9p.co/userscripts/mpiv/icon.png
+// @icon        https://github.com/tophf/mpiv/icon.png
 // ==/UserScript==
 
 'use strict';
@@ -2618,7 +2614,6 @@ function setup({rule} = {}) {
       if (s)
         init(new Config({data: s}));
     };
-    UI._install.onclick = setupRuleInstaller;
     const /** @type {HTMLTextAreaElement} */ cssApp = UI._cssApp;
     UI._reveal.onclick = e => {
       e.preventDefault();
@@ -2860,96 +2855,6 @@ function setupClickedRule(event) {
       dropEvent(event);
       setup({rule});
     }
-  }
-}
-
-async function setupRuleInstaller(e) {
-  dropEvent(e);
-  const parent = this.parentElement;
-  parent.children._installLoading.hidden = false;
-  this.remove();
-  let rules;
-
-  try {
-    rules = extractRules(await Remoting.getDoc(this.href));
-    const selector = $create('select', {
-      size: 8,
-      style: 'width: 100%',
-      ondblclick: e => e.target !== selector && maybeSetup(e),
-      onkeyup: e => e.key === 'Enter' && maybeSetup(e),
-    });
-    selector.append(...rules.map(renderRule));
-    selector.selectedIndex = findMatchingRuleIndex();
-    // remove "name" since the installed rules don't need it
-    for (const r of rules)
-      delete r.name;
-    parent.children._installLoading.remove();
-    parent.children._installHint.hidden = false;
-    parent.appendChild(selector);
-    requestAnimationFrame(() => {
-      const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
-      selector.scrollTo(0, optY - selector.offsetHeight / 2);
-      selector.focus();
-    });
-  } catch (e) {
-    parent.textContent = 'Error loading rules: ' + (e.message || e);
-  }
-
-  function extractRules({doc}) {
-    const code = $('script', doc).textContent;
-    // sort by name
-    return JSON.parse(code.match(/var\s+rules\s*=\s*(\[.+]);?[\r\n]/)[1])
-      .filter(r => !r.d || hostname.includes(r.d))
-      .sort((a, b) =>
-        (a = a.name.toLowerCase()) < (b = b.name.toLowerCase()) ? -1 :
-          a > b ? 1 :
-            0);
-  }
-
-  function findMatchingRuleIndex() {
-    const dottedHost = `.${hostname}.`;
-    let maxCount = 0, maxIndex = 0, index = 0;
-    for (const {d, name} of rules) {
-      let count = !!(d && hostname.includes(d)) * 10;
-      for (const part of name.toLowerCase().split(/[^a-z\d.-]+/i))
-        count += dottedHost.includes(`.${part}.`) && part.length;
-      if (count > maxCount) {
-        maxCount = count;
-        maxIndex = index;
-      }
-      index++;
-    }
-    return maxIndex;
-  }
-
-  function renderRule(r) {
-    const {name, ...copy} = r;
-    return $create('option', {
-      textContent: name,
-      title: Ruler.format(copy, {expand: true})
-        .replace(/^{|\s*}$/g, '')
-        .split('\n')
-        .slice(0, 12)
-        .map(renderTitleLine)
-        .filter(Boolean)
-        .join('\n'),
-    });
-  }
-
-  function renderTitleLine(line, i, arr) {
-    return (
-      // show ... on 10th line if there are more lines
-      i === 9 && arr.length > 10 ? '...' :
-        i > 10 ? '' :
-          // truncate to 100 chars
-          (line.length > 100 ? line.slice(0, 100) + '...' : line)
-            // strip the leading space
-            .replace(/^\s/, ''));
-  }
-
-  function maybeSetup(e) {
-    if (!eventModifiers(e))
-      setup({rule: rules[e.currentTarget.selectedIndex]});
   }
 }
 
@@ -3389,12 +3294,6 @@ function createConfigHtml() {
         <textarea rows=1 spellcheck=false></textarea>
       </div>
     </li>
-    <li>
-      <div hidden id=_installLoading>Loading...</div>
-      <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
-        . Click <code>Apply</code> or <code>OK</code> to confirm.</div>
-      <a href="${MPIV_BASE_URL}more_host_rules.html" id=_install>Install rule from repository...</a>
-    </li>
   </ul>
   <div style="text-align:center">
     <button id=_ok accesskey=s>OK</button>
@@ -3603,7 +3502,7 @@ if (doc.body) App.checkImageTab();
 else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
 doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
-if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname))
+if (['greasyfork.org', 'github.com'].includes(hostname))
   doc.addEventListener('click', setupClickedRule);
 window.addEventListener('message', App.onMessage);
 
