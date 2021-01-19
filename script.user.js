@@ -3604,7 +3604,7 @@ else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
 doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
 if (['greasyfork.org', 'w9p.co', 'github.com'].includes(hostname))
-  doc.addEventListener('click', setupClickedRule, {passive: true});
+  doc.addEventListener('click', setupClickedRule);
 window.addEventListener('message', App.onMessage);
 
 //#endregion
