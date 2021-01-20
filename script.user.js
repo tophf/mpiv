@@ -6,6 +6,9 @@
 // @include     *
 // @connect     *
 //
+// allow rule installer in config dialog
+// @connect     github.com
+//
 // @grant       GM_getValue
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
@@ -1878,6 +1881,16 @@ const Ruler = {
       s.replace(/\n\s*/g, ' ').replace(/^({)\s|\s+(})$/g, '$1$2');
   },
 
+  fromElement(el) {
+    const text = el.textContent.trim();
+    if (text.startsWith('{') &&
+        text.endsWith('}') &&
+        /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
+      const rule = tryCatch(JSON.parse, text);
+      return rule && Object.keys(rule).some(k => /^[degqrsu]$/.test(k)) && rule;
+    }
+  },
+
   /** @returns mpiv.HostRule | Error | false | undefined */
   parse(rule) {
     const isBatchOp = this instanceof Map;
@@ -2614,6 +2627,7 @@ function setup({rule} = {}) {
       if (s)
         init(new Config({data: s}));
     };
+    UI._install.onclick = setupRuleInstaller;
     const /** @type {HTMLTextAreaElement} */ cssApp = UI._cssApp;
     UI._reveal.onclick = e => {
       e.preventDefault();
@@ -2843,23 +2857,106 @@ function setup({rule} = {}) {
 }
 
 function setupClickedRule(event) {
+  let rule;
   const el = event.target.closest('blockquote, code, pre');
-  const text = el && el.textContent.trim() || '';
-  if (!event.button &&
-      !eventModifiers(event) &&
-      text.startsWith('{') &&
-      text.endsWith('}') &&
-      /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
-    const rule = tryCatch(JSON.parse, text);
-    if (Object.keys(rule).some(k => /^[degqrsu]$/.test(k))) {
-      dropEvent(event);
-      setup({rule});
+  if (el && !event.button && !eventModifiers(event) && (rule = Ruler.fromElement(el))) {
+    dropEvent(event);
+    setup({rule});
+  }
+}
+
+async function setupRuleInstaller(e) {
+  dropEvent(e);
+  const parent = this.parentElement;
+  parent.children._installLoading.hidden = false;
+  this.remove();
+  let rules;
+
+  try {
+    rules = extractRules(await Remoting.getDoc(this.href));
+    const selector = $create('select', {
+      size: 8,
+      style: 'width: 100%',
+      ondblclick: e => e.target !== selector && maybeSetup(e),
+      onkeyup: e => e.key === 'Enter' && maybeSetup(e),
+    });
+    selector.append(...rules.map(renderRule));
+    selector.selectedIndex = findMatchingRuleIndex();
+    parent.children._installLoading.remove();
+    parent.children._installHint.hidden = false;
+    parent.appendChild(selector);
+    requestAnimationFrame(() => {
+      const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
+      selector.scrollTo(0, optY - selector.offsetHeight / 2);
+      selector.focus();
+    });
+  } catch (e) {
+    parent.textContent = 'Error loading rules: ' + (e.message || e);
+  }
+
+  function extractRules({doc}) {
+    // sort by name
+    return [...$$('#wiki-body tr', doc)]
+      .map(tr => [
+        tr.cells[0].textContent.trim(),
+        Ruler.fromElement(tr.cells[1]),
+      ])
+      .filter(([name, r]) =>
+        name && r && (!r.d || hostname.includes(r.d)))
+      .sort(([a], [b]) =>
+        (a = a.toLowerCase()) < (b = b.toLowerCase()) ? -1 :
+          a > b ? 1 :
+            0);
+  }
+
+  function findMatchingRuleIndex() {
+    const dottedHost = `.${hostname}.`;
+    let maxCount = 0, maxIndex = 0, index = 0;
+    for (const [name, {d}] of rules) {
+      let count = !!(d && hostname.includes(d)) * 10;
+      for (const part of name.toLowerCase().split(/[^a-z\d.-]+/i))
+        count += dottedHost.includes(`.${part}.`) && part.length;
+      if (count > maxCount) {
+        maxCount = count;
+        maxIndex = index;
+      }
+      index++;
     }
+    return maxIndex;
+  }
+
+  function renderRule([name, rule]) {
+    return $create('option', {
+      textContent: name,
+      title: Ruler.format(rule, {expand: true})
+        .replace(/^{|\s*}$/g, '')
+        .split('\n')
+        .slice(0, 12)
+        .map(renderTitleLine)
+        .filter(Boolean)
+        .join('\n'),
+    });
+  }
+
+  function renderTitleLine(line, i, arr) {
+    return (
+      // show ... on 10th line if there are more lines
+      i === 9 && arr.length > 10 ? '...' :
+        i > 10 ? '' :
+          // truncate to 100 chars
+          (line.length > 100 ? line.slice(0, 100) + '...' : line)
+            // strip the leading space
+            .replace(/^\s/, ''));
+  }
+
+  function maybeSetup(e) {
+    if (!eventModifiers(e))
+      setup({rule: rules[e.currentTarget.selectedIndex][1]});
   }
 }
 
 function createConfigHtml() {
-  const MPIV_BASE_URL = 'https://w9p.co/userscripts/mpiv/';
+  const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/Rules';
   const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const trimLeft = s => s.trim().replace(/\n\s+/g, '\r');
   return flattenHtml(`
@@ -3293,6 +3390,12 @@ function createConfigHtml() {
       <div id=_rules class=column>
         <textarea rows=1 spellcheck=false></textarea>
       </div>
+    </li>
+    <li>
+      <div hidden id=_installLoading>Loading...</div>
+      <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
+        . Click <code>Apply</code> or <code>OK</code> to confirm.</div>
+      <a href="${MPIV_BASE_URL}" id=_install>Install rule from repository...</a>
     </li>
   </ul>
   <div style="text-align:center">
