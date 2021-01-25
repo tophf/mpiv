@@ -330,9 +330,7 @@ const App = {
   },
 
   updateStyles() {
-    Util.addStyle('global',
-      (App.globalStyle || createGlobalStyle()) +
-      (cfg.css.includes('{') ? cfg.css : `#${PREFIX}-popup {${(cfg.css)}}`));
+    Util.addStyle('global', (App.globalStyle || createGlobalStyle()) + cfg._getCss());
     Util.addStyle('rule', ai.rule.css || '');
   },
 };
@@ -545,6 +543,7 @@ const Calc = {
   },
 };
 
+/** @namespace mpiv.Config */
 class Config {
 
   constructor({data: c = GM_getValue('cfg'), save}) {
@@ -581,6 +580,11 @@ class Config {
       c.scales = [];
     c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
     Object.assign(this, DEFAULTS, c);
+  }
+
+  _getCss() {
+    const {css} = this;
+    return css.includes('{') ? css : `#${PREFIX}-popup {${css}}`;
   }
 }
 
@@ -2711,6 +2715,7 @@ function setup({rule} = {}) {
       Ruler.init();
       if (isApply) {
         renderCustomScales();
+        UI._css.textContent = cfg._getCss();
         return;
       }
     }
@@ -3245,7 +3250,8 @@ function createConfigHtml() {
     }
   }
 </style>
-<main>
+<style id="_css">${cfg._getCss()}</style>
+<main id="${PREFIX}setup">
   <div id=_x>x</div>
   <ul class=column>
     <details style="margin: -2em 0 1em">
@@ -3473,6 +3479,8 @@ ${App.popupStyleBase = `
 }
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
+}
+#\mpiv-setup {
 }
 @keyframes \mpiv-fadein {
   from {
