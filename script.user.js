@@ -1985,7 +1985,7 @@ const Ruler = {
     if (Array.isArray(urls[0]))
       urls = urls[0];
     // `false` returned by "s" property means "skip this rule", "" means "stop all rules"
-    return urls[0] !== false && urls.map(Util.decodeUrl);
+    return urls[0] !== false && Array.from(new Set(urls), Util.decodeUrl);
   },
 
   substituteSingle(s, m) {
