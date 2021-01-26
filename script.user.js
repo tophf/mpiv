@@ -1654,6 +1654,11 @@ const Ruler = {
         post: m => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`,
       },
       {
+        u: '.imgcredit.xyz/',
+        r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
+        s: ['https$1$2', 'https$1.png']
+      },
+      {
         u: [
           '||imgflip.com/i/',
           '||imgflip.com/gif/',
