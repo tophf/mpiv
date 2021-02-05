@@ -1723,7 +1723,7 @@ const Ruler = {
           '||instagr.am/p/',
           '||instagram.com/p/',
         ],
-        s: m => m.input.substr(0, m.input.lastIndexOf('/')) + '/?__a=1',
+        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by','') + '/?__a=1',
         q: text => {
           const m = JSON.parse(text).graphql.shortcode_media;
           return m.video_url || m.display_url;
