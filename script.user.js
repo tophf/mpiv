@@ -765,9 +765,9 @@ const Events = {
 
   onMouseMove(e) {
     Events.trackMouse(e);
-    if (e.shiftKey) {
-      ai.lazyUnload = true;
-    } else if (!ai.zoomed && !ai.rectHovered) {
+    if (e.shiftKey)
+      return;
+    if (!ai.zoomed && !ai.rectHovered) {
       App.deactivate();
     } else if (ai.zoomed) {
       Popup.move();
@@ -849,7 +849,6 @@ const Events = {
           p.muted = !p.muted;
         break;
       case 'KeyT':
-        ai.lazyUnload = true;
         GM_openInTab(Util.tabFixUrl() || p.src);
         App.deactivate();
         break;
@@ -1099,12 +1098,10 @@ const Popup = {
     p.removeEventListener('error', App.handleError);
     if (typeof p.pause === 'function')
       p.pause();
-    if (!ai.lazyUnload) {
-      if (p.src.startsWith('blob:'))
-        URL.revokeObjectURL(p.src);
-    }
+    if (ai.blobUrl)
+      setTimeout(URL.revokeObjectURL, SETTLE_TIME, ai.blobUrl);
     p.remove();
-    ai.zoomed = ai.popup = ai.popupLoaded = null;
+    ai.zoomed = ai.popup = ai.popupLoaded = ai.blobUrl = null;
   },
 
   move() {
@@ -2162,10 +2159,10 @@ const Remoting = {
     if (!b) throw 'Empty response';
     if (b.type !== type)
       b = b.slice(0, b.size, type);
-    return [
-      xhr === 'blob' ? URL.createObjectURL(b) : await Remoting.blobToDataUrl(b),
-      type.startsWith('video'),
-    ];
+    const res = xhr === 'blob'
+      ? (ai.blobUrl = URL.createObjectURL(b))
+      : await Remoting.blobToDataUrl(b);
+    return [res, type.startsWith('video')];
   },
 
   getImageProgress(e) {

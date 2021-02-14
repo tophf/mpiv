@@ -100,6 +100,7 @@ declare namespace mpiv {
 
   type PopupInfo = {
     bar: Element
+    blobUrl: string
     // buffering bar shown
     bufBar: boolean
     // buffering start time, ms
@@ -135,7 +136,6 @@ declare namespace mpiv {
     gNum: number
     imageUrl: StringOrArrayOfStrings
     large: boolean
-    lazyUnload: boolean
     // naturalHeight
     nheight: number
     // naturalWidth
