@@ -9,15 +9,22 @@
 // allow rule installer in config dialog
 // @connect     github.com
 //
-// @grant       GM_getValue
-// @grant       GM_setValue
-// @grant       GM_xmlhttpRequest
 // @grant       GM_download
+// @grant       GM_getValue
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 // @grant       GM_setClipboard
+// @grant       GM_setValue
+// @grant       GM_xmlhttpRequest
 //
-// @version     1.1.21
+// @grant       GM.getValue
+// @grant       GM.openInTab
+// @grant       GM.registerMenuCommand
+// @grant       GM.setClipboard
+// @grant       GM.setValue
+// @grant       GM.xmlHttpRequest
+//
+// @version     1.2.0
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -61,6 +68,24 @@ const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 const RX_MEDIA_URL = /^[^?]+?\.(bmp|jpe?g?|gif|mp4|png|svg|web[mp])($|\?)/i;
 const ZOOM_MAX = 16;
 const SYM_U = Symbol('u');
+
+//#endregion
+//#region GM4 polyfill
+
+if (typeof GM === 'undefined' || !GM.xmlHttpRequest)
+  this.GM = {info: GM_info};
+if (!GM.getValue)
+  GM.getValue = GM_getValue; // we use it only with `await` so no need to return a Promise
+if (!GM.setValue)
+  GM.setValue = GM_setValue; // we use it only with `await` so no need to return a Promise
+if (!GM.openInTab)
+  GM.openInTab = GM_openInTab;
+if (!GM.registerMenuCommand)
+  GM.registerMenuCommand = GM_registerMenuCommand;
+if (!GM.setClipboard)
+  GM.setClipboard = GM_setClipboard;
+if (!GM.xmlHttpRequest)
+  GM.xmlHttpRequest = GM_xmlhttpRequest;
 
 //#endregion
 
@@ -546,7 +571,7 @@ const Calc = {
 /** @namespace mpiv.Config */
 class Config {
 
-  constructor({data: c = GM_getValue('cfg'), save}) {
+  constructor({data: c, save}) {
     if (typeof c === 'string')
       c = tryCatch(JSON.parse, c);
     if (typeof c !== 'object' || !c)
@@ -572,7 +597,7 @@ class Config {
           delete c[key];
       c.version = DEFAULTS.version;
       if (save)
-        GM_setValue('cfg', c);
+        GM.setValue('cfg', c);
     }
     if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
       App.globalStyle = '';
@@ -580,6 +605,11 @@ class Config {
       c.scales = [];
     c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
     Object.assign(this, DEFAULTS, c);
+  }
+
+  static async load(opts) {
+    opts.data = await GM.getValue('cfg');
+    return new Config(opts);
   }
 
   _getCss() {
@@ -644,7 +674,7 @@ const CspSniffer = {
   // will be null when done
   init() {
     this.initPending = this.initPending || new Promise(resolve => {
-      GM_xmlhttpRequest({
+      GM.xmlHttpRequest({
         url: location.href,
         method: 'HEAD',
         onload: response => {
@@ -849,7 +879,7 @@ const Events = {
           p.muted = !p.muted;
         break;
       case 'KeyT':
-        GM_openInTab(Util.tabFixUrl() || p.src);
+        GM.openInTab(Util.tabFixUrl() || p.src);
         App.deactivate();
         break;
       case 'Minus':
@@ -1075,7 +1105,7 @@ const Popup = {
       [src, isVideo] = await Remoting.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
     if (ai !== myAi || !src)
       return;
-    const p = ai.popup = isVideo ? PopupVideo.create() : $create('img');
+    const p = ai.popup = isVideo ? await PopupVideo.create() : $create('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
@@ -1162,7 +1192,7 @@ const Popup = {
 };
 
 const PopupVideo = {
-  create() {
+  async create() {
     ai.bufBar = false;
     ai.bufStart = now();
     const shouldMute = cfg.mute || new AudioContext().state === 'suspended';
@@ -1171,7 +1201,7 @@ const PopupVideo = {
       controls: shouldMute,
       muted: shouldMute,
       loop: true,
-      volume: clamp(+GM_getValue('volume') || .5, 0, 1),
+      volume: clamp(+await GM.getValue('volume') || .5, 0, 1),
       onprogress: PopupVideo.progress,
       oncanplaythrough: PopupVideo.progressDone,
       onvolumechange: PopupVideo.rememberVolume,
@@ -1195,7 +1225,7 @@ const PopupVideo = {
   },
 
   rememberVolume() {
-    GM_setValue('volume', this.volume);
+    GM.setValue('volume', this.volume);
   },
 };
 
@@ -1653,7 +1683,7 @@ const Ruler = {
       {
         u: '.imgcredit.xyz/',
         r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
-        s: ['https$1$2', 'https$1.png']
+        s: ['https$1$2', 'https$1.png'],
       },
       {
         u: [
@@ -1720,7 +1750,7 @@ const Ruler = {
           '||instagr.am/p/',
           '||instagram.com/p/',
         ],
-        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by','') + '/?__a=1',
+        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
         q: text => {
           const m = JSON.parse(text).graphql.shortcode_media;
           return m.video_url || m.display_url;
@@ -2104,10 +2134,12 @@ const Remoting = {
     if (ai.req)
       tryCatch.call(ai.req, ai.req.abort);
     return new Promise((resolve, reject) => {
-      ai.req = GM_xmlhttpRequest({
+      const {anonymous} = ai.rule || {};
+      ai.req = GM.xmlHttpRequest({
         url,
+        anonymous,
+        withCredentials: !anonymous,
         method: 'GET',
-        anonymous: (ai.rule || {}).anonymous,
         timeout: 30e3,
         ...opts,
         onload: done,
@@ -2204,16 +2236,30 @@ const Remoting = {
     } else {
       Status.set('+loading');
       const onload = () => Status.set('-loading');
-      GM_download({
+      const gmDL = typeof GM_download === 'function';
+      (gmDL ? GM_download : GM.xmlHttpRequest)({
         url,
         name,
         headers: {Referer: url},
+        method: 'get', // polyfilling GM_download
+        responseType: 'blob', // polyfilling GM_download
+        overrideMimeType: 'application/octet-stream', // polyfilling GM_download
         onerror: e => {
           Bar.set(`Could not download ${name}: ${e.error || e.message || e}.`, 'error');
           onload();
         },
         onprogress: Remoting.getImageProgress,
-        onload,
+        onload({response}) {
+          onload();
+          if (!gmDL) { // polyfilling GM_download
+            const a = Object.assign(document.createElement('a'), {
+              href: URL.createObjectURL(response),
+              download: name,
+            });
+            a.dispatchEvent(new MouseEvent('click'));
+            setTimeout(URL.revokeObjectURL, 10e3, a.href);
+          }
+        },
       });
     }
   },
@@ -2582,7 +2628,7 @@ const Util = {
   },
 };
 
-function setup({rule} = {}) {
+async function setup({rule} = {}) {
   if (typeof doc.body.attachShadow !== 'function') {
     alert('Cannot show MPIV config dialog: the browser is probably too old.\n' +
           'You can edit the script\'s storage directly in your userscript manager.');
@@ -2599,7 +2645,7 @@ function setup({rule} = {}) {
     },
   });
   if (!rule || !elConfig)
-    init(new Config({save: true}));
+    init(await Config.load({save: true}));
   if (rule)
     installRule(rule);
 
@@ -2623,7 +2669,7 @@ function setup({rule} = {}) {
     UI._apply.onclick = UI._cancel.onclick = UI._ok.onclick = UI._x.onclick = closeSetup;
     UI._export.onclick = e => {
       dropEvent(e);
-      GM_setClipboard(Util.stringify(collectConfig(), null, '  '));
+      GM.setClipboard(Util.stringify(collectConfig(), null, '  '));
       UI._exportNotification.hidden = false;
       setTimeout(() => (UI._exportNotification.hidden = true), 1000);
     };
@@ -3063,9 +3109,8 @@ function createConfigHtml() {
     cursor: pointer;
   }
   u {
-    display: inline-block;
     position: relative;
-    width: 1.5em;
+    flex: 0 0 1.5em;
     height: 1.5em;
     border: 1px solid #888;
     pointer-events: none;
@@ -3606,17 +3651,18 @@ const $remove = node =>
 //#endregion
 //#region Init
 
-cfg = new Config({save: true});
+Config.load({save: true}).then(res => {
+  cfg = res;
+  if (window === top)
+    GM.registerMenuCommand('MPIV: configure', setup);
 
-if (window === top)
-  GM_registerMenuCommand('MPIV: configure', setup);
+  if (doc.body) App.checkImageTab();
+  else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
-if (doc.body) App.checkImageTab();
-else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
-
-doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
-if (['greasyfork.org', 'github.com'].includes(hostname))
-  doc.addEventListener('click', setupClickedRule);
-window.addEventListener('message', App.onMessage);
+  doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
+  if (['greasyfork.org', 'github.com'].includes(hostname))
+    doc.addEventListener('click', setupClickedRule);
+  window.addEventListener('message', App.onMessage);
+});
 
 //#endregion

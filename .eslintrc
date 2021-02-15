@@ -9,6 +9,7 @@ env:
 
 globals:
   unsafeWindow: false
+  GM: false
   GM_info: false
   GM_getValue: false
   GM_setValue: false
