@@ -3,7 +3,7 @@ A fork of [MPIV](https://greasyfork.org/en/scripts/404-mouseover-popup-image-vie
 ### Installation
 
 * on GreasyFork: [link](https://greasyfork.org/scripts/394820)
-* directly from GitHub: [script.user.js](https://github.com/tophf/mpiv/raw/master/script.user.js) (Tampermonkey/Violentmonkey should be installed first)
+* directly from GitHub: [script.user.js](https://github.com/tophf/mpiv/raw/master/script.user.js) (Tampermonkey/Violentmonkey/Greasemonkey should be installed first)
 
 ### Usage
 
