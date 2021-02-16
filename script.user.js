@@ -4,10 +4,6 @@
 // @description Shows images and videos behind links and thumbnails.
 //
 // @include     *
-// @connect     *
-//
-// allow rule installer in config dialog
-// @connect     github.com
 //
 // @grant       GM_download
 // @grant       GM_getValue
@@ -29,6 +25,26 @@
 //
 // @original-version 2017.9.29
 // @original-author  kuehlschrank
+//
+// @connect     *
+// CSP check:
+// @connect     self
+// rule installer in config dialog:
+// @connect     github.com
+// big/trusted hostings for the built-in rules with "q":
+// @connect     deviantart.com
+// @connect     facebook.com
+// @connect     fbcdn.com
+// @connect     flickr.com
+// @connect     gfycat.com
+// @connect     googleusercontent.com
+// @connect     gyazo.com
+// @connect     imgur.com
+// @connect     instagr.am
+// @connect     instagram.com
+// @connect     prnt.sc
+// @connect     prntscr.com
+// @connect     user-images.githubusercontent.com
 //
 // @supportURL  https://github.com/tophf/mpiv/issues
 // @icon        https://github.com/tophf/mpiv/raw/master/icon.png
