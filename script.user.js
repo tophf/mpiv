@@ -397,10 +397,20 @@ const Bar = {
     b.className = `${PREFIX}show ${PREFIX}${className}`;
   },
 
-  show() {
+  show(isForced) {
     clearTimeout(ai.timerBar);
     ai.bar.style.removeProperty('opacity');
-    ai.timerBar = setTimeout(() => ai.bar && $css(ai.bar, {opacity: 0}), 3000);
+    if (isForced)
+      ai.bar.dataset.force = '';
+    else
+      ai.timerBar = setTimeout(Bar.hide, 3000);
+  },
+
+  hide(isForced) {
+    if (ai.bar && (isForced || !ai.bar.dataset.force)) {
+      $css(ai.bar, {opacity: 0});
+      delete ai.bar.dataset.force;
+    }
   },
 
   updateName() {
@@ -857,6 +867,7 @@ const Events = {
     switch (key) {
       case '+Shift':
         Status.set('+shift');
+        Bar.show(true);
         if (p && p.tagName === 'VIDEO')
           p.controls = true;
         return;
@@ -929,6 +940,7 @@ const Events = {
   onKeyUp(e) {
     if (e.key === 'Shift') {
       Status.set('-shift');
+      Bar.hide(true);
       if ((ai.popup || {}).controls)
         ai.popup.controls = false;
       if (ai.controlled)
@@ -3497,7 +3509,8 @@ function createGlobalStyle() {
   padding: 4px 10px;
   text-shadow: .5px .5px 2px #000;
 }
-#\mpiv-bar.\mpiv-show {
+#\mpiv-bar.\mpiv-show,
+#\mpiv-bar[data-force] {
   opacity: 1;
 }
 #\mpiv-bar[data-zoom]::after {
