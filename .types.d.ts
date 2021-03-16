@@ -158,6 +158,7 @@ declare namespace mpiv {
     scaleFit: number
     // scale factor to use when zoom is enabled
     scaleZoom: number
+    shiftKeyTime: number
     timer: number
     timerBar: number
     timerProgress: number

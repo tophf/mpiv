@@ -866,6 +866,9 @@ const Events = {
     const p = ai.popup;
     switch (key) {
       case '+Shift':
+        if (ai.shiftKeyTime)
+          return;
+        ai.shiftKeyTime = now();
         Status.set('+shift');
         Bar.show(true);
         if (p && p.tagName === 'VIDEO')
@@ -943,12 +946,14 @@ const Events = {
       Bar.hide(true);
       if ((ai.popup || {}).controls)
         ai.popup.controls = false;
-      if (ai.controlled)
+      // Chrome doesn't expose events for clicks on video controls so we'll guess
+      if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
         ai.controlled = false;
       else if (ai.popup && (ai.zoomed || ai.rectHovered !== false))
         App.toggleZoom();
       else
         App.deactivate({wait: true});
+      ai.shiftKeyTime = 0;
     }
   },
 
