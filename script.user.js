@@ -2343,6 +2343,7 @@ const Remoting = {
     if (!n) return;
     let html;
     const path =
+      n.getAttribute('data-src') || // lazy loaded src, whereas current `src` is an empty 1x1 pixel
       n.getAttribute('src') ||
       n.getAttribute('data-m4v') ||
       n.getAttribute('href') ||
