@@ -325,7 +325,7 @@ const App = {
     Status.loading();
     try {
       const startUrl = ai.url;
-      const p = ai.rule.s === 'gallery' ? {} : await Remoting.getDoc(startUrl);
+      const p = await Remoting.getDoc(ai.rule.s !== 'gallery' && startUrl);
       const items = await new Promise(resolve => {
         const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node,
           resolve);
@@ -2193,6 +2193,14 @@ const Remoting = {
   },
 
   async getDoc(url) {
+    if (!url) {
+      // current document
+      return {
+        doc,
+        finalUrl: location.href,
+        responseText: doc.documentElement.outerHTML,
+      };
+    }
     const r = await (!ai.post ?
       Remoting.gmXhr(url) :
       Remoting.gmXhr(url, {
