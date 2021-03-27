@@ -1077,7 +1077,7 @@ const Gallery = {
     const {g} = rule;
     const qEntry = g.entry;
     const qCaption = ensureArray(g.caption);
-    const qImage = g.image;
+    const qImage = g.image || 'img';
     const qTitle = g.title;
     const fix =
       (typeof g.fix === 'string' ? Util.newFunction('s', 'isURL', g.fix) : g.fix) ||
