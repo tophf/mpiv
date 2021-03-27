@@ -2566,8 +2566,8 @@ const Util = {
       }` ||
       e;
     const m = [
-      [`${GM_info.script.name}: %c${message}%c`, 'font-weight:bold;color:yellow'],
-      ['', 'font-weight:normal;color:unset'],
+      [`${GM_info.script.name}: %c${message}%c`, 'font-weight:bold'],
+      ['', 'font-weight:normal'],
     ];
     m.push(...[
       ['Node: %o', ai.node],
