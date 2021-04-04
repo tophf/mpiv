@@ -781,13 +781,16 @@ const Events = {
     Events.hoverTimer = Events.hoverTimer || setTimeout(Events.onMouseOverThrottled, SETTLE_TIME);
   },
 
-  onMouseOverThrottled() {
+  onMouseOverThrottled(force) {
+    if (!Events.hoverData)
+      return;
     const [start, e, node] = Events.hoverData;
     // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
-    const wait = start + SETTLE_TIME - now();
+    const wait = force ? 0 : start + SETTLE_TIME - now();
     Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
     if (Events.hoverTimer || !Util.isHovered(node))
       return;
+    Events.hoverData = null;
     if (!Ruler.rules)
       Ruler.init();
     let a;
@@ -838,8 +841,10 @@ const Events = {
   onMouseDown({shiftKey, button}) {
     if (button === 0 && shiftKey && ai.popup && ai.popup.controls) {
       ai.controlled = ai.zoomed = true;
-    } else if (button === 2 || shiftKey) {
-      // we ignore RMB and Shift
+    } else if (button === 2) {
+      Events.onMouseOverThrottled(true);
+    } else if (shiftKey) {
+      // Shift = ignore
     } else {
       App.deactivate({wait: true});
       doc.addEventListener('mouseup', App.enable, {once: true});
@@ -863,7 +868,13 @@ const Events = {
 
   onKeyDown(e) {
     const key = eventModifiers(e) + (e.key.length > 1 ? e.key : e.code);
-    const p = ai.popup;
+    const p = ai.popup || false; // simple polyfill for `p?.foo`
+    if (key === '^Control' && !p && (cfg.start !== 'auto' || ai.rule.manual)) {
+      Events.onMouseOverThrottled(true);
+      App.start();
+    }
+    if (!p)
+      return;
     switch (key) {
       case '+Shift':
         if (ai.shiftKeyTime)
@@ -871,12 +882,8 @@ const Events = {
         ai.shiftKeyTime = now();
         Status.set('+shift');
         Bar.show(true);
-        if (p && p.tagName === 'VIDEO')
+        if (p.tagName === 'VIDEO')
           p.controls = true;
-        return;
-      case '^Control':
-        if (!p && (cfg.start !== 'auto' || ai.rule.manual))
-          App.start();
         return;
       case 'ArrowRight':
       case 'KeyJ':
@@ -905,7 +912,7 @@ const Events = {
         Popup.move();
         break;
       case 'KeyM':
-        if (p && p.tagName === 'VIDEO')
+        if (p.tagName === 'VIDEO')
           p.muted = !p.muted;
         break;
       case 'KeyT':
@@ -3703,6 +3710,7 @@ Config.load({save: true}).then(res => {
   else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
   doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
+  doc.addEventListener('keydown', Events.onKeyDown);
   if (['greasyfork.org', 'github.com'].includes(hostname))
     doc.addEventListener('click', setupClickedRule);
   window.addEventListener('message', App.onMessage);
