@@ -246,3 +246,6 @@ declare namespace mpiv {
   type VoidFunction = { (): void }
 
 }
+
+
+export = mpiv;
