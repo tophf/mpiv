@@ -14,11 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
-      - name: install eslint
-        run: npm i eslint
-
-      - name: ESLint Plus
-        uses: bradennapier/eslint-plus-action@v3.4.2
+      - uses: bradennapier/eslint-plus-action@v3.4.2
         with:
           issueSummary: false
