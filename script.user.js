@@ -50,8 +50,6 @@
 // @icon        https://github.com/tophf/mpiv/raw/master/icon.png
 // ==/UserScript==
 
-/// <reference types='./types' />
-
 'use strict';
 
 //#region Globals
