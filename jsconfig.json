@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2018",
+    "checkJs": true
+  },
+  "typeAcquisition": {
+    "include": [
+      "types/types.d.ts", 
+      "types/types-gm3.d.ts", 
+      "types/types-gm4.d.ts"
+    ]
+  }
+}
