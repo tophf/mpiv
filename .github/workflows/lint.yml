@@ -14,4 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: install eslint
+        run: npm i eslint
       - uses: stefanoeb/eslint-action@1.0.2
