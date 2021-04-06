@@ -20,7 +20,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.2
+// @version     1.2.3
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1416,10 +1416,10 @@ const Ruler = {
           }
           if (!src && (n = node.closest('a[href*="/p/"], article'))) {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-            data = a && tryCatch(this._getEdge, a.pathname.split('/')[2]);
+            data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
           }
           Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
-          Ruler.toggle(rule, 'g', a && $('[class*="Carousel"]', a));
+          Ruler.toggle(rule, 'g', a && /<\w+[^>]+carousel/i.test(a.innerHTML));
           rule.follow = !data && !rule.g;
           rule._data = data;
           rule._img = img;
