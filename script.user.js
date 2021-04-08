@@ -760,7 +760,7 @@ const CspSniffer = {
 
 const Events = {
 
-  hoverData: [],
+  hoverData: null,
   hoverTimer: 0,
 
   onMouseOver(e) {
@@ -777,14 +777,14 @@ const Events = {
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
     // we don't want to process everything in the path of a quickly moving mouse cursor
-    Events.hoverData = [now(), e, node];
+    Events.hoverData = {e, node, start: now()};
     Events.hoverTimer = Events.hoverTimer || setTimeout(Events.onMouseOverThrottled, SETTLE_TIME);
   },
 
   onMouseOverThrottled(force) {
     if (!Events.hoverData)
       return;
-    const [start, e, node] = Events.hoverData;
+    const {start, e, node} = Events.hoverData;
     // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
     const wait = force ? 0 : start + SETTLE_TIME - now();
     Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
@@ -870,7 +870,10 @@ const Events = {
     const key = eventModifiers(e) + (e.key.length > 1 ? e.key : e.code);
     const p = ai.popup || false; // simple polyfill for `p?.foo`
     if (key === '^Control' && !p && (cfg.start !== 'auto' || ai.rule.manual)) {
+      dropEvent(e);
+      (Events.hoverData || {}).e = e;
       Events.onMouseOverThrottled(true);
+      ai.force = true;
       App.start();
     }
     if (!p)
