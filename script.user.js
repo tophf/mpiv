@@ -871,10 +871,14 @@ const Events = {
     const p = ai.popup || false; // simple polyfill for `p?.foo`
     if (key === '^Control' && !p && (cfg.start !== 'auto' || ai.rule.manual)) {
       dropEvent(e);
-      (Events.hoverData || {}).e = e;
-      Events.onMouseOverThrottled(true);
-      ai.force = true;
-      App.start();
+      if (Events.hoverData) {
+        Events.hoverData.e = e;
+        Events.onMouseOverThrottled(true);
+      }
+      if (ai.node) {
+        ai.force = true;
+        App.start();
+      }
     }
     if (!p)
       return;
