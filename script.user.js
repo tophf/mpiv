@@ -841,10 +841,8 @@ const Events = {
   onMouseDown({shiftKey, button}) {
     if (button === 0 && shiftKey && ai.popup && ai.popup.controls) {
       ai.controlled = ai.zoomed = true;
-    } else if (button === 2) {
-      Events.onMouseOverThrottled(true);
-    } else if (shiftKey) {
-      // Shift = ignore
+    } else if (button === 2 || shiftKey) {
+      // Shift = ignore; RMB will be processed in onContext
     } else {
       App.deactivate({wait: true});
       doc.addEventListener('mouseup', App.enable, {once: true});
@@ -973,12 +971,19 @@ const Events = {
 
   onContext(e) {
     if (e.shiftKey) return;
-    if (cfg.zoom === 'context' && ai.popup && App.toggleZoom()) {
+    const p = ai.popup;
+    if (cfg.zoom === 'context' && p && App.toggleZoom()) {
       dropEvent(e);
-    } else if (!ai.popup && (cfg.start === 'context' || (cfg.start === 'auto' && ai.rule.manual))) {
-      App.start();
-      dropEvent(e);
-    } else {
+    } else if (!p && (cfg.start === 'context' || (cfg.start === 'auto' && ai.rule.manual))) {
+      // right-clicked on an image while the context menu is shown for something else
+      if (!ai.node && !Events.hoverData)
+        Events.onMouseOver(e);
+      Events.onMouseOverThrottled(true);
+      if (ai.node) {
+        App.start();
+        dropEvent(e);
+      }
+    } else if (p) {
       setTimeout(App.deactivate, SETTLE_TIME, {wait: true});
     }
   },
@@ -1001,7 +1006,6 @@ const Events = {
     onOff.call(doc, 'mousemove', Events.onMouseMove, passive);
     onOff.call(doc, 'mouseout', Events.onMouseOut, passive);
     onOff.call(doc, 'mousedown', Events.onMouseDown, passive);
-    onOff.call(doc, 'contextmenu', Events.onContext);
     onOff.call(doc, 'keydown', Events.onKeyDown, true); // override normal page listeners
     onOff.call(doc, 'keyup', Events.onKeyUp);
     onOff.call(doc, WHEEL_EVENT, Events.onMouseScroll, enable ? {passive: false} : undefined);
@@ -3717,6 +3721,7 @@ Config.load({save: true}).then(res => {
   else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
   doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
+  doc.addEventListener('contextmenu', Events.onContext);
   doc.addEventListener('keydown', Events.onKeyDown);
   if (['greasyfork.org', 'github.com'].includes(hostname))
     doc.addEventListener('click', setupClickedRule);
