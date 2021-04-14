@@ -865,7 +865,8 @@ const Events = {
   },
 
   onKeyDown(e) {
-    const key = eventModifiers(e) + (e.key.length > 1 ? e.key : e.code);
+    // Synthesized events may be of the wrong type and not have a `key`
+    const key = eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
     const p = ai.popup || false; // simple polyfill for `p?.foo`
     if (key === '^Control' && !p && (cfg.start !== 'auto' || ai.rule.manual)) {
       dropEvent(e);
