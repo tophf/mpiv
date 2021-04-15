@@ -693,6 +693,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   uiBorderOpacity: 100,
   uiBorder: 0,
   uiFadein: true,
+  uiFadeinGallery: true, // some computers show white background while loading so fading hides it
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
   uiShadow: 20,
@@ -1196,7 +1197,7 @@ const Menu = window === top && GM.registerMenuCommand && {
 const Popup = {
 
   async create(src, pageUrl) {
-    const inGallery = ai.gItems && ai.popup && !ai.zooming &&
+    const inGallery = !cfg.uiFadeinGallery && ai.gItems && ai.popup && !ai.zooming &&
       (ai.popup.dataset.galleryFlip = '') === '';
     Popup.destroy();
     ai.imageUrl = src;
@@ -3222,10 +3223,11 @@ function createConfigHtml() {
     justify-content: space-between;
   }
   li.row {
+    align-items: start;
     flex-wrap: wrap;
-    justify-content: flex-start;
   }
   li.row label {
+    display: flex;
     flex-direction: row;
     align-items: center;
   }
@@ -3249,7 +3251,7 @@ function createConfigHtml() {
     margin-right: 1em;
   }
   input, select {
-    min-height: 1.6em;
+    min-height: 1.3em;
     box-sizing: border-box;
   }
   input[type=checkbox] {
@@ -3498,7 +3500,7 @@ function createConfigHtml() {
         <tr><th>Open in tab</th><td><kbd>t</kbd></td></tr>
       </table>
     </details>
-    <li class=options>
+    <li class="options stretch">
       <label>Popup shows on
         <select id=start>
           <option value=context>Right-click / &#8801; / Ctrl
@@ -3553,20 +3555,27 @@ function createConfigHtml() {
       </label>
     </li>
     <li class="options row">
-      <label title="...or try to keep the original link/thumbnail unobscured by the popup">
-        <input type=checkbox id=center>Centered*</label>
-      <label title="Provides smoother experience but increases network traffic">
-        <input type=checkbox id=preload>Preload on hover*</label>
-      <label title="...or show a partial image while still loading">
-        <input type=checkbox id=waitLoad>Show when fully loaded*</label>
-      <label><input type=checkbox id=uiFadein>Fade-in transition</label>
-      <label><input type=checkbox id=mute>Mute videos</label>
-      <label><input type=checkbox id=imgtab>Run in image tabs</label>
-      <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
-        <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;*</label>
-      <label title="Disable only if you spoof the HTTP headers yourself">
-        <input type=checkbox id=xhr>Spoof hotlinking*</label>
-      <label style="width:100%"><input type=checkbox id=startAltShown>
+      <div>
+        <label title="...or try to keep the original link/thumbnail unobscured by the popup">
+          <input type=checkbox id=center>Centered*</label>
+        <label title="Provides smoother experience but increases network traffic">
+          <input type=checkbox id=preload>Preload on hover*</label>
+        <label><input type=checkbox id=imgtab>Run in image tabs</label>
+      </div>
+      <div>
+        <label><input type=checkbox id=mute>Mute videos</label>
+        <label title="Disable only if you spoof the HTTP headers yourself">
+          <input type=checkbox id=xhr>Spoof hotlinking*</label>
+        <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
+          <input type=checkbox id=globalStatus>Set status on &lt;html&gt;*</label>
+      </div>
+      <div>
+        <label title="...or show a partial image while still loading">
+          <input type=checkbox id=waitLoad>Show when fully loaded*</label>
+        <label><input type=checkbox id=uiFadein>Fade-in transition</label>
+        <label><input type=checkbox id=uiFadeinGallery>Fade-in transition in gallery</label>
+      </div>
+      <label><input type=checkbox id=startAltShown>
         Show a switch for 'auto-start' mode in userscript manager menu</label>
     </li>
     <li class="options stretch">
