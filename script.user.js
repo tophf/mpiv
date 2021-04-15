@@ -981,6 +981,7 @@ const Events = {
         Events.onMouseOver(e);
       Events.onMouseOverThrottled(true);
       if (ai.node) {
+        ai.force = true;
         App.start();
         dropEvent(e);
       }
