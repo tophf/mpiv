@@ -2153,14 +2153,14 @@ const RuleMatcher = {
     let info;
     let url = `${urls[0]}`;
     const follow = url && hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule);
-    if (!url)
+    if (url)
+      url = Util.rel2abs(url);
+    else
       info = {};
     if (follow)
       info = RuleMatcher.find(url, node, {skipRules: [...skipRules || [], rule]});
     if (!info && (!follow || RX_MEDIA_URL.test(url))) {
       const xhr = cfg.xhr && rule.xhr;
-      if (url.startsWith('//'))
-        url = location.protocol + url;
       info = {
         match,
         node,
@@ -2627,7 +2627,8 @@ const Util = {
     try {
       return rel.startsWith('data:') ? rel :
         rel.startsWith('blob:') ? '' : // blobs don't work because they're usually revoked
-          new URL(rel, abs).href;
+          /^[-\w]+:\/\//.test(rel) ? rel :
+            new URL(rel, abs).href;
     } catch (e) {
       return rel;
     }
