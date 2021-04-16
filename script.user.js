@@ -20,7 +20,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.4
+// @version     1.2.5
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -879,7 +879,7 @@ const Events = {
         App.start();
       }
     }
-    if (!p)
+    if (!p || e.repeat)
       return;
     switch (key) {
       case '+Shift':
