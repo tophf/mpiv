@@ -3786,7 +3786,7 @@ Config.load({save: true}).then(res => {
       const hovered = [...$$(':hover')].pop();
       if (hovered)
         Events.triggerHover(hovered);
-      }, {once: true});
+    }, {once: true});
   }
 });
 
