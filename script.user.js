@@ -9,6 +9,7 @@
 // @grant       GM_getValue
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
+// @grant       GM_unregisterMenuCommand
 // @grant       GM_setClipboard
 // @grant       GM_setValue
 // @grant       GM_xmlhttpRequest
@@ -16,6 +17,7 @@
 // @grant       GM.getValue
 // @grant       GM.openInTab
 // @grant       GM.registerMenuCommand
+// @grant       GM.unregisterMenuCommand
 // @grant       GM.setClipboard
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
@@ -96,8 +98,10 @@ if (!GM.setValue)
   GM.setValue = GM_setValue; // we use it only with `await` so no need to return a Promise
 if (!GM.openInTab)
   GM.openInTab = GM_openInTab;
-if (!GM.registerMenuCommand)
+if (!GM.registerMenuCommand && typeof GM_registerMenuCommand === 'function')
   GM.registerMenuCommand = GM_registerMenuCommand;
+if (!GM.unregisterMenuCommand && typeof GM_unregisterMenuCommand === 'function')
+  GM.unregisterMenuCommand = GM_unregisterMenuCommand;
 if (!GM.setClipboard)
   GM.setClipboard = GM_setClipboard;
 if (!GM.xmlHttpRequest)
@@ -594,7 +598,6 @@ const Calc = {
   },
 };
 
-/** @namespace mpiv.Config */
 class Config {
 
   constructor({data: c, save}) {
@@ -602,7 +605,7 @@ class Config {
       c = tryCatch(JSON.parse, c);
     if (typeof c !== 'object' || !c)
       c = {};
-    const {/** @type mpiv.Config */ DEFAULTS} = Config;
+    const {DEFAULTS} = Config;
     c.fit = ['all', 'large', 'no', ''].includes(c.fit) ? c.fit :
       !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? 'large' :
         '';
@@ -670,6 +673,8 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   scale: 1.25,
   scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
   start: 'auto',
+  startAlt: 'context',
+  startAltShown: false,
   uiBackgroundColor: '#ffffff',
   uiBackgroundOpacity: 100,
   uiBorderColor: '#000000',
@@ -1140,6 +1145,39 @@ const Gallery = {
       if (el && !el.matches(qEntry))
         return el.matches(selector) ? el : $(selector, el);
     }
+  },
+};
+
+const Menu = window === top && GM.registerMenuCommand && {
+  curAltName: '',
+  unreg: GM.unregisterMenuCommand,
+  makeAltName: () => Menu.unreg
+    ? `MPIV: auto-start is ${cfg.start === 'auto' ? 'ON' : 'OFF'}`
+    : 'MPIV: toggle auto-start',
+  register() {
+    GM.registerMenuCommand('MPIV: configure', setup);
+    Menu.registerAlt();
+  },
+  registerAlt() {
+    if (cfg.startAltShown) {
+      Menu.curAltName = Menu.makeAltName();
+      GM.registerMenuCommand(Menu.curAltName, Menu.onAltToggled);
+    }
+  },
+  reRegisterAlt() {
+    const old = Menu.curAltName;
+    if (old && Menu.unreg) Menu.unreg(old);
+    if (!old || Menu.unreg) Menu.registerAlt();
+  },
+  onAltToggled() {
+    const wasAuto = cfg.start === 'auto';
+    if (wasAuto) {
+      cfg.start = cfg.startAlt || (cfg.startAlt = 'context');
+    } else {
+      cfg.startAlt = cfg.start;
+      cfg.start = 'auto';
+    }
+    Menu.reRegisterAlt();
   },
 };
 
@@ -2824,6 +2862,7 @@ async function setup({rule} = {}) {
     if (event && (this.id === '_ok' || isApply)) {
       cfg = uiCfg = collectConfig({save: true, clone: isApply});
       Ruler.init();
+      Menu.reRegisterAlt();
       if (isApply) {
         renderCustomScales();
         UI._css.textContent = cfg._getCss();
@@ -3451,6 +3490,8 @@ function createConfigHtml() {
         <input type=checkbox id=globalStatus>Expose status on &lt;html&gt;*</label>
       <label title="Disable only if you spoof the HTTP headers yourself">
         <input type=checkbox id=xhr>Spoof hotlinking*</label>
+      <label style="width:100%"><input type=checkbox id=startAltShown>
+        Show a switch for 'auto-start' mode in userscript manager menu</label>
     </li>
     <li class="options stretch">
       <label>Background
@@ -3717,8 +3758,7 @@ const $remove = node =>
 
 Config.load({save: true}).then(res => {
   cfg = res;
-  if (window === top)
-    GM.registerMenuCommand('MPIV: configure', setup);
+  if (Menu) Menu.register();
 
   if (doc.body) App.checkImageTab();
   else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});

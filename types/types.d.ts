@@ -18,7 +18,9 @@ declare namespace mpiv {
     preload: boolean
     scale: number
     scales: (string | number)[]
-    start: 'auto' | 'context' | 'ctrl'
+    start: Start
+    startAlt: Start
+    startAltShown: boolean
     uiBackgroundColor: string
     uiBackgroundOpacity: number,
     uiBorderColor: string,
@@ -245,4 +247,10 @@ declare namespace mpiv {
 
   type VoidFunction = { (): void }
 
+  enum StartEnum {
+    auto,
+    context,
+    ctrl,
+  }
+  type Start = keyof typeof StartEnum
 }
