@@ -648,6 +648,7 @@ class Config {
 }
 
 Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
+  autoactivateAtLoad: false,
   center: false,
   css: '',
   delay: 500,
@@ -1025,6 +1026,11 @@ const Events = {
     ai.rectHovered =
       cx > r.left - 2 && cx < r.right + 2 &&
       cy > r.top - 2 && cy < r.bottom + 2;
+  },
+
+  triggerHover(element, rect = element) {
+    const {left, top} = rect.getBoundingClientRect();
+    Events.onMouseOver({target: element, clientX: left, clientY: top});
   },
 
   zoomInOut(dir) {
@@ -1446,8 +1452,12 @@ const Ruler = {
             mo.disconnect();
             App.isEnabled = true;
             a.alt = a2.innerText;
-            const {left, top} = a.getBoundingClientRect();
-            Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
+            if (!cfg.autoactivateAtLoad) {
+              const {left, top} = a.getBoundingClientRect();
+              Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
+            } else {
+              Events.triggerHover($('img', a), a);
+            }
           }).observe(a, {attributes: true, attributeFilter: ['href']});
           a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
           a2.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
@@ -3492,6 +3502,8 @@ function createConfigHtml() {
         <input type=checkbox id=xhr>Spoof hotlinking*</label>
       <label style="width:100%"><input type=checkbox id=startAltShown>
         Show a switch for 'auto-start' mode in userscript manager menu</label>
+      <label title="This feature is currently aimed for Firefox users (https://crbug.com/307375)">
+        <input type=checkbox id=autoactivateAtLoad>Auto-activate on hovered image at load event*</label>
     </li>
     <li class="options stretch">
       <label>Background
@@ -3769,6 +3781,13 @@ Config.load({save: true}).then(res => {
   if (['greasyfork.org', 'github.com'].includes(hostname))
     doc.addEventListener('click', setupClickedRule);
   window.addEventListener('message', App.onMessage);
+  if (cfg.autoactivateAtLoad) {
+    window.addEventListener('load', () => {
+    const hovered = [...$$(':hover')].pop();
+    if (hovered)
+      Events.triggerHover(hovered);
+    }, {once: true});
+  }
 });
 
 //#endregion
