@@ -3783,10 +3783,10 @@ Config.load({save: true}).then(res => {
   window.addEventListener('message', App.onMessage);
   if (cfg.autoactivateAtLoad) {
     window.addEventListener('load', () => {
-    const hovered = [...$$(':hover')].pop();
-    if (hovered)
-      Events.triggerHover(hovered);
-    }, {once: true});
+      const hovered = [...$$(':hover')].pop();
+      if (hovered)
+        Events.triggerHover(hovered);
+      }, {once: true});
   }
 });
 
