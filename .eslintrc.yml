@@ -8,8 +8,17 @@ env:
   es6: true
 
 globals:
+  unsafeWindow: false
   GM: false
+  GM_info: false
+  GM_getValue: false
+  GM_setValue: false
+  GM_xmlhttpRequest: false
+  GM_download: false
+  GM_openInTab: false
+  GM_registerMenuCommand: false
   GM_unregisterMenuCommand: false
+  GM_setClipboard: false
 
 rules:
   accessor-pairs: [2]
