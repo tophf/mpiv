@@ -452,7 +452,7 @@ const Bar = {
     } px, ${
       Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100
     } MP, ${
-      aspectRatio(ai.nwidth/ai.nheight, 50)
+      aspectRatio(ai.nwidth/ai.nheight, 20)
     }`.replace(/\x20/g, '\xA0');
     if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
       if (zoom) ai.bar.dataset.zoom = zoom;
