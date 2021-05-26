@@ -452,7 +452,7 @@ const Bar = {
     } px, ${
       Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100
     } MP, ${
-      aspectRatio(ai.nwidth / ai.nheight, 20)
+      aspectRatio(ai.nwidth, ai.nheight)
     }`.replace(/\x20/g, '\xA0');
     if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
       if (zoom) ai.bar.dataset.zoom = zoom;
@@ -462,37 +462,17 @@ const Bar = {
   },
 };
 
-// https://stackoverflow.com/a/43016456/3231411
-function aspectRatio(val, lim) {
-
-  let lower = [0, 1];
-  let upper = [1, 0];
-
-  while (true) {
-    const mediant = [lower[0] + upper[0], lower[1] + upper[1]];
-
-    if (val * mediant[1] > mediant[0]) {
-      if (lim < mediant[1]) {
-        return upper.join(':');
-      }
-      lower = mediant;
-    } else if (val * mediant[1] === mediant[0]) {
-      if (lim >= mediant[1]) {
-        return mediant.join(':');
-      }
-      if (lower[1] < upper[1]) {
-        return lower.join(':');
-      }
-      return upper.join(':');
-    } else {
-      if (lim < mediant[1]) {
-        return lower.join(':');
-      }
-      upper = mediant;
-    }
+function aspectRatio(w, h) {
+  for (let err, rat = w / h, a, b = 0; ;) {
+    b++;
+    a = Math.round(w * b / h);
+    if (a > 20 || b > 20)
+      return rat.toFixed(2);
+    err = Math.abs(a / b - rat);
+    if (err < 1e-3)
+      return `${a}:${b}`;
   }
 }
-
 
 const Calc = {
 
