@@ -452,7 +452,7 @@ const Bar = {
     } px, ${
       Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100
     } MP, ${
-      aspectRatio(ai.nwidth, ai.nheight)
+      Calc.aspectRatio(ai.nwidth, ai.nheight)
     }`.replace(/\x20/g, '\xA0');
     if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
       if (zoom) ai.bar.dataset.zoom = zoom;
@@ -462,19 +462,18 @@ const Bar = {
   },
 };
 
-function aspectRatio(w, h) {
-  for (let err, rat = w / h, a, b = 0; ;) {
-    b++;
-    a = Math.round(w * b / h);
-    if (a > 20 || b > 20)
-      return rat.toFixed(2);
-    err = Math.abs(a / b - rat);
-    if (err < 1e-3)
-      return `${a}:${b}`;
-  }
-}
-
 const Calc = {
+
+  aspectRatio(w, h) {
+    for (let rat = w / h, a, b = 0; ;) {
+      b++;
+      a = Math.round(w * b / h);
+      if (a > 10 && b > 10 || a > 100 || b > 100)
+        return rat.toFixed(2);
+      if (Math.abs(a / b - rat) < .01)
+        return `${a}:${b}`;
+    }
+  },
 
   frameSize(elFrame, parentWindow) {
     if (!elFrame) return;
