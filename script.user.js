@@ -1546,7 +1546,7 @@ const Ruler = {
           '||500px.com/photo/',
           '||cl.ly/',
           '||cweb-pix.com/',
-          '||ibb.co/',
+          '//ibb.co/',
           '||imgcredit.xyz/image/',
         ],
         r: /\.\w+\/.+/,
