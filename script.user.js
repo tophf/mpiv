@@ -780,9 +780,11 @@ const Events = {
 
   hoverData: null,
   hoverTimer: 0,
+  ignoreKeyHeld: false,
 
   onMouseOver(e) {
     let node = e.target;
+    Events.ignoreKeyHeld = e.shiftKey;
     if (!App.isEnabled ||
         e.shiftKey ||
         ai.zoomed ||
@@ -886,7 +888,10 @@ const Events = {
     // Synthesized events may be of the wrong type and not have a `key`
     const key = eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
     const p = ai.popup || false; // simple polyfill for `p?.foo`
-    if (key === '^Control' && !p && (cfg.start !== 'auto' || ai.rule.manual)) {
+    if (!p &&
+        key === '^Control' &&
+        !Events.ignoreKeyHeld &&
+        (cfg.start !== 'auto' || ai.rule.manual)) {
       dropEvent(e);
       if (Events.hoverData) {
         Events.hoverData.e = e;
@@ -989,7 +994,8 @@ const Events = {
   },
 
   onContext(e) {
-    if (e.shiftKey) return;
+    if (Events.ignoreKeyHeld)
+      return;
     const p = ai.popup;
     if (cfg.zoom === 'context' && p && App.toggleZoom()) {
       dropEvent(e);
