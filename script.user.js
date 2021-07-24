@@ -1662,11 +1662,7 @@ const Ruler = {
         u: '||gfycat.com/',
         r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
         s: 'https://$1$3',
-        q: [
-          'meta[content$=".webm"]',
-          '#webmsource',
-          'source[src$=".webm"]',
-        ],
+        q: 'meta[content$=".webm"], #webmsource, source[src$=".webm"], .actual-gif-image',
       },
       {
         u: [
