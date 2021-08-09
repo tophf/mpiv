@@ -49,7 +49,7 @@
 // @connect     user-images.githubusercontent.com
 //
 // @supportURL  https://github.com/tophf/mpiv/issues
-// @icon        https://github.com/tophf/mpiv/raw/master/icon.png
+// @icon        https://raw.githubusercontent.com/tophf/mpiv/master/icon.png
 // ==/UserScript==
 
 'use strict';
