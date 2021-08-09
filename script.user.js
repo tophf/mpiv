@@ -2122,7 +2122,7 @@ const Ruler = {
   },
 
   substituteSingle(s, m) {
-    if (!m) return s;
+    if (!m || m.input == null) return s;
     if (s.startsWith('/') && !s.startsWith('//')) {
       const mid = s.search(/[^\\]\//) + 1;
       const end = s.lastIndexOf('/');
