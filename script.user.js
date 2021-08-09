@@ -813,18 +813,9 @@ const Events = {
     Events.hoverData = null;
     if (!Ruler.rules)
       Ruler.init();
-    let a;
-    const tag = node.tagName;
-    const src = node.currentSrc || node.src;
-    const isPic = tag === 'IMG' || tag === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
-    const info =
-      // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
-      tag !== 'A' &&
-        RuleMatcher.find(isPic && !src.startsWith('data:') && Util.rel2abs(src), node) ||
-      (a = node.closest('A')) &&
-        RuleMatcher.findForLink(a) ||
-      isPic &&
-        {node, rule: {}, url: src};
+    const {a, isPic, src, url} = RuleMatcher.analyze(node);
+    const info = RuleMatcher.find(url, a || node) ||
+      isPic && {node, rule: {}, url: src};
     if (info && info.url && info.node !== ai.node)
       App.activate(info, e);
   },
@@ -2033,6 +2024,8 @@ const Ruler = {
     }
   },
 
+  isValidE2: ([k, v]) => k.trim() && typeof v === 'string' && v.trim(),
+
   /** @returns mpiv.HostRule | Error | false | undefined */
   parse(rule) {
     const isBatchOp = this instanceof Map;
@@ -2043,6 +2036,16 @@ const Ruler = {
         rule.d = undefined;
       else if (isBatchOp && rule.d && !hostname.includes(rule.d))
         return false;
+      if ('e' in rule) {
+        let {e} = rule;
+        if (typeof e === 'string') {
+          e = e.trim();
+        } else if (e) {
+          e = Object.entries(e);
+          e = e.filter(Ruler.isValidE2).length && e;
+        }
+        if (isBatchOp) rule.e = e || undefined;
+      }
       const compileTo = isBatchOp ? rule : {};
       if (rule.r)
         compileTo.r = new RegExp(rule.r, 'i');
@@ -2103,6 +2106,23 @@ const Ruler = {
     return url;
   },
 
+  /** @returns {boolean} */
+  runE(e, node, onFound) {
+    let p, i;
+    if (typeof e === 'string') {
+      i = node.matches(e) && node;
+    } else {
+      for (const [parent, img] of e) {
+        if ((p = node.closest(parent)) && (i = $(img, p)))
+          break;
+      }
+    }
+    if (i) {
+      onFound(RuleMatcher.analyze(i));
+      return true;
+    }
+  },
+
   /** @returns {?Array} if falsy then the rule should be skipped */
   runS(node, rule, m) {
     let urls = [];
@@ -2119,6 +2139,12 @@ const Ruler = {
       urls = urls[0];
     // `false` returned by "s" property means "skip this rule", "" means "stop all rules"
     return urls[0] !== false && Array.from(new Set(urls), Util.decodeUrl);
+  },
+
+  /** @returns {boolean} */
+  runU(u, rule, url) {
+    u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(u));
+    return u.fn.call(u.data, url);
   },
 
   substituteSingle(s, m) {
@@ -2151,34 +2177,40 @@ const Ruler = {
 
 const RuleMatcher = {
 
-  /** @returns ?mpiv.RuleMatchInfo */
-  findForLink(a) {
-    let url =
-      a.getAttribute('data-expanded-url') ||
-      a.getAttribute('data-full-url') ||
-      a.getAttribute('data-url') ||
-      a.href;
-    if (url.startsWith('data:'))
-      url = false;
-    else if (url.includes('//t.co/'))
-      url = 'http://' + a.textContent;
-    return RuleMatcher.find(url, a);
+  /** @returns {Object} */
+  analyze(node) {
+    const tn = node.tagName;
+    const src = node.currentSrc || node.src;
+    const isPic = tn === 'IMG' || tn === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
+    let a, url;
+    if (tn !== 'A')
+      url = isPic && Util.rel2abs(src);
+    else if ((a = node.closest('a'))) {
+      url = a.getAttribute('data-expanded-url') ||
+            a.getAttribute('data-full-url') ||
+            a.getAttribute('data-url') ||
+            a.href ||
+            '';
+      // data URI may be huge so we don't expose it to rules to avoid catastrophic backtracking in regexps
+      if (url.startsWith('data:'))
+        url = false;
+      else if (url.includes('//t.co/'))
+        url = 'https://' + a.textContent;
+    }
+    return {a, isPic, node, src, tn, url};
   },
 
   /** @returns ?mpiv.RuleMatchInfo */
   find(url, node, {noHtml, skipRules} = {}) {
-    const tn = node.tagName;
-    const isPic = tn === 'IMG' || tn === 'VIDEO';
-    const isPicOrLink = isPic || tn === 'A';
-    let m, html;
+    let tn = node.tagName;
+    let e, u, m, html;
     for (const rule of Ruler.rules) {
-      const u = rule[SYM_U] || rule.u && (rule[SYM_U] = UrlMatcher(rule.u));
-      if (u && (!url || !u.fn.call(u.data, url)) ||
-          rule.e && !node.matches(rule.e) ||
+      if ((u = rule.u) && (!url || !Ruler.runU(u, rule, url)) ||
+          (e = rule.e) && !Ruler.runE(e, node, ctx => ({html, node, tn, url} = ctx)) ||
           skipRules && skipRules.includes(rule))
         continue;
       if (rule.r)
-        m = !noHtml && rule.html && (isPicOrLink || rule.e)
+        m = !noHtml && rule.html && (/^(A|IMG|VIDEO)$/.test(tn) || e)
           ? rule.r.exec(html || (html = node.outerHTML))
           : url && rule.r.exec(url);
       else if (url)
@@ -2192,7 +2224,7 @@ const RuleMatcher = {
       let hasS = rule.s != null;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (isPic && !hasS && !skipRules)
+      if (!hasS && !skipRules && (tn === 'IMG' || tn === 'VIDEO'))
         continue;
       hasS &= rule.s !== 'gallery';
       const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
