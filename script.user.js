@@ -717,17 +717,11 @@ const CspSniffer = {
 
   // will be null when done
   init() {
-    this.initPending = this.initPending || new Promise(resolve => {
-      GM.xmlHttpRequest({
-        url: location.href,
-        method: 'HEAD',
-        onload: response => {
-          this.csp = this._parse(response);
-          this.init = this.initPending = null;
-          resolve();
-        },
+    this.initPending = this.initPending ||
+      fetch(location, {method: 'HEAD'}).catch(() => false).then(r => {
+        this.csp = r && this._parse(r.headers.get('content-security-policy'));
+        this.init = this.initPending = null;
       });
-    });
   },
 
   async check(url) {
@@ -742,8 +736,7 @@ const CspSniffer = {
     return [mode || ai.xhr, isVideo];
   },
 
-  _parse({responseHeaders}) {
-    const csp = responseHeaders.match(/(?:^|[\r\n])\s*Content-Security-Policy:([^\r\n]*)/i);
+  _parse(csp) {
     if (!csp) return;
     const src = {};
     const rx = /[\s;](default|img|media)-src ([^;]+)/g;
