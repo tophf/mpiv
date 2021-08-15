@@ -2131,7 +2131,7 @@ const Ruler = {
     if (Array.isArray(urls[0]))
       urls = urls[0];
     // `false` returned by "s" property means "skip this rule", "" means "stop all rules"
-    return urls[0] !== false && Array.from(new Set(urls), String).map(Util.decodeUrl);
+    return urls[0] !== false && Array.from(new Set(urls), Util.decodeUrl);
   },
 
   /** @returns {boolean} */
@@ -2629,7 +2629,7 @@ const Util = {
 
   // decode only if the main part of the URL is encoded to preserve the encoded parameters
   decodeUrl(url) {
-    if (!url) return url;
+    if (!url || typeof url !== 'string') return url;
     const iPct = url.indexOf('%');
     const iColon = url.indexOf(':');
     return iPct >= 0 && (iPct < iColon || iColon < 0) ?
