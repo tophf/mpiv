@@ -806,9 +806,7 @@ const Events = {
     Events.hoverData = null;
     if (!Ruler.rules)
       Ruler.init();
-    const {a, isPic, src, url} = RuleMatcher.analyze(node);
-    const info = RuleMatcher.find(url, a || node) ||
-      isPic && {node, rule: {}, url: src};
+    const info = RuleMatcher.adaptiveFind(node);
     if (info && info.url && info.node !== ai.node)
       App.activate(info, e);
   },
@@ -2034,8 +2032,14 @@ const Ruler = {
         if (typeof e === 'string') {
           e = e.trim();
         } else if (e) {
-          e = Object.entries(e);
-          e = e.filter(Ruler.isValidE2).length && e;
+          e = Object.entries(e).filter(Ruler.isValidE2);
+          if (!e.length) {
+            throw new Error('Invalid syntax for "e". Example: ' +
+              '"e": {".parent": ".image"} or ' +
+              '"e": {".parent1": ".image1", ".parent2": ".image2"}');
+          }
+          rule.e2 = e;
+          e = '';
         }
         if (isBatchOp) rule.e = e || undefined;
       }
@@ -2049,12 +2053,12 @@ const Ruler = {
       if (RX_HAS_CODE.test(rule.c))
         compileTo.c = Util.newFunction('text', 'doc', 'node', 'rule', rule.c);
       return rule;
-    } catch (e) {
-      if (!e.message.includes('unsafe-eval'))
+    } catch (err) {
+      if (!err.message.includes('unsafe-eval'))
         if (isBatchOp) {
-          this.set(rule, e);
+          this.set(rule, err);
         } else {
-          return e;
+          return err;
         }
     }
   },
@@ -2100,19 +2104,11 @@ const Ruler = {
   },
 
   /** @returns {boolean} */
-  runE(e, node, onFound) {
-    let p, i;
-    if (typeof e === 'string') {
-      i = node.matches(e) && node;
-    } else {
-      for (const [parent, img] of e) {
-        if ((p = node.closest(parent)) && (i = $(img, p)))
-          break;
-      }
-    }
-    if (i) {
-      onFound(RuleMatcher.analyze(i));
-      return true;
+  runE2(rule, node) {
+    let p, img;
+    for (const [selParent, selImg] of rule.e2) {
+      if ((p = node.closest(selParent)) && (img = $(selImg, p)))
+        return RuleMatcher.adaptiveFind(img);
     }
   },
 
@@ -2135,8 +2131,8 @@ const Ruler = {
   },
 
   /** @returns {boolean} */
-  runU(u, rule, url) {
-    u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(u));
+  runU(rule, url) {
+    const u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(rule.u));
     return u.fn.call(u.data, url);
   },
 
@@ -2171,39 +2167,43 @@ const Ruler = {
 const RuleMatcher = {
 
   /** @returns {Object} */
-  analyze(node) {
+  adaptiveFind(node) {
     const tn = node.tagName;
     const src = node.currentSrc || node.src;
     const isPic = tn === 'IMG' || tn === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
-    let a, url;
-    if (tn !== 'A')
-      url = isPic && Util.rel2abs(src);
-    else if ((a = node.closest('a'))) {
-      url = a.getAttribute('data-expanded-url') ||
-            a.getAttribute('data-full-url') ||
-            a.getAttribute('data-url') ||
-            a.href ||
-            '';
-      // data URI may be huge so we don't expose it to rules to avoid catastrophic backtracking in regexps
-      if (url.startsWith('data:'))
-        url = false;
-      else if (url.includes('//t.co/'))
-        url = 'https://' + a.textContent;
+    let a, info, url;
+    // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
+    if (tn !== 'A') {
+      url = isPic && !src.startsWith('data:') && Util.rel2abs(src);
+      info = RuleMatcher.find(url, node);
     }
-    return {a, isPic, node, src, tn, url};
+    if (!info && (a = node.closest('A'))) {
+      const ds = a.dataset;
+      url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || '';
+      url = url.includes('//t.co/') ? 'https://' + a.textContent : url;
+      url = !url.startsWith('data:') && url;
+      info = RuleMatcher.find(url, a);
+    }
+    if (!info && isPic)
+      info = {node, rule: {}, url: src};
+    return info;
   },
 
   /** @returns ?mpiv.RuleMatchInfo */
   find(url, node, {noHtml, skipRules} = {}) {
-    let tn = node.tagName;
-    let e, u, m, html;
+    const tn = node.tagName;
+    const isPic = tn === 'IMG' || tn === 'VIDEO';
+    const isPicOrLink = isPic || tn === 'A';
+    let m, html, info;
     for (const rule of Ruler.rules) {
-      if ((u = rule.u) && (!url || !Ruler.runU(u, rule, url)) ||
-          (e = rule.e) && !Ruler.runE(e, node, ctx => ({html, node, tn, url} = ctx)) ||
+      if (rule.u && (!url || !Ruler.runU(rule, url)) ||
+          rule.e && !node.matches(rule.e) ||
           skipRules && skipRules.includes(rule))
         continue;
+      if (rule.e2 && (info = Ruler.runE2(rule, node)))
+        return info;
       if (rule.r)
-        m = !noHtml && rule.html && (/^(A|IMG|VIDEO)$/.test(tn) || e)
+        m = !noHtml && rule.html && (isPicOrLink || rule.e)
           ? rule.r.exec(html || (html = node.outerHTML))
           : url && rule.r.exec(url);
       else if (url)
@@ -2217,7 +2217,7 @@ const RuleMatcher = {
       let hasS = rule.s != null;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (!hasS && !skipRules && (tn === 'IMG' || tn === 'VIDEO'))
+      if (isPic && !hasS && !skipRules)
         continue;
       hasS &= rule.s !== 'gallery';
       const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
