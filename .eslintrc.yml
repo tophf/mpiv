@@ -20,6 +20,8 @@ globals:
   GM_unregisterMenuCommand: false
   GM_setClipboard: false
 
+ignorePatterns: "*.ts"
+
 rules:
   accessor-pairs: [2]
   array-bracket-spacing: [2, never]

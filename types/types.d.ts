@@ -77,8 +77,8 @@ declare namespace mpiv {
     rect?: string
     // CSS to be added to the page
     css?: string
-    // for generic rules: the result should be more than cfg.scale bigger than the original
-    distinct?: boolean
+    // match in outerHTML string
+    html?: boolean
     // shows the popup only when user activates it explicitly e.g. via a key
     manual?: boolean
     // Firefox-only fix needed with some obstinate hostings when opening image in a tab via "T" key
