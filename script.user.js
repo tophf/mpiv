@@ -261,8 +261,8 @@ const App = {
     if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
       for (const el of doc.getElementsByTagName('iframe')) {
         if (el.contentWindow === e.source) {
-          const [w, h] = Calc.frameSize(el, window);
-          e.source.postMessage(`${MSG.viewSize}:${w}:${h}`, '*');
+          const s = Calc.frameSize(el, window).join(':');
+          e.source.postMessage(`${MSG.viewSize}:${s}`, '*');
           return;
         }
       }
@@ -273,8 +273,8 @@ const App = {
   onMessageChild(e) {
     if (e.source === parent && typeof e.data === 'string' && e.data.startsWith(MSG.viewSize)) {
       window.removeEventListener('message', App.onMessageChild);
-      const [w, h] = e.data.split(':').slice(1).map(parseFloat);
-      if (w && h) ai.view = {w, h};
+      const [w, h, x, y] = e.data.split(':').slice(1).map(parseFloat);
+      if (w && h) ai.view = {w, h, x, y};
     }
   },
 
@@ -475,12 +475,14 @@ const Calc = {
     }
   },
 
-  frameSize(elFrame, parentWindow) {
+  frameSize(elFrame, wnd) {
     if (!elFrame) return;
     const r = elFrame.getBoundingClientRect();
-    const w = clamp(r.width, 0, parentWindow.innerWidth - r.left);
-    const h = clamp(r.height, 0, parentWindow.innerHeight - r.top);
-    return [w, h];
+    const w = Math.min(r.right, wnd.innerWidth) - Math.max(r.left, 0);
+    const h = Math.min(r.bottom, wnd.innerHeight) - Math.max(r.top, 0);
+    const x = r.left < 0 ? -r.left : 0;
+    const y = r.top < 0 ? -r.top : 0;
+    return [w, h, x, y];
   },
 
   generateScales(fit) {
@@ -596,14 +598,11 @@ const Calc = {
 
   updateViewSize() {
     const view = doc.compatMode === 'BackCompat' ? doc.body : doc.documentElement;
-    ai.view = {
-      w: view.clientWidth,
-      h: view.clientHeight,
-    };
+    ai.view = {w: view.clientWidth, h: view.clientHeight, x: 0, y: 0};
     if (window === top) return;
     const [w, h] = Calc.frameSize(frameElement, parent) || [];
     if (w && h) {
-      ai.view = {w, h};
+      ai.view = {w, h, x: 0, y: 0};
     } else {
       window.addEventListener('message', App.onMessageChild);
       parent.postMessage(MSG.getViewSize, '*');
@@ -1250,10 +1249,16 @@ const Popup = {
         y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
       }
     }
-    if (x == null)
-      x = (vw - w) * (vw > w ? .5 : clamp(5 / 3 * (cx / vw - .2), 0, 1));
-    if (y == null)
-      y = (vh - h) * (vh > h ? .5 : clamp(5 / 3 * (cy / vh - .2), 0, 1));
+    if (x == null) {
+      x = vw > w
+        ? (vw - w) / 2 + view.x
+        : (vw - w) * clamp(5 / 3 * ((cx - view.x) / vw - .2), 0, 1);
+    }
+    if (y == null) {
+      y = vh > h
+        ? (vh - h) / 2 + view.y
+        : (vh - h) * clamp(5 / 3 * ((cy - view.y) / vh - .2), 0, 1);
+    }
     const diff = isSwapped ? (w0 - h0) / 2 : 0;
     x += extras.o - diff;
     y += extras.o + diff;
