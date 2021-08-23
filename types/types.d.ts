@@ -249,7 +249,10 @@ declare namespace mpiv {
 
   enum StartEnum {
     auto,
-    context,
+    context, // historical name for Context menu + Ctrl
+    contextMK, // context menu invoked via Mouse or Keyboard
+    contextM, // context menu invoked via Mouse
+    contextK, // context menu invoked via Keyboard
     ctrl,
   }
   type Start = keyof typeof StartEnum

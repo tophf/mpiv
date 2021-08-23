@@ -870,9 +870,9 @@ const Events = {
     const key = eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
     const p = ai.popup || false; // simple polyfill for `p?.foo`
     if (!p &&
-        key === '^Control' &&
         !Events.ignoreKeyHeld &&
-        (cfg.start !== 'auto' || ai.rule.manual)) {
+        key === '^Control' &&
+        (cfg.start === 'ctrl' || cfg.start === 'context' || ai.rule.manual)) {
       dropEvent(e);
       if (Events.hoverData) {
         Events.hoverData.e = e;
@@ -958,7 +958,7 @@ const Events = {
   },
 
   onKeyUp(e) {
-    if (e.key === 'Shift') {
+    if (e.key === 'Shift' && ai.shiftKeyTime) {
       Status.set('-shift');
       Bar.hide(true);
       if ((ai.popup || {}).controls)
@@ -980,7 +980,13 @@ const Events = {
     const p = ai.popup;
     if (cfg.zoom === 'context' && p && App.toggleZoom()) {
       dropEvent(e);
-    } else if (!p && (cfg.start === 'context' || (cfg.start === 'auto' && ai.rule.manual))) {
+    } else if (!p && (
+      cfg.start === 'context' ||
+      cfg.start === 'contextMK' ||
+      cfg.start === 'contextM' && (e.button === 2) ||
+      cfg.start === 'contextK' && (e.button !== 2) ||
+      (cfg.start === 'auto' && ai.rule.manual)
+    )) {
       // right-clicked on an image while the context menu is shown for something else
       if (!ai.node && !Events.hoverData)
         Events.onMouseOver(e);
@@ -3171,7 +3177,7 @@ function createConfigHtml() {
     color: #000 !important;
     background: #eee !important;
     box-shadow: 5px 5px 25px 2px #000 !important;
-    width: 32em !important;
+    width: 33em !important;
     border: 1px solid black !important;
     display: flex !important;
     flex-direction: column !important;
@@ -3473,9 +3479,12 @@ function createConfigHtml() {
     <li class=options>
       <label>Popup shows on
         <select id=start>
-          <option value=auto>automatically
-          <option value=context>Right click / Ctrl
+          <option value=context>Right-click / &#8801; / Ctrl
+          <option value=contextMK>Right-click / &#8801;
+          <option value=contextM>Right-click
+          <option value=contextK title="&#8801; is the Menu key (near the right Ctrl)">&#8801; key
           <option value=ctrl>Ctrl
+          <option value=auto>automatically
         </select>
       </label>
       <label>after, sec<input id=delay type=number min=0.05 max=10 step=0.05 title=seconds></label>
