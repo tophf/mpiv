@@ -895,6 +895,12 @@ const Events = {
         if (p.tagName === 'VIDEO')
           p.controls = true;
         return;
+      case 'KeyA':
+        if (!p.hasAttribute('data-no-aa'))
+          p.setAttribute('data-no-aa', '');
+        else
+          p.removeAttribute('data-no-aa');
+        break;
       case 'ArrowRight':
       case 'KeyJ':
         Gallery.next(1);
@@ -3185,9 +3191,12 @@ function createConfigHtml() {
   main {
     font: 12px/15px sans-serif;
   }
+  table {
+    text-align:left;
+  }
   ul {
     max-height: calc(100vh - 200px);
-    margin: 10px 0 15px 0;
+    margin: 0 0 15px 0;
     padding: 0;
     list-style: none;
   }
@@ -3454,9 +3463,9 @@ function createConfigHtml() {
 <main id="${PREFIX}setup">
   <div id=_x>x</div>
   <ul class=column>
-    <details style="margin: -2em 0 1em">
-      <summary style="cursor:pointer"><b>Click to view help & hotkeys</b></summary>
-      <table style="text-align:left">
+    <details style="margin: -1em 0 0">
+      <summary style="cursor:pointer; color:LinkText"><b>Click to view help & hotkeys</b></summary>
+      <table>
         <tr><th>Activate</th><td>move mouse cursor over thumbnail</td></tr>
         <tr><th>Deactivate</th><td>move cursor off thumbnail, or click, or zoom out fully</td></tr>
         <tr><th>Prevent/freeze</th><td>hold down <kbd>Shift</kbd> while entering/leaving thumbnail</td></tr>
@@ -3471,9 +3480,12 @@ function createConfigHtml() {
         <tr><th>Previous/next<br>in album</th>
           <td>mouse wheel, <kbd>j</kbd> <kbd>k</kbd> or <kbd>←</kbd> <kbd>→</kbd> keys</td></tr>
         <tr><td>&nbsp;</td></tr>
-        <tr><th>Download</th><td><kbd>d</kbd> key while popup is visible</td></tr>
-        <tr><th>Mute/unmute</th><td><kbd>m</kbd> key while popup is visible</td></tr>
-        <tr><th>Open in tab</th><td><kbd>t</kbd> key while popup is visible</td></tr>
+      </table>
+      <table>
+        <tr><th>Antialiasing on/off</th><td><kbd>a</kbd></td><td rowspan=4>key while popup is visible</td></tr>
+        <tr><th>Download</th><td><kbd>d</kbd></td></tr>
+        <tr><th>Mute/unmute</th><td><kbd>m</kbd></td></tr>
+        <tr><th>Open in tab</th><td><kbd>t</kbd></td></tr>
       </table>
     </details>
     <li class=options>
@@ -3683,6 +3695,7 @@ ${App.popupStyleBase = `
   background-color: ${Util.color('Background')};
   ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
 }
+#\mpiv-popup[data-no-aa],
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
 }
