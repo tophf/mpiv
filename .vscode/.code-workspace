@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "../"
+		}
+	],
+	"settings": {
+		"typescript.validate.enable": false,
+		"javascript.validate.enable": false,
+	}
+}
