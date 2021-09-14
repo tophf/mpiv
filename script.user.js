@@ -2983,25 +2983,19 @@ async function setup({rule} = {}) {
     el.setCustomValidity(error || '');
   }
 
-  function focusRule({type, target: el, relatedTarget: from}) {
+  async function focusRule({target: el, relatedTarget: from}) {
     if (el === this)
       return;
-    if (type === 'paste') {
-      setTimeout(() => focusRule.call(this, {target: el}));
-      return;
+    await new Promise(setTimeout);
+    if (el[RULE] && el.rows < 2) {
+      let i = el.selectionStart;
+      const txt = el.value = Ruler.format(el[RULE], {expand: true});
+      i += txt.slice(0, i).match(/^\s*/gm).reduce((len, s) => len + s.length, 0);
+      el.setSelectionRange(i, i);
+      el.rows = txt.match(/^/gm).length;
     }
-    if (el[RULE])
-      el.value = Ruler.format(el[RULE], {expand: true});
-    const h = clamp(el.scrollHeight, 15, elConfig.clientHeight / 4);
-    if (h > el.offsetHeight)
-      el.style.minHeight = h + 'px';
     if (!this.contains(from))
       from = [...$$('[style*="height"]', this)].find(_ => _ !== el);
-    if (from) {
-      from.style.minHeight = '';
-      if (from[RULE])
-        from.value = Ruler.format(from[RULE]);
-    }
   }
 
   function installRule(rule) {
@@ -3297,9 +3291,7 @@ function createConfigHtml() {
     box-shadow: 0 0.25em 1em #000;
     z-index: 99;
   }
-  #_rules input,
   textarea {
-    flex: 1;
     resize: vertical;
     margin: 1px 0;
     font: 11px/1.25 Consolas, monospace;
