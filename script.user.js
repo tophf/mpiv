@@ -717,7 +717,7 @@ const CspSniffer = {
   // will be null when done
   init() {
     this.initPending = this.initPending ||
-      fetch(location, {method: 'HEAD'}).catch(() => false).then(r => {
+      fetch(location).catch(() => false).then(r => { // not using method HEAD as it breaks twitter
         this.csp = r && this._parse(r.headers.get('content-security-policy'));
         this.init = this.initPending = null;
       });
