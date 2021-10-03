@@ -22,7 +22,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.6
+// @version     1.2.7
 // @author      tophf
 //
 // @original-version 2017.9.29
