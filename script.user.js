@@ -1487,8 +1487,9 @@ const Ruler = {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
             data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
           }
+          const numPics = a && tryCatch(() => data.edge_sidecar_to_children.edges.length);
           Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
-          Ruler.toggle(rule, 'g', a && /<\w+[^>]+carousel/i.test(a.innerHTML));
+          Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
           rule.follow = !data && !rule.g;
           rule._data = data;
           rule._img = img;
