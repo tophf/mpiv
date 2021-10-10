@@ -2055,15 +2055,10 @@ const Ruler = {
         let {e} = rule;
         if (typeof e === 'string') {
           e = e.trim();
-        } else if (e) {
-          e = Object.entries(e).filter(Ruler.isValidE2);
-          if (!e.length) {
-            throw new Error('Invalid syntax for "e". Example: ' +
-              '"e": {".parent": ".image"} or ' +
-              '"e": {".parent1": ".image1", ".parent2": ".image2"}');
-          }
-          rule.e2 = e;
-          e = '';
+        } else if (e && !Object.entries(e).filter(Ruler.isValidE2).length) {
+          throw new Error('Invalid syntax for "e". Example: ' +
+            '"e": {".parent": ".image"} or ' +
+            '"e": {".parent1": ".image1", ".parent2": ".image2"}');
         }
         if (isBatchOp) rule.e = e || undefined;
       }
@@ -2127,13 +2122,21 @@ const Ruler = {
     return url;
   },
 
-  /** @returns {boolean} */
-  runE2(rule, node) {
-    let p, img;
-    for (const [selParent, selImg] of rule.e2) {
-      if ((p = node.closest(selParent)) && (img = $(selImg, p)))
-        return RuleMatcher.adaptiveFind(img, rule);
+  /** @returns {?boolean|mpiv.RuleMatchInfo} */
+  runE(rule, node) {
+    const {e} = rule;
+    if (typeof e === 'string')
+      return node.matches(e);
+    let p, img, res, info;
+    for (const selParent in e) {
+      if ((p = node.closest(selParent)) && (img = $(e[selParent], p))) {
+        if (img === node)
+          res = true;
+        else if ((info = RuleMatcher.adaptiveFind(img, {rules: [rule]})))
+          return info;
+      }
     }
+    return res;
   },
 
   /** @returns {?Array} if falsy then the rule should be skipped */
@@ -2191,23 +2194,22 @@ const Ruler = {
 const RuleMatcher = {
 
   /** @returns {Object} */
-  adaptiveFind(node, rule) {
+  adaptiveFind(node, opts) {
     const tn = node.tagName;
     const src = node.currentSrc || node.src;
     const isPic = tn === 'IMG' || tn === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
-    const skipRules = {skipRules: rule && [rule]};
     let a, info, url;
     // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
     if (tn !== 'A') {
       url = isPic && !src.startsWith('data:') && Util.rel2abs(src);
-      info = RuleMatcher.find(url, node, skipRules);
+      info = RuleMatcher.find(url, node, opts);
     }
     if (!info && (a = node.closest('A'))) {
       const ds = a.dataset;
       url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || '';
       url = url.includes('//t.co/') ? 'https://' + a.textContent : url;
       url = !url.startsWith('data:') && url;
-      info = RuleMatcher.find(url, a, skipRules);
+      info = RuleMatcher.find(url, a, opts);
     }
     if (!info && isPic)
       info = {node, rule: {}, url: src};
@@ -2215,17 +2217,17 @@ const RuleMatcher = {
   },
 
   /** @returns ?mpiv.RuleMatchInfo */
-  find(url, node, {noHtml, skipRules} = {}) {
+  find(url, node, {noHtml, rules, skipRules} = {}) {
     const tn = node.tagName;
     const isPic = tn === 'IMG' || tn === 'VIDEO';
     const isPicOrLink = isPic || tn === 'A';
     let m, html, info;
-    for (const rule of Ruler.rules) {
-      if (rule.u && (!url || !Ruler.runU(rule, url)) ||
-          rule.e && !node.matches(rule.e) ||
-          skipRules && skipRules.includes(rule))
+    for (const rule of rules || Ruler.rules) {
+      if (skipRules && skipRules.includes(rule) ||
+          rule.u && (!url || !Ruler.runU(rule, url)) ||
+          rule.e && !rules && !(info = Ruler.runE(rule, node)))
         continue;
-      if (rule.e2 && (info = Ruler.runE2(rule, node)))
+      if (info !== true)
         return info;
       if (rule.r)
         m = !noHtml && rule.html && (isPicOrLink || rule.e)
