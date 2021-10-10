@@ -2125,7 +2125,7 @@ const Ruler = {
     let p, img;
     for (const [selParent, selImg] of rule.e2) {
       if ((p = node.closest(selParent)) && (img = $(selImg, p)))
-        return RuleMatcher.adaptiveFind(img);
+        return RuleMatcher.adaptiveFind(img, rule);
     }
   },
 
@@ -2184,22 +2184,23 @@ const Ruler = {
 const RuleMatcher = {
 
   /** @returns {Object} */
-  adaptiveFind(node) {
+  adaptiveFind(node, rule) {
     const tn = node.tagName;
     const src = node.currentSrc || node.src;
     const isPic = tn === 'IMG' || tn === 'VIDEO' && /\.(webm|mp4)(\?|$)/.test(src);
+    const skipRules = {skipRules: rule && [rule]};
     let a, info, url;
     // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
     if (tn !== 'A') {
       url = isPic && !src.startsWith('data:') && Util.rel2abs(src);
-      info = RuleMatcher.find(url, node);
+      info = RuleMatcher.find(url, node, skipRules);
     }
     if (!info && (a = node.closest('A'))) {
       const ds = a.dataset;
       url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || '';
       url = url.includes('//t.co/') ? 'https://' + a.textContent : url;
       url = !url.startsWith('data:') && url;
-      info = RuleMatcher.find(url, a);
+      info = RuleMatcher.find(url, a, skipRules);
     }
     if (!info && isPic)
       info = {node, rule: {}, url: src};
