@@ -1196,6 +1196,8 @@ const Menu = window === top && GM.registerMenuCommand && {
 const Popup = {
 
   async create(src, pageUrl) {
+    const inGallery = ai.gItems && ai.popup && !ai.zooming &&
+      (ai.popup.dataset.galleryFlip = '') === '';
     Popup.destroy();
     ai.imageUrl = src;
     if (!src)
@@ -1214,6 +1216,10 @@ const Popup = {
     p.addEventListener('error', App.handleError);
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
+    if (inGallery) {
+      p.dataset.galleryFlip = '';
+      p.setAttribute('loaded', '');
+    }
     doc.body.insertBefore(p, ai.bar || undefined);
     await 0;
     if (App.checkProgress({start: true}) === false)
@@ -3688,6 +3694,10 @@ ${App.popupStyleBase = `
 #\mpiv-popup.\mpiv-show[loaded] {
   background-color: ${Util.color('Background')};
   ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
+}
+#\mpiv-popup[data-gallery-flip] {
+  animation: none;
+  transition: none;
 }
 #\mpiv-popup[data-no-aa],
 #\mpiv-popup.\mpiv-zoom-max {
