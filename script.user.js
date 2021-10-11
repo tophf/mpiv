@@ -2013,7 +2013,11 @@ const Ruler = {
     ];
 
     /** @type mpiv.HostRule[] */
-    Ruler.rules = [].concat(customRules, disablers, perDomain, main).filter(Boolean);
+    (Ruler.rules = [].concat(customRules, disablers, perDomain, main).filter(Boolean))
+      .forEach(rule => {
+        if (Array.isArray(rule.e))
+          rule.e = rule.e.join(',');
+      });
   },
 
   format(rule, {expand} = {}) {
@@ -2131,8 +2135,6 @@ const Ruler = {
     const {e} = rule;
     if (typeof e === 'string')
       return node.matches(e);
-    if (Array.isArray(e))
-      return e.some(x => node.matches(x));
     let p, img, res, info;
     for (const selParent in e) {
       if ((p = node.closest(selParent)) && (img = $(e[selParent], p))) {

@@ -51,7 +51,7 @@ declare namespace mpiv {
     r?: RegExp
     // caption extractor: CSS selector or a function
     c?: string | CaptionFunction
-    // CSS selector for the hovered element, or an array of selectors to try in the exact order
+    // CSS selector for the hovered element
     e?: string | string[] | Object<string,string>
     // gallery
     g?: GalleryLoader | GalleryFunction
