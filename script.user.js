@@ -2227,7 +2227,7 @@ const RuleMatcher = {
           rule.u && (!url || !Ruler.runU(rule, url)) ||
           rule.e && !rules && !(info = Ruler.runE(rule, node)))
         continue;
-      if (info !== true)
+      if (info && info.url)
         return info;
       if (rule.r)
         m = !noHtml && rule.html && (isPicOrLink || rule.e)
