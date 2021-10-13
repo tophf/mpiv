@@ -3181,7 +3181,7 @@ async function setupRuleInstaller(e) {
 }
 
 function createConfigHtml() {
-  const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/Rules';
+  const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/';
   const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const trimLeft = s => s.trim().replace(/\n\s+/g, '\r');
   return flattenHtml(`
@@ -3325,6 +3325,7 @@ function createConfigHtml() {
   }
   a {
     text-decoration: none;
+    color: LinkText;
   }
   a:hover {
     text-decoration: underline;
@@ -3608,9 +3609,9 @@ function createConfigHtml() {
       </label>
     </li>
     <li>
-      <a href="${MPIV_BASE_URL}css.html">Custom CSS:</a>&nbsp;
+      <a href="${MPIV_BASE_URL}Custom-CSS" target="_blank">Custom CSS:</a>&nbsp;
       e.g. <b>#mpiv-popup { animation: none !important }</b>
-      <a href="#" id=_reveal style="float: right"
+      <a tabindex=0 id=_reveal style="float: right"
          title="You can copy parts of it to override them in your custom CSS">
          View the built-in CSS</a>
       <div class=column>
@@ -3619,7 +3620,7 @@ function createConfigHtml() {
       </div>
     </li>
     <li style="display: flex; justify-content: space-between;">
-      <div><a href="${MPIV_BASE_URL}host_rules.html">Custom host rules:</a></div>
+      <div><a href="${MPIV_BASE_URL}Custom-host-rules" target="_blank">Custom host rules:</a></div>
       <div style="white-space: nowrap">
         To disable, put any symbol except <code>a..z 0..9 - .</code><br>
         in "d" value, for example <code>"d": "!foo.com"</code>
@@ -3637,7 +3638,7 @@ function createConfigHtml() {
       <div hidden id=_installLoading>Loading...</div>
       <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
         . Click <code>Apply</code> or <code>OK</code> to confirm.</div>
-      <a href="${MPIV_BASE_URL}" id=_install>Install rule from repository...</a>
+      <a href="${MPIV_BASE_URL}Rules" id=_install target="_blank">Install rule from repository...</a>
     </li>
   </ul>
   <div style="text-align:center">
