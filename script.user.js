@@ -22,7 +22,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.10
+// @version     1.2.11
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -740,7 +740,7 @@ const CspSniffer = {
     if (!csp) return;
     const src = {};
     const rx = /[\s;](default|img|media)-src ([^;]+)/g;
-    for (let m; (m = rx.exec(csp[1]));)
+    for (let m; (m = rx.exec(csp));)
       src[m[1]] = m[2].trim().split(/\s+/);
     if (!src.img) src.img = src.default || [];
     if (!src.media) src.media = src.default || [];
