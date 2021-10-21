@@ -3,8 +3,18 @@ name: eslint
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - '.github/**' # this yml is also excluded so you need to re-run it explicitly if necessary
+      - .editorconfig
+      - LICENSE
+      - README.md
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - '.github/**' # this yml is also excluded so you need to re-run it explicitly if necessary
+      - .editorconfig
+      - LICENSE
+      - README.md
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
