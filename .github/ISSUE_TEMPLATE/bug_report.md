@@ -1,3 +1,12 @@
+---
+name: Bug report
+about: "..."
+title: ''
+labels: ''
+assignees: ''
+
+---
+
 #### Steps to reproduce the bug
 1. 
 
