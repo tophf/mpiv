@@ -1607,6 +1607,7 @@ const Ruler = {
       },
       {
         u: '||fastpic.ru',
+        r: /\.\w+\.html/,
         e: 'a',
         q: 'img[src*="/big/"]',
         xhr: true,
