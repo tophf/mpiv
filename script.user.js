@@ -1610,7 +1610,6 @@ const Ruler = {
         e: 'a[href*="fastpic"][href*=".html"]',
         s: m => m[0].replace('http:', 'https:').replace('fastpic.ru', 'fastpic.org'),
         q: 'img[src*="/big/"]',
-        xhr: true,
       },
       {
         u: '||facebook.com/',
