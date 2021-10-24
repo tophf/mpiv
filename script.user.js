@@ -1606,9 +1606,9 @@ const Ruler = {
             m.input.replace(/~~60_\d+/, '~~60_57'),
       },
       {
-        u: '||fastpic.ru',
-        r: /\.\w+\.html/,
-        e: 'a',
+        u: '||fastpic.',
+        e: 'a[href*="fastpic"][href*=".html"]',
+        s: m => m[0].replace('http:', 'https:').replace('fastpic.ru', 'fastpic.org'),
         q: 'img[src*="/big/"]',
         xhr: true,
       },
