@@ -2740,10 +2740,8 @@ const Util = {
 
   rel2abs(rel, abs = location.href) {
     try {
-      return rel.startsWith('data:') ? rel :
-        rel.startsWith('blob:') ? '' : // blobs don't work because they're usually revoked
-          /^[-\w]+:\/\//.test(rel) ? rel :
-            new URL(rel, abs).href;
+      return /^(data:|blob:|[-\w]+:\/\/)/.test(rel) ? rel :
+        new URL(rel, abs).href;
     } catch (e) {
       return rel;
     }
