@@ -86,7 +86,11 @@ const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 const RX_MEDIA_URL = /^(?!data:)[^?#]+?\.(avif|bmp|jpe?g?|gif|mp4|png|svgz?|web[mp])($|[?#])/i;
 const ZOOM_MAX = 16;
 const SYM_U = Symbol('u');
-
+const TRUSTED = (({trustedTypes}, policy) =>
+  trustedTypes ? trustedTypes.createPolicy('mpiv', policy) : policy
+)(window, {
+  createHTML: str => str,
+});
 //#endregion
 //#region GM4 polyfill
 
@@ -393,7 +397,8 @@ const Bar = {
     App.updateStyles();
     Bar.updateDetails();
     Bar.show();
-    b.innerHTML = label;
+    b.textContent = '';
+    b.innerHTML = TRUSTED.createHTML(label);
     if (!b.parentNode) {
       doc.body.appendChild(b);
       Util.forceLayout(b);
@@ -2082,12 +2087,14 @@ const Ruler = {
         compileTo.c = Util.newFunction('text', 'doc', 'node', 'rule', rule.c);
       return rule;
     } catch (err) {
-      if (!err.message.includes('unsafe-eval'))
-        if (isBatchOp) {
-          this.set(rule, err);
-        } else {
-          return err;
-        }
+      if (/unsafe-eval|'Trusted Type'/.test(err)) {
+        return rule;
+      }
+      if (isBatchOp) {
+        this.set(rule, err);
+      } else {
+        return err;
+      }
     }
   },
 
@@ -2345,7 +2352,7 @@ const Remoting = {
           'Referer': url,
         },
       }));
-    r.doc = new DOMParser().parseFromString(r.responseText, 'text/html');
+    r.doc = $parseHtml(r.responseText);
     return r;
   },
 
@@ -2830,7 +2837,7 @@ async function setup({rule} = {}) {
     $remove(elConfig);
     elConfig = $create('div', {contentEditable: true});
     root = elConfig.attachShadow({mode: 'open'});
-    root.innerHTML = createConfigHtml();
+    root.innerHTML = TRUSTED.createHTML(createConfigHtml());
     initEvents();
     renderAll();
     renderCustomScales();
@@ -3823,6 +3830,9 @@ const $create = (tag, props) =>
 const $css = (el, props) =>
   Object.entries(props).forEach(([k, v]) =>
     el.style.setProperty(k, v, 'important'));
+
+const $parseHtml = str =>
+  new DOMParser().parseFromString(str, 'text/html');
 
 const $many = (q, doc) => {
   for (const selector of ensureArray(q)) {
