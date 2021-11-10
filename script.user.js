@@ -263,6 +263,7 @@ const App = {
   /** @param {MessageEvent} e */
   onMessage(e) {
     if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
+      e.stopImmediatePropagation();
       for (const el of doc.getElementsByTagName('iframe')) {
         if (el.contentWindow === e.source) {
           const s = Calc.frameSize(el, window).join(':');
@@ -276,7 +277,8 @@ const App = {
   /** @param {MessageEvent} e */
   onMessageChild(e) {
     if (e.source === parent && typeof e.data === 'string' && e.data.startsWith(MSG.viewSize)) {
-      window.removeEventListener('message', App.onMessageChild);
+      e.stopImmediatePropagation();
+      removeEventListener('message', App.onMessageChild, true);
       const [w, h, x, y] = e.data.split(':').slice(1).map(parseFloat);
       if (w && h) ai.view = {w, h, x, y};
     }
@@ -609,7 +611,7 @@ const Calc = {
     if (w && h) {
       ai.view = {w, h, x: 0, y: 0};
     } else {
-      window.addEventListener('message', App.onMessageChild);
+      addEventListener('message', App.onMessageChild, true);
       parent.postMessage(MSG.getViewSize, '*');
     }
   },
@@ -1026,14 +1028,14 @@ const Events = {
   },
 
   toggle(enable) {
-    const onOff = enable ? doc.addEventListener : doc.removeEventListener;
-    const passive = enable ? {passive: true} : undefined;
-    onOff.call(doc, 'mousemove', Events.onMouseMove, passive);
-    onOff.call(doc, 'mouseout', Events.onMouseOut, passive);
-    onOff.call(doc, 'mousedown', Events.onMouseDown, passive);
-    onOff.call(doc, 'keydown', Events.onKeyDown, true); // override normal page listeners
-    onOff.call(doc, 'keyup', Events.onKeyUp);
-    onOff.call(doc, WHEEL_EVENT, Events.onMouseScroll, enable ? {passive: false} : undefined);
+    const onOff = enable ? addEventListener : removeEventListener;
+    const passive = {passive: true, capture: true};
+    onOff.call(window, 'mousemove', Events.onMouseMove, passive);
+    onOff.call(window, 'mouseout', Events.onMouseOut, passive);
+    onOff.call(window, 'mousedown', Events.onMouseDown, passive);
+    onOff.call(window, 'keydown', Events.onKeyDown, true); // override normal page listeners
+    onOff.call(window, 'keyup', Events.onKeyUp, true);
+    onOff.call(window, WHEEL_EVENT, Events.onMouseScroll, {passive: false});
   },
 
   trackMouse(e) {
@@ -3861,14 +3863,14 @@ Config.load({save: true}).then(res => {
   if (Menu) Menu.register();
 
   if (doc.body) App.checkImageTab();
-  else doc.addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
+  else addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
 
-  doc.addEventListener('mouseover', Events.onMouseOver, {passive: true});
-  doc.addEventListener('contextmenu', Events.onContext);
-  doc.addEventListener('keydown', Events.onKeyDown);
+  addEventListener('mouseover', Events.onMouseOver, true);
+  addEventListener('contextmenu', Events.onContext, true);
+  addEventListener('keydown', Events.onKeyDown, true);
   if (['greasyfork.org', 'github.com'].includes(hostname))
-    doc.addEventListener('click', setupClickedRule);
-  window.addEventListener('message', App.onMessage);
+    addEventListener('click', setupClickedRule, true);
+  addEventListener('message', App.onMessage, true);
 });
 
 //#endregion
