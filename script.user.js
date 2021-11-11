@@ -22,7 +22,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.12
+// @version     1.2.13
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1028,14 +1028,14 @@ const Events = {
   },
 
   toggle(enable) {
-    const onOff = enable ? addEventListener : removeEventListener;
+    const onOff = enable ? 'addEventListener' : 'removeEventListener';
     const passive = {passive: true, capture: true};
-    onOff.call(window, 'mousemove', Events.onMouseMove, passive);
-    onOff.call(window, 'mouseout', Events.onMouseOut, passive);
-    onOff.call(window, 'mousedown', Events.onMouseDown, passive);
-    onOff.call(window, 'keydown', Events.onKeyDown, true); // override normal page listeners
-    onOff.call(window, 'keyup', Events.onKeyUp, true);
-    onOff.call(window, WHEEL_EVENT, Events.onMouseScroll, {passive: false});
+    window[onOff]('mousemove', Events.onMouseMove, passive);
+    window[onOff]('mouseout', Events.onMouseOut, passive);
+    window[onOff]('mousedown', Events.onMouseDown, passive);
+    window[onOff]('keydown', Events.onKeyDown, true); // override normal page listeners
+    window[onOff]('keyup', Events.onKeyUp, true);
+    window[onOff](WHEEL_EVENT, Events.onMouseScroll, {passive: false});
   },
 
   trackMouse(e) {
