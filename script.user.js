@@ -1399,7 +1399,8 @@ const Ruler = {
     if (evalRules.length) {
       let result, wnd;
       if (canEval) {
-        const GMAE = hasGMAE ? GM_addElement
+        const GMAE = hasGMAE
+          ? GM_addElement // eslint-disable-line no-undef
           : (tag, {textContent}) => document.head.appendChild(
             Object.assign(document.createElement(tag), {
               textContent: TRUSTED.createScript(textContent),
@@ -2559,7 +2560,7 @@ const Status = {
 
   set(status) {
     if (!status && !cfg.globalStatus) {
-      ai.node && ai.node.removeAttribute(STATUS_ATTR);
+      if (ai.node) ai.node.removeAttribute(STATUS_ATTR);
       return;
     }
     const prefix = cfg.globalStatus ? PREFIX : '';

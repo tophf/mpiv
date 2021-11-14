@@ -1,5 +1,7 @@
 # https://github.com/eslint/eslint/blob/master/docs/rules/README.md
 
+root: true
+
 parserOptions:
   ecmaVersion: 2018
 
