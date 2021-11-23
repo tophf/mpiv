@@ -1475,6 +1475,12 @@ const Ruler = {
         e: 'a[data-hook=deviation_link]',
         q: 'link[as=image]',
       }] || [],
+      dotDomain.endsWith('.discord.com') && {
+        u: '||discordapp.net/external/',
+        r: /\/https?\/(.+)/,
+        s: '//$1',
+        follow: true,
+      },
       dotDomain.endsWith('.dropbox.com') && {
         r: /(.+?&size_mode)=\d+(.*)/,
         s: '$1=5$2',
@@ -2009,19 +2015,24 @@ const Ruler = {
         s: ['/_500/_1280/', ''],
       },
       {
-        u: '||twimg.com/',
-        r: /\/profile_images/i,
-        s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
-      },
-      {
         u: '||twimg.com/media/',
         r: /.+?format=(jpe?g|png|gif)/i,
         s: '$0&name=orig',
       },
       {
+        u: '||twimg.com/media/',
+        r: /.+?\.(jpe?g|png|gif)/i,
+        s: '$0:orig',
+      },
+      {
         u: '||twimg.com/1/proxy',
         r: /t=([^&_]+)/i,
         s: m => atob(m[1]).match(/http.+/),
+      },
+      {
+        u: '||twimg.com/',
+        r: /\/profile_images/i,
+        s: '/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g',
       },
       {
         u: '||pic.twitter.com/',
