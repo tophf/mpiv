@@ -730,7 +730,7 @@ const CspSniffer = {
 
   // will be null when done
   init() {
-    this.init = new Promise(resolve => {
+    this.init = location.protocol === 'https:' && new Promise(resolve => {
       const xhr = new XMLHttpRequest();
       xhr.open('get', location);
       xhr.onreadystatechange = () => {
@@ -3930,9 +3930,7 @@ const $remove = node =>
 //#region Init
 
 nonce = ($('script[nonce]') || {}).nonce || '';
-
-if (location.protocol === 'https:')
-  CspSniffer.init();
+CspSniffer.init();
 
 Config.load({save: true}).then(res => {
   cfg = res;
