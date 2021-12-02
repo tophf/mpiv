@@ -71,6 +71,8 @@ declare namespace mpiv {
     */
     s?: StringOrArrayOfStrings | SubstitutionFunction
     // whether the resultant URL should be processed again so another rule would match it
+    anonymous?: boolean
+    // whether the resultant URL should be processed again so another rule would match it
     follow?: boolean | BooleanFunction
     // POST method should be used to make HTTP request
     post?: boolean | BooleanFunction

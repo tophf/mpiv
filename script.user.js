@@ -1512,6 +1512,7 @@ const Ruler = {
             nojsoncallback: 1,
           }).toString()}`,
         q: text => JSON.parse(text).sizes.size.pop().source,
+        anonymous: true,
       },
       dotDomain.endsWith('.github.com') && {
         r: new RegExp([
