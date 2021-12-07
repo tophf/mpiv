@@ -3770,6 +3770,7 @@ ${cfg.uiFadein ? String.raw`
 ${App.popupStyleBase = `
   border: none;
   box-sizing: border-box;
+  background-size: cover;
   position: fixed;
   z-index: 2147483647;
   padding: 0;
