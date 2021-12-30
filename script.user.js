@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.16
+// @version     1.2.17
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -731,17 +731,21 @@ const CspSniffer = {
   // will be null when done
   init() {
     this.init = location.protocol === 'https:' && new Promise(resolve => {
+      const done = () => {
+        this.init = null;
+        resolve();
+      };
       const xhr = GM.xmlHttpRequest({
         url: location.href,
-        method: 'get',
+        method: 'GET',
         onprogress: ({responseHeaders: rh}) => {
           if (rh && this.init) {
             this.csp = this._parse(rh.match(/^\s*Content-Security-Policy:\s*(.+)/mi));
-            this.init = null;
             if (xhr) xhr.abort();
-            resolve();
+            done();
           }
         },
+        onerror: done,
       });
     });
   },
