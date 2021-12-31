@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.17
+// @version     1.2.18
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -738,6 +738,7 @@ const CspSniffer = {
       const xhr = GM.xmlHttpRequest({
         url: location.href,
         method: 'GET',
+        timeout: Math.max(2000, (performance.timing.responseEnd - performance.timeOrigin) * 2),
         onprogress: ({responseHeaders: rh}) => {
           if (rh && this.init) {
             this.csp = this._parse(rh.match(/^\s*Content-Security-Policy:\s*(.+)/mi));
