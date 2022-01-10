@@ -1689,7 +1689,7 @@ const Ruler = {
       },
       {
         u: '||fastpic.',
-        e: 'a[href*="fastpic"][href*=".html"]',
+        e: 'a[href*="fastpic"]',
         s: m => m[0].replace('http:', 'https:').replace('fastpic.ru', 'fastpic.org'),
         q: 'img[src*="/big/"]',
       },
