@@ -251,10 +251,11 @@ const App = {
   handleError(e, rule = ai.rule) {
     if (rule && rule.onerror === 'skip')
       return;
-    if (CspSniffer.init &&
-        location.protocol === 'https:' &&
+    if (ai.imageUrl &&
         !ai.xhr &&
-        !ai.imageUrl.startsWith(location.origin + '/')) {
+        !ai.imageUrl.startsWith(location.origin + '/') &&
+        location.protocol === 'https:' &&
+        CspSniffer.init) {
       Popup.create(ai.imageUrl, ai.pageUrl, e);
       return;
     }
