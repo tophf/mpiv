@@ -1893,6 +1893,7 @@ const Ruler = {
           '||imgur.com/a/',
           '||imgur.com/gallery/',
         ],
+        s: 'gallery', // suppressing an unused network request for remote `document`
         g: async (text, doc, url, m, rule, node, cb) => {
           let u = `https://imgur.com/ajaxalbums/getimages/${url.split(/[/?#]/)[4]}/hit.json?all=true`;
           const info = tryCatch(JSON.parse, (await Remoting.gmXhr(u)).responseText);
