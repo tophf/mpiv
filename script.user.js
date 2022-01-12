@@ -1895,17 +1895,25 @@ const Ruler = {
         ],
         s: 'gallery', // suppressing an unused network request for remote `document`
         g: async (text, doc, url, m, rule, node, cb) => {
-          let u = `https://imgur.com/ajaxalbums/getimages/${url.split(/[/?#]/)[4]}/hit.json?all=true`;
-          const info = tryJSON((await Req.gmXhr(u)).responseText);
-          const images = ((info || 0).data || 0).images;
+          let u = `https://imgur.com/ajaxalbums/getimages/${ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
+          let info = tryJSON((await Req.gmXhr(u)).responseText) || 0;
+          let images = (info.data || 0).images || [];
+          if (!images[0]) {
+            info = (await Req.gmXhr(ai.url)).responseText.match(/postDataJSON=(".*?")<|$/)[1];
+            info = tryJSON(tryJSON(info)) || 0;
+            images = info.media;
+          }
           const items = [];
-          for (const img of images || []) {
-            u = `https://i.imgur.com/${img.hash}`;
+          for (const img of images) {
+            const meta = img.metadata || img;
             items.push({
-              url: img.ext === '.gif' && img.animated !== false ?
-                [`${u}.webm`, `${u}.mp4`, u] :
-                u + img.ext,
-              desc: [img.title, img.description].filter(Boolean).join(' - '),
+              url: img.url ||
+                (u = `https://i.imgur.com/${img.hash}`) && (
+                  img.ext === '.gif' && img.animated !== false ?
+                    [`${u}.webm`, `${u}.mp4`, u] :
+                    u + img.ext
+                ),
+              desc: [meta.title, meta.description].filter(Boolean).join(' - '),
             });
           }
           if (items[0] && info.title && !`${items[0].desc || ''}`.includes(info.title))
