@@ -1576,7 +1576,7 @@ const Ruler = {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
             data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
           }
-          const numPics = a && tryCatch(() => data.edge_sidecar_to_children.edges.length);
+          const numPics = a && tryCatch(() => data.carousel_media_count);
           Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
           Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
           rule.follow = !data && !rule.g;
@@ -1592,15 +1592,15 @@ const Ruler = {
         follow: true,
         _q: 'meta[property="og:video"]',
         _g(text, doc, url, m, rule) {
-          const media = JSON.parse(text).graphql.shortcode_media;
-          const items = media.edge_sidecar_to_children.edges.map(e => ({
-            url: e.node.video_url || e.node.display_url,
+          const media = JSON.parse(text).items[0];
+          const items = media.carousel_media.map(e => ({
+            url: e.video_versions ? e.video_versions[0].url : e.image_versions2.candidates[0].url,
           }));
           items.title = tryCatch(rule._getCaption, media) || '';
           return items;
         },
-        _getCaption: data => data && data.edge_media_to_caption.edges[0].node.text,
-        _getEdge: shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user
+        _getCaption: data => data && data.caption.text,
+        _getEdge: shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
             .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
       },
       ...dotDomain.endsWith('.reddit.com') && [{
@@ -1956,13 +1956,15 @@ const Ruler = {
         ],
         s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
         q: text => {
-          const m = JSON.parse(text).graphql.shortcode_media;
-          return m.video_url || m.display_url;
+          const m = JSON.parse(text).items[0];
+          return m.video_versions ? m.video_versions[0].url
+            : m.carousel_media ? m.carousel_media[0].image_versions2.candidates[0].url
+              : m.image_versions2.candidates[0].url;
         },
         rect: 'div.PhotoGridMediaItem',
         c: text => {
-          const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
-          return m === undefined ? '(no caption)' : m.node.text;
+          const m = JSON.parse(text).items[0].caption;
+          return m === undefined ? '(no caption)' : m.text;
         },
       },
       {
