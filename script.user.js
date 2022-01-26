@@ -1988,7 +1988,6 @@ const Ruler = {
         rect: 'div.PhotoGridMediaItem',
         c: text => {
           const isLoggedIn = !!$('svg[aria-label="Home"]');
-          alert(isLoggedIn);
           if (!(isLoggedIn)) {
             const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
             return m === undefined ? '(no caption)' : m.node.text;
