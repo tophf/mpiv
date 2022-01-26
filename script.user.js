@@ -1562,62 +1562,62 @@ const Ruler = {
         },
       },
       dotDomain.endsWith('.instagram.com') &&
-        ((isLoggedIn = () => !!$('svg[aria-label="Home"]')) => ({
-          e: 'a[href*="/p/"],' +
-            'article [role="button"][tabindex="0"],' +
-            'article [role="button"][tabindex="0"] div',
-          s: (m, node, rule) => {
-            let data, a, n, img, src;
-            if (location.pathname.startsWith('/p/')) {
-              img = $('img[srcset], video', node.parentNode);
-              if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
-                src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
-            }
-            if (!src && (n = node.closest('a[href*="/p/"], article'))) {
-              a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-              data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
-            }
-            const numPics = !(isLoggedIn) ?
-              a && tryCatch(() => data.edge_sidecar_to_children.edges.length) :
-              a && tryCatch(() => data.carousel_media_count);
-            Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
-            Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
-            rule.follow = !data && !rule.g;
-            rule._data = data;
-            rule._img = img;
-            return (
-              !a && !src ? false :
-                !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
-                  data.video_url || data.display_url);
-          },
-          c: (html, doc, node, rule) =>
-            tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
-          follow: true,
-          _q: 'meta[property="og:video"]',
-          _g(text, doc, url, m, rule) {
-            const media = !(isLoggedIn) ?
-              JSON.parse(text).graphql.shortcode_media :
-              JSON.parse(text).items[0];
-            const items = !(isLoggedIn) ?
-              media.edge_sidecar_to_children.edges.map(e => ({
-                url: e.node.video_url || e.node.display_url,
-              })) :
-              media.carousel_media.map(e => ({
-                url: e.video_versions ?
-                  e.video_versions[0].url :
-                  e.image_versions2.candidates[0].url,
-              }));
-            items.title = tryCatch(rule._getCaption, media) || '';
-            return items;
-          },
-          _getCaption: !(isLoggedIn) ?
-            data => data && data.edge_media_to_caption.edges[0].node.text :
-            data => data && data.caption.text,
-          _getEdge:  !(isLoggedIn) ?
-            shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user :
-            shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
-              .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
-        })()),
+      ((isLoggedIn = () => !!$('svg[aria-label="Home"]')) => ({
+        e: 'a[href*="/p/"],' +
+          'article [role="button"][tabindex="0"],' +
+          'article [role="button"][tabindex="0"] div',
+        s: (m, node, rule) => {
+          let data, a, n, img, src;
+          if (location.pathname.startsWith('/p/')) {
+            img = $('img[srcset], video', node.parentNode);
+            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
+              src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
+          }
+          if (!src && (n = node.closest('a[href*="/p/"], article'))) {
+            a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
+            data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
+          }
+          const numPics = !(isLoggedIn) ?
+            a && tryCatch(() => data.edge_sidecar_to_children.edges.length) :
+            a && tryCatch(() => data.carousel_media_count);
+          Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
+          Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
+          rule.follow = !data && !rule.g;
+          rule._data = data;
+          rule._img = img;
+          return (
+            !a && !src ? false :
+              !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
+                data.video_url || data.display_url);
+        },
+        c: (html, doc, node, rule) =>
+          tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
+        follow: true,
+        _q: 'meta[property="og:video"]',
+        _g(text, doc, url, m, rule) {
+          const media = !(isLoggedIn) ?
+            JSON.parse(text).graphql.shortcode_media :
+            JSON.parse(text).items[0];
+          const items = !(isLoggedIn) ?
+            media.edge_sidecar_to_children.edges.map(e => ({
+              url: e.node.video_url || e.node.display_url,
+            })) :
+            media.carousel_media.map(e => ({
+              url: e.video_versions ?
+                e.video_versions[0].url :
+                e.image_versions2.candidates[0].url,
+            }));
+          items.title = tryCatch(rule._getCaption, media) || '';
+          return items;
+        },
+        _getCaption: !(isLoggedIn) ?
+          data => data && data.edge_media_to_caption.edges[0].node.text :
+          data => data && data.caption.text,
+        _getEdge:  !(isLoggedIn) ?
+          shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user :
+          shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
+            .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
+      })()),
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
       }, {
