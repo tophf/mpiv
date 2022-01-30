@@ -1577,7 +1577,7 @@ const Ruler = {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
             data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
           }
-          const numPics = !(isLoggedIn()) ?
+          const numPics = !isLoggedIn() ?
             a && tryCatch(() => data.edge_sidecar_to_children.edges.length) :
             a && tryCatch(() => data.carousel_media_count);
           Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
@@ -1595,10 +1595,10 @@ const Ruler = {
         follow: true,
         _q: 'meta[property="og:video"]',
         _g(text, doc, url, m, rule) {
-          const media = !(isLoggedIn()) ?
+          const media = !isLoggedIn() ?
             JSON.parse(text).graphql.shortcode_media :
             JSON.parse(text).items[0];
-          const items = !(isLoggedIn()) ?
+          const items = !isLoggedIn() ?
             media.edge_sidecar_to_children.edges.map(e => ({
               url: e.node.video_url || e.node.display_url,
             })) :
@@ -1610,10 +1610,10 @@ const Ruler = {
           items.title = tryCatch(rule._getCaption, media) || '';
           return items;
         },
-        _getCaption: !(isLoggedIn()) ?
+        _getCaption: !isLoggedIn() ?
           data => data && data.edge_media_to_caption.edges[0].node.text :
           data => data && data.caption.text,
-        _getEdge:  !(isLoggedIn()) ?
+        _getEdge:  !isLoggedIn() ?
           shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user :
           shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
             .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
@@ -1972,10 +1972,10 @@ const Ruler = {
         s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
         q: text => {
           const isLoggedIn = !!$('svg[aria-label="Home"]');
-          const m = !(isLoggedIn) ?
+          const m = !isLoggedIn ?
             JSON.parse(text).graphql.shortcode_media :
             JSON.parse(text).items[0];
-          if (!(isLoggedIn)) {
+          if (!isLoggedIn) {
             return m.video_url || m.display_url;
           } else {
             return m.video_versions ?
@@ -1988,7 +1988,7 @@ const Ruler = {
         rect: 'div.PhotoGridMediaItem',
         c: text => {
           const isLoggedIn = !!$('svg[aria-label="Home"]');
-          if (!(isLoggedIn)) {
+          if (!isLoggedIn) {
             const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
             return m === undefined ? '(no caption)' : m.node.text;
           } else {
