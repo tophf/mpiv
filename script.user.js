@@ -1617,7 +1617,7 @@ const Ruler = {
           shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user :
           shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
             .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
-      })()),
+      }))(),
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
       }, {
