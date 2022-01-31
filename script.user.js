@@ -1442,10 +1442,6 @@ const Ruler = {
         e: '.post-tag, .post-tag img',
         s: '',
       },
-      {
-        u: '||disqus.com/',
-        s: '',
-      },
     ];
 
     // optimization: a rule is created only when on domain
