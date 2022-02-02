@@ -1512,7 +1512,7 @@ const Ruler = {
         follow: true,
       },
       dotDomain.endsWith('.flickr.com') &&
-      tryCatch(() => unsafeWindow.YUI_config.flickr.api.site_key) && {
+      pick(unsafeWindow, 'YUI_config.flickr.api.site_key') && {
         r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
         s: m => `https://www.flickr.com/services/rest/?${
           new URLSearchParams({
@@ -1557,8 +1557,7 @@ const Ruler = {
           a2.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
         },
       },
-      dotDomain.endsWith('.instagram.com') &&
-      ((isLoggedIn = () => !!$('svg[aria-label="Home"]')) => ({
+      dotDomain.endsWith('.instagram.com') && {
         e: 'a[href*="/p/"],' +
           'article [role="button"][tabindex="0"],' +
           'article [role="button"][tabindex="0"] div',
@@ -1571,11 +1570,16 @@ const Ruler = {
           }
           if (!src && (n = node.closest('a[href*="/p/"], article'))) {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-            data = a && tryCatch(rule._getEdge, a.pathname.split('/')[2]);
+            if (a) {
+              const code = a.pathname.split('/')[2];
+              data = pick(unsafeWindow, '_sharedData.entry_data.ProfilePage[0]') || 0;
+              data = data.graphql || (data.items || 0)[0];
+              data = (pick(data, 'user.edge_owner_to_timeline_media.edges',
+                res => res.find(e => e.node.shortcode === code)) || 0).node;
+            }
           }
-          const numPics = isLoggedIn() === false ?
-            a && tryCatch(() => data.edge_sidecar_to_children.edges.length) :
-            a && tryCatch(() => data.carousel_media_count);
+          const numPics = a && pick(data, 'edge_sidecar_to_children.edges.length') ||
+            a && pick(data, 'carousel_media_count');
           Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
           Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
           rule.follow = !data && !rule.g;
@@ -1587,33 +1591,27 @@ const Ruler = {
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) =>
-          tryCatch(rule._getCaption, rule._data) || (rule._img || 0).alt || '',
+          rule._getCaption(rule._data) || (rule._img || 0).alt || '',
         follow: true,
         _q: 'meta[property="og:video"]',
         _g(text, doc, url, m, rule) {
-          const media = isLoggedIn() === false ?
-            JSON.parse(text).graphql.shortcode_media :
-            JSON.parse(text).items[0];
-          const items = isLoggedIn() === false ?
-            media.edge_sidecar_to_children.edges.map(e => ({
+          const json = tryJSON(text);
+          const media =
+            pick(json, 'graphql.shortcode_media') ||
+            pick(json, 'items[0]');
+          const items =
+            pick(media, 'edge_sidecar_to_children.edges', res => res.map(e => ({
               url: e.node.video_url || e.node.display_url,
-            })) :
-            media.carousel_media.map(e => ({
-              url: e.video_versions ?
-                e.video_versions[0].url :
-                e.image_versions2.candidates[0].url,
-            }));
-          items.title = tryCatch(rule._getCaption, media) || '';
+            }))) ||
+            pick(media, 'carousel_media', res => res.map(e => ({
+              url: pick(e, 'video_versions[0].url') || pick(e, 'image_versions2.candidates[0].url'),
+            })));
+          items.title = rule._getCaption(media) || '';
           return items;
         },
-        _getCaption: isLoggedIn() === false ?
-          data => data && data.edge_media_to_caption.edges[0].node.text :
-          data => data && data.caption.text,
-        _getEdge: isLoggedIn() === false ?
-          shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].graphql.user :
-          shortcode => unsafeWindow._sharedData.entry_data.ProfilePage[0].items[0].user
-            .edge_owner_to_timeline_media.edges.find(e => e.node.shortcode === shortcode).node,
-      }))(),
+        _getCaption: data => pick(data, 'caption.text') ||
+          pick(data, 'edge_media_to_caption.edges[0].node.text'),
+      },
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
       }, {
@@ -1966,32 +1964,21 @@ const Ruler = {
           '||instagram.com/p/',
         ],
         s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
-        q: text => {
-          const isLoggedIn = !!$('svg[aria-label="Home"]');
-          const m = isLoggedIn === false ?
-            JSON.parse(text).graphql.shortcode_media :
-            JSON.parse(text).items[0];
-          if (isLoggedIn === false) {
-            return m.video_url || m.display_url;
-          } else {
-            return m.video_versions ?
-              m.video_versions[0].url :
-              m.carousel_media ?
-                m.carousel_media[0].image_versions2.candidates[0].url :
-                m.image_versions2.candidates[0].url;
-          }
-        },
+        q: m => (m = tryJSON(m)) && (
+          m = pick(m, 'graphql.shortcode_media') || pick(m, 'items[0]') || 0
+        ) && (
+          m.video_url ||
+          m.display_url ||
+          pick(m, 'video_versions[0].url') ||
+          pick(m, 'carousel_media[0].image_versions2.candidates[0].url') ||
+          pick(m, 'image_versions2.candidates[0].url')
+        ),
         rect: 'div.PhotoGridMediaItem',
-        c: text => {
-          const isLoggedIn = !!$('svg[aria-label="Home"]');
-          if (isLoggedIn === false) {
-            const m = JSON.parse(text).graphql.shortcode_media.edge_media_to_caption.edges[0];
-            return m === undefined ? '(no caption)' : m.node.text;
-          } else {
-            const m = JSON.parse(text).items[0].caption;
-            return m === undefined ? '(no caption)' : m.text;
-          }
-        },
+        c: m => (m = tryJSON(m)) && (
+          pick(m, 'items[0].caption.text') ||
+          pick(m, 'graphql.shortcode_media.edge_media_to_caption.edges[0].node.text') ||
+          ''
+        ),
       },
       {
         u: [
@@ -2433,20 +2420,20 @@ const Req = {
       tryCatch.call(ai.req, ai.req.abort);
     return new Promise((resolve, reject) => {
       const {anonymous} = ai.rule || {};
-      ai.req = GM.xmlHttpRequest({
+      ai.req = GM.xmlHttpRequest(Object.assign({
         url,
         anonymous,
         withCredentials: !anonymous,
         method: 'GET',
         timeout: 30e3,
-        ...opts,
+      }, opts, {
         onload: done,
         onerror: done,
         ontimeout() {
           ai.req = null;
           reject(`Timeout fetching ${url}`);
         },
-      });
+      }));
       function done(r) {
         ai.req = null;
         if (r.status < 400 && !r.error)
@@ -3947,6 +3934,10 @@ const tryCatch = function (fn, ...args) {
 
 const tryJSON = str =>
   tryCatch(JSON.parse, str);
+
+const pick = (obj, path, fn) => (
+  obj = path.split(/[[.]/).reduce((res, k) => res && res[k.endsWith(']') ? k.slice(0, -1) : k], obj)
+) && (fn ? fn(obj) : obj);
 
 const $ = (sel, node = doc) =>
   node.querySelector(sel) || false;
