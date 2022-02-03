@@ -1570,13 +1570,6 @@ const Ruler = {
           }
           if (!src && (n = node.closest('a[href*="/p/"], article'))) {
             a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-            if (a) {
-              const code = a.pathname.split('/')[2];
-              data = pick(unsafeWindow, '_sharedData.entry_data.ProfilePage[0]') || 0;
-              data = data.graphql || (data.items || 0)[0];
-              data = (pick(data, 'user.edge_owner_to_timeline_media.edges',
-                res => res.find(e => e.node.shortcode === code)) || 0).node;
-            }
           }
           const numPics = a && pick(data, 'edge_sidecar_to_children.edges.length') ||
             a && pick(data, 'carousel_media_count');
