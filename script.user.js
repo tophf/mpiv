@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.20
+// @version     1.2.21
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -2551,7 +2551,7 @@ const Req = {
   },
 
   getFileName(url) {
-    return decodeURIComponent(url).split('/').pop().replace(/[:#?].*/, '');
+    return decodeURIComponent(url).split(/[#?&]/, 1)[0].split('/').pop();
   },
 
   blobToDataUrl(blob) {
