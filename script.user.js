@@ -1563,7 +1563,7 @@ const Ruler = {
           'article [role="button"][tabindex="0"] div',
         s: (m, node, rule) => {
           let data, a, n, img, src;
-          if (location.pathname.startsWith('/p/')) {
+          if (location.pathname.startsWith('/p/') || location.pathname.startsWith('/tv/')) {
             img = $('img[srcset], video', node.parentNode);
             if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
               src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
@@ -1955,6 +1955,7 @@ const Ruler = {
         u: [
           '||instagr.am/p/',
           '||instagram.com/p/',
+          '||instagram.com/tv/',
         ],
         s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
         q: m => (m = tryJSON(m)) && (
