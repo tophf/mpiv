@@ -707,6 +707,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
     s: '',
   }],
   imgtab: false,
+  keepOnBlur: false,
   keepVids: false,
   mute: false,
   preload: false,
@@ -853,7 +854,7 @@ const Events = {
   },
 
   onMouseOut(e) {
-    if (!e.relatedTarget && !e.shiftKey && App.canCloseVid())
+    if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && App.canCloseVid())
       App.deactivate();
   },
 
@@ -3713,6 +3714,8 @@ function createSetupElement() {
             $newCheck('Preload on hover*', 'preload',
               'Provides smoother experience but increases network traffic'),
             $newCheck('Run in image tabs', 'imgtab'),
+            $newCheck('Keep preview on blur*', 'keepOnBlur',
+              'i.e. when mouse pointer moves outside the page'),
           ]),
           $new([
             $newCheck('Mute videos', 'mute'),
@@ -3720,16 +3723,17 @@ function createSetupElement() {
               'Disable only if you spoof the HTTP headers yourself'),
             $newCheck('Set status on <html>*', 'globalStatus',
               "Causes slowdowns so don't enable unless you explicitly use it in your custom CSS"),
+            $newCheck('Keep playing video*', 'keepVids',
+              '...until you press Esc key or click elsewhere'),
           ]),
           $new([
             $newCheck('Show when fully loaded*', 'waitLoad',
               '...or show a partial image while still loading'),
             $newCheck('Fade-in transition', 'uiFadein'),
             $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
+            $newCheck('Auto-start switch in menu*', 'startAltShown',
+              "Show a switch for 'auto-start' mode in userscript manager menu"),
           ]),
-          $newCheck('Keep playing <video> until you press Esc key or click elsewhere', 'keepVids'),
-          $newCheck("Show a switch for 'auto-start' mode in userscript manager menu",
-            'startAltShown'),
         ]),
         $new('li.options.stretch', [
           $new('label', [
