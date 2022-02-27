@@ -182,6 +182,10 @@ const App = {
     }
   },
 
+  canCloseVid() {
+    return !ai || !ai.popup || ai.popup.tagName !== 'VIDEO' || !cfg.keepVids;
+  },
+
   canCommit(w, h) {
     if (!ai.force && ai.rect && !ai.gItems &&
         Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1)) < cfg.scale) {
@@ -703,6 +707,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
     s: '',
   }],
   imgtab: false,
+  keepVids: false,
   mute: false,
   preload: false,
   scale: 1.25,
@@ -814,6 +819,7 @@ const Events = {
     let node = e.target;
     Events.ignoreKeyHeld = e.shiftKey;
     if (!App.isEnabled ||
+        !App.canCloseVid() ||
         e.shiftKey ||
         ai.zoomed ||
         node === ai.popup ||
@@ -847,7 +853,7 @@ const Events = {
   },
 
   onMouseOut(e) {
-    if (!e.relatedTarget && !e.shiftKey)
+    if (!e.relatedTarget && !e.shiftKey && App.canCloseVid())
       App.deactivate();
   },
 
@@ -863,7 +869,7 @@ const Events = {
     Events.trackMouse(e);
     if (e.shiftKey)
       return;
-    if (!ai.zoomed && !ai.rectHovered) {
+    if (!ai.zoomed && !ai.rectHovered && App.canCloseVid()) {
       App.deactivate();
     } else if (ai.zoomed) {
       Popup.move();
@@ -875,8 +881,8 @@ const Events = {
     }
   },
 
-  onMouseDown({shiftKey, button}) {
-    if (button === 0 && shiftKey && ai.popup && ai.popup.controls) {
+  onMouseDown({shiftKey, button, target}) {
+    if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !App.canCloseVid())) {
       ai.controlled = ai.zoomed = true;
     } else if (button === 2 || shiftKey) {
       // Shift = ignore; RMB will be processed in onContext
@@ -894,7 +900,7 @@ const Events = {
       Gallery.next(-dir);
     } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
       App.toggleZoom();
-    } else {
+    } else if (App.canCloseVid()) {
       App.deactivate();
       return;
     }
@@ -1345,11 +1351,10 @@ const PopupVideo = {
   async create() {
     ai.bufBar = false;
     ai.bufStart = now();
-    const shouldMute = cfg.mute || new AudioContext().state === 'suspended';
     return $new('video', {
       autoplay: true,
-      controls: shouldMute,
-      muted: shouldMute,
+      controls: true,
+      muted: cfg.mute || new AudioContext().state === 'suspended',
       loop: true,
       volume: clamp(+await GM.getValue('volume') || .5, 0, 1),
       onprogress: PopupVideo.progress,
@@ -3722,6 +3727,7 @@ function createSetupElement() {
             $newCheck('Fade-in transition', 'uiFadein'),
             $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
           ]),
+          $newCheck('Keep playing <video> until you press Esc key or click elsewhere', 'keepVids'),
           $newCheck("Show a switch for 'auto-start' mode in userscript manager menu",
             'startAltShown'),
         ]),
