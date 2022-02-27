@@ -62,7 +62,7 @@ let cfg;
 /** @type mpiv.AppInfo */
 let ai = {rule: {}};
 /** @type Element */
-let elConfig;
+let elSetup;
 let nonce;
 
 const doc = document;
@@ -132,7 +132,7 @@ const App = {
 
   activate(info, event) {
     const {match, node, rule, url} = info;
-    if (elConfig) console.info({node, rule, url, match});
+    if (elSetup) console.info({node, rule, url, match});
     if (ai.node) App.deactivate();
     ai = info;
     ai.force = event.ctrlKey;
@@ -411,7 +411,7 @@ const Bar = {
       ai.bar = null;
       return;
     }
-    if (!b) b = ai.bar = $create('div', {id: `${PREFIX}bar`});
+    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`});
     App.updateStyles();
     Bar.updateDetails();
     Bar.show();
@@ -819,7 +819,7 @@ const Events = {
         node === ai.popup ||
         node === doc.body ||
         node === doc.documentElement ||
-        node === elConfig ||
+        node === elSetup ||
         ai.gallery && ai.rectHovered)
       return;
     if (node.shadowRoot)
@@ -1245,7 +1245,7 @@ const Popup = {
       [src, isVideo] = await Req.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
     if (ai !== myAi || !src)
       return;
-    const p = ai.popup = isVideo ? await PopupVideo.create() : $create('img');
+    const p = ai.popup = isVideo ? await PopupVideo.create() : $new('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
@@ -1330,7 +1330,7 @@ const Popup = {
       ai.popupLoaded = true;
       Status.set('-loading');
       if (ai.preloadUrl) {
-        $create('img', {src: ai.preloadUrl});
+        $new('img', {src: ai.preloadUrl});
         ai.preloadUrl = null;
       }
     }
@@ -1346,7 +1346,7 @@ const PopupVideo = {
     ai.bufBar = false;
     ai.bufStart = now();
     const shouldMute = cfg.mute || new AudioContext().state === 'suspended';
-    return $create('video', {
+    return $new('video', {
       autoplay: true,
       controls: shouldMute,
       muted: shouldMute,
@@ -2518,7 +2518,7 @@ const Req = {
     if (!name.includes('.'))
       name += '.jpg';
     if (url.startsWith('blob:') || url.startsWith('data:')) {
-      $create('a', {href: url, download: name})
+      $new('a', {href: url, download: name})
         .dispatchEvent(new MouseEvent('click'));
     } else {
       Status.set('+loading');
@@ -2752,7 +2752,7 @@ const Util = {
   addStyle(name, css) {
     const id = `${PREFIX}style:${name}`;
     const el = doc.getElementById(id) ||
-               css && $create('style', {id});
+               css && $new('style', {id});
     if (!el) return;
     if (el.textContent !== css)
       el.textContent = css;
@@ -2924,7 +2924,7 @@ async function setup({rule} = {}) {
   }
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
   let uiCfg;
-  let root = (elConfig || 0).shadowRoot;
+  let root = (elSetup || 0).shadowRoot;
   let {blankRuleElement} = setup;
   /** @type NodeList */
   const UI = new Proxy({}, {
@@ -2932,24 +2932,24 @@ async function setup({rule} = {}) {
       return root.getElementById(id);
     },
   });
-  if (!rule || !elConfig)
+  if (!rule || !elSetup)
     init(await Config.load({save: true}));
   if (rule)
     installRule(rule);
 
   function init(data) {
     uiCfg = data;
-    $remove(elConfig);
-    elConfig = $create('div', {contentEditable: true});
-    root = elConfig.attachShadow({mode: 'open'});
-    root.innerHTML = TRUSTED.createHTML(createConfigHtml());
+    $remove(elSetup);
+    elSetup = $new('div', {contentEditable: true});
+    root = elSetup.attachShadow({mode: 'open'});
+    root.append(...createSetupElement());
     initEvents();
     renderAll();
     renderCustomScales();
     renderRules();
-    doc.body.appendChild(elConfig);
+    doc.body.appendChild(elSetup);
     requestAnimationFrame(() => {
-      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elConfig.clientHeight / 4) + 'px';
+      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elSetup.clientHeight / 4) + 'px';
     });
   }
 
@@ -3012,7 +3012,7 @@ async function setup({rule} = {}) {
     function rangeOnFocus() {
       if (this.elEdit) return;
       const {min, max, step, value} = this;
-      this.elEdit = $create('input', {
+      this.elEdit = $new('input', {
         value, min, max, step,
         className: 'range-edit',
         style: `left: ${this.offsetLeft}px; margin-top: ${this.offsetHeight + 1}px`,
@@ -3056,8 +3056,8 @@ async function setup({rule} = {}) {
         return;
       }
     }
-    $remove(elConfig);
-    elConfig = null;
+    $remove(elSetup);
+    elSetup = null;
   }
 
   function collectConfig({save, clone} = {}) {
@@ -3210,14 +3210,13 @@ async function setupRuleInstaller(e) {
 
   try {
     rules = extractRules(await Req.getDoc(this.href));
-    const selector = $create('select', {
+    const selector = $new('select', {
       size: 8,
       style: 'width: 100%',
+      selectedIndex: findMatchingRuleIndex(),
       ondblclick: e => e.target !== selector && maybeSetup(e),
       onkeyup: e => e.key === 'Enter' && maybeSetup(e),
-    });
-    selector.append(...rules.map(renderRule));
-    selector.selectedIndex = findMatchingRuleIndex();
+    }, rules.map(renderRule));
     parent.children._installLoading.remove();
     parent.children._installHint.hidden = false;
     parent.appendChild(selector);
@@ -3262,7 +3261,7 @@ async function setupRuleInstaller(e) {
   }
 
   function renderRule([name, rule]) {
-    return $create('option', {
+    return $new('option', {
       textContent: name,
       title: Ruler.format(rule, {expand: true})
         .replace(/^{|\s*}$/g, '')
@@ -3291,12 +3290,7 @@ async function setupRuleInstaller(e) {
   }
 }
 
-function createConfigHtml() {
-  const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/';
-  const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
-  const trimLeft = s => s.trim().replace(/\n\s+/g, '\r');
-  return flattenHtml(`
-<style>
+const CSS_SETUP = /*language=css*/ `
   :host {
     all: initial !important;
     position: fixed !important;
@@ -3499,6 +3493,14 @@ function createConfigHtml() {
   #_installHint {
     color: green;
   }
+  #_usage, #_usage * {
+    font: inherit;
+    color: inherit;
+  }
+  #_usage th, #_usage kbd {
+    font-weight: bold;
+    white-space: pre-line;
+  }
   @keyframes fade-in {
     from { background-color: deepskyblue }
     to {}
@@ -3582,185 +3584,225 @@ function createConfigHtml() {
       border: 2px solid transparent;
     }
   }
-</style>
-<style id="_css">${cfg._getCss()}</style>
-<main id="${PREFIX}setup">
-  <div id=_x>x</div>
-  <ul class=column>
-    <details style="margin: -1em 0 0">
-      <summary style="cursor:pointer; color:LinkText"><b>Click to view help & hotkeys</b></summary>
-      <table>
-        <tr><th>Activate</th><td>move mouse cursor over thumbnail</td></tr>
-        <tr><th>Deactivate</th><td>move cursor off thumbnail, or click, or zoom out fully</td></tr>
-        <tr><th>Prevent/freeze</th><td>hold down <kbd>Shift</kbd> while entering/leaving thumbnail</td></tr>
-        <tr><th>Force-activate<br>(for small pics)</th>
-          <td>hold <kbd>Ctrl</kbd> while entering image element</td></tr>
-        <tr><td>&nbsp;</td></tr>
-        <tr><th>Start zooming</th>
-          <td>configurable: automatic or via right-click / <kbd>Shift</kbd> while popup is visible</td></tr>
-        <tr><th>Zoom</th><td>mouse wheel</td></tr>
-        <tr><th>Rotate</th><td><kbd>L</kbd> <kbd>r</kbd> keys (left or right)</td></tr>
-        <tr><th>Flip/mirror</th><td><kbd>h</kbd> <kbd>v</kbd> keys (horizontally or vertically)</td></tr>
-        <tr><th>Previous/next<br>in album</th>
-          <td>mouse wheel, <kbd>j</kbd> <kbd>k</kbd> or <kbd>←</kbd> <kbd>→</kbd> keys</td></tr>
-        <tr><td>&nbsp;</td></tr>
-      </table>
-      <table>
-        <tr><th>Antialiasing on/off</th><td><kbd>a</kbd></td><td rowspan=4>key while popup is visible</td></tr>
-        <tr><th>Download</th><td><kbd>d</kbd></td></tr>
-        <tr><th>Mute/unmute</th><td><kbd>m</kbd></td></tr>
-        <tr><th>Open in tab</th><td><kbd>t</kbd></td></tr>
-      </table>
-    </details>
-    <li class="options stretch">
-      <label>Popup shows on
-        <select id=start>
-          <option value=context>Right-click / &#8801; / Ctrl
-          <option value=contextMK>Right-click / &#8801;
-          <option value=contextM>Right-click
-          <option value=contextK title="&#8801; is the Menu key (near the right Ctrl)">&#8801; key
-          <option value=ctrl>Ctrl
-          <option value=auto>automatically
-        </select>
-      </label>
-      <label>after, sec<input id=delay type=number min=0.05 max=10 step=0.05 title=seconds></label>
-      <label title="(if the full version of the hovered image is ...% larger)">
-        if larger, %<input id=scale type=number min=0 max=100 step=1>
-      </label>
-      <label>Zoom activates on
-        <select id=zoom>
-          <option value=context>Right click / Shift
-          <option value=wheel>Wheel up / Shift
-          <option value=shift>Shift
-          <option value=auto>automatically
-        </select>
-      </label>
-      <label>...and zooms to
-        <select id=fit>
-          <option value=all>fit to window
-          <option value=large>fit if larger
-          <option value=no>100%
-          <option value="" title="Use custom scale factors">custom
-        </select>
-      </label>
-    </li>
-    <li class=options>
-      <label>Zoom step, %<input id=zoomStep type=number min=100 max=400 step=1>
-      </label>
-      <label>When fully zoomed out:
-        <select id=zoomOut>
-          <option value=stay>stay in zoom mode
-          <option value=auto>stay if still hovered
-          <option value=unzoom>undo zoom mode
-          <option value=close>close popup
-        </select>
-      </label>
-      <label style="flex: 1" title="${trimLeft(`
-        Scale factors to use when “zooms to” selector is set to “custom”.
-        0 = fit to window,
-        0! = same as 0 but also removes smaller values,
-        * after a value marks the default zoom factor, for example: 1*
-        The popup won't shrink below the image's natural size or window size for bigger mages.
-        ${scalesHint}
-      `)}">Custom scale factors:
-        <input id=scales placeholder="${scalesHint}">
-      </label>
-    </li>
-    <li class="options row">
-      <div>
-        <label title="...or try to keep the original link/thumbnail unobscured by the popup">
-          <input type=checkbox id=center>Centered*</label>
-        <label title="Provides smoother experience but increases network traffic">
-          <input type=checkbox id=preload>Preload on hover*</label>
-        <label><input type=checkbox id=imgtab>Run in image tabs</label>
-      </div>
-      <div>
-        <label><input type=checkbox id=mute>Mute videos</label>
-        <label title="Disable only if you spoof the HTTP headers yourself">
-          <input type=checkbox id=xhr>Spoof hotlinking*</label>
-        <label title="Causes slowdowns so don't enable unless you explicitly use it in your custom CSS">
-          <input type=checkbox id=globalStatus>Set status on &lt;html&gt;*</label>
-      </div>
-      <div>
-        <label title="...or show a partial image while still loading">
-          <input type=checkbox id=waitLoad>Show when fully loaded*</label>
-        <label><input type=checkbox id=uiFadein>Fade-in transition</label>
-        <label><input type=checkbox id=uiFadeinGallery>Fade-in transition in gallery</label>
-      </div>
-      <label><input type=checkbox id=startAltShown>
-        Show a switch for 'auto-start' mode in userscript manager menu</label>
-    </li>
-    <li class="options stretch">
-      <label>Background
-        <span>
-          <input id=uiBackgroundColor type=color><u></u>
-          <input id=uiBackgroundOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
-        </span>
-      </label>
-      <label>Border color, opacity, size
-        <span>
-          <input id=uiBorderColor type=color><u></u>
-          <input id=uiBorderOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
-          <input id=uiBorder type=range min=0 max=20 step=1 data-title="Border size: $px">
-        </span>
-      </label>
-      <label>Shadow color, opacity, size
-        <span>
-          <input id=uiShadowColor type=color><u></u>
-          <input id=uiShadowOpacity type=range min=0 max=100 step=1 data-title="Opacity: $%">
-          <input id=uiShadow type=range min=0 max=100 step=1 data-title="
-            ${'Shadow blur radius: $px\n"0" disables the shadow.'}">
-        </span>
-      </label>
-      <label>Padding
-        <span><input id=uiPadding type=range min=0 max=100 step=1 data-title="Padding: $px"></span>
-      </label>
-      <label>Margin
-        <span><input id=uiMargin type=range min=0 max=100 step=1 data-title="Margin: $px"></span>
-      </label>
-    </li>
-    <li>
-      <a href="${MPIV_BASE_URL}Custom-CSS" target="_blank">Custom CSS:</a>&nbsp;
-      e.g. <b>#mpiv-popup { animation: none !important }</b>
-      <a tabindex=0 id=_reveal style="float: right"
-         title="You can copy parts of it to override them in your custom CSS">
-         View the built-in CSS</a>
-      <div class=column>
-        <textarea id=css spellcheck=false></textarea>
-        <textarea id=_cssApp spellcheck=false hidden readonly rows=30></textarea>
-      </div>
-    </li>
-    <li style="display: flex; justify-content: space-between;">
-      <div><a href="${MPIV_BASE_URL}Custom-host-rules" target="_blank">Custom host rules:</a></div>
-      <div style="white-space: nowrap">
-        To disable, put any symbol except <code>a..z 0..9 - .</code><br>
-        in "d" value, for example <code>"d": "!foo.com"</code>
-      </div>
-      <div>
-        <input id=_search type=search placeholder=Search style="width: 10em; margin-left: 1em">
-      </div>
-    </li>
-    <li style="margin-left: -3px; margin-right: -3px; overflow-y: auto; padding-left: 3px; padding-right: 3px;">
-      <div id=_rules class=column>
-        <textarea rows=1 spellcheck=false></textarea>
-      </div>
-    </li>
-    <li>
-      <div hidden id=_installLoading>Loading...</div>
-      <div hidden id=_installHint>Double-click the rule (or select and press Enter) to add it
-        . Click <code>Apply</code> or <code>OK</code> to confirm.</div>
-      <a href="${MPIV_BASE_URL}Rules" id=_install target="_blank">Install rule from repository...</a>
-    </li>
-  </ul>
-  <div style="text-align:center">
-    <button id=_ok accesskey=s>OK</button>
-    <button id=_apply accesskey=a>Apply</button>
-    <button id=_import style="margin-right: 0">Import</button>
-    <button id=_export style="margin-left: 0">Export</button>
-    <button id=_cancel>Cancel</button>
-    <div id=_exportNotification hidden>Copied to clipboard.</div>
-  </div>
-</main>`);
+`;
+
+function createSetupElement() {
+  const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/';
+  const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
+  const $newLink = (text, href, props) =>
+    $new('a', Object.assign({href, target: '_blank'}, props), text);
+  const $newCheck = (label, id, title, props) =>
+    $new('label', Object.assign({title}, props), [
+      $new('input', {id, type: 'checkbox'}),
+      label,
+    ]);
+  const $newKbd = (str, tag = 'fragment') =>
+    $new(tag, str.split(/({.+?})/).map(s => s[0] === '{' ? $new('kbd', s.slice(1, -1)) : s));
+  const $newRange = (id, title, min = 0, max = 100, step = 1) =>
+    $new('input', {id, min, max, step, type: 'range', 'data-title': title});
+  const $newSelect = (label, id, values) =>
+    $new('label', [
+      label,
+      $new('select', {id}, Object.entries(values).map(([k, v]) =>
+        $new('option', Object.assign({value: k}, typeof v === 'object' ? v : {textContent: v})))),
+    ]);
+  const $newTable = obj =>
+    $new('table#_usage', Object.entries(obj).map(([name, val]) =>
+      $new('tr', name.startsWith('---') ? $new('td', '\xA0') : [
+        $new('th', name),
+        ...ensureArray(val).map(cell => cell instanceof Node ? cell : $newKbd(cell, 'td')),
+      ])));
+  return [
+    $new('style', CSS_SETUP),
+    $new('style#_css', cfg._getCss()),
+    $new(`main#${PREFIX}setup`, [
+      $new('div#_x'),
+      $new('ul.column', [
+        $new('details', {style: 'margin: -1em 0 0'}, [
+          $new('summary', {style: 'cursor:pointer; color:LinkText'},
+            $new('b', 'Click to view help & hotkeys')),
+          $newTable({
+            'Activate': 'move mouse cursor over thumbnail',
+            'Deactivate': 'move cursor off thumbnail, or click, or zoom out fully',
+            'Prevent/freeze': 'hold down {Shift} while entering/leaving thumbnail',
+            'Force-activate\n(for small pics)': 'hold {Ctrl} while entering image element',
+            '---1': '',
+            'Start zooming':
+              'configurable: automatic or via right-click / {Shift} while popup is visible',
+            'Zoom': 'mouse wheel',
+            'Rotate': '{L} {r} keys (left or right)',
+            'Flip/mirror': '{h} {v} keys (horizontally or vertically)',
+            'Previous/next\nin album': 'mouse wheel, {j} {k} or {←} {→} keys',
+            '---2': '',
+          }),
+          $newTable({
+            'Antialiasing on/off': ['{a}', $new('td', {rowSpan: 4}, 'key while popup is visible')],
+            'Download': '{d}',
+            'Mute/unmute': '{m}',
+            'Open in tab': '{t}',
+          }),
+        ]),
+        $new('li.options.stretch', [
+          $newSelect('Popup shows on', 'start', {
+            context: 'Right-click / \u2261 / Ctrl',
+            contextMK: 'Right-click / \u2261',
+            contextM: 'Right-click',
+            contextK: {
+              textContent: '\u2261 key',
+              title: '\u2261 is the Menu key (near the right Ctrl)',
+            },
+            ctrl: 'Ctrl',
+            auto: 'automatically',
+          }),
+          $new('label', [
+            'after, sec',
+            $new('input#delay', {type: 'number', min: .05, max: 10, step: .05, title: 'seconds'}),
+          ]),
+          $new('label', {title: '(if the full version of the hovered image is ...% larger)'}, [
+            'if larger, %',
+            $new('input#scale', {type: 'number', min: 0, max: 100, step: 1}),
+          ]),
+          $newSelect('Zoom activates on', 'zoom', {
+            context: 'Right click / Shift',
+            wheel: 'Wheel up / Shift',
+            shift: 'Shift',
+            auto: 'automatically',
+          }),
+          $newSelect('...and zooms to', 'fit', {
+            'all': 'fit to window',
+            'large': 'fit if larger',
+            'no': '100%',
+            '': {textContent: 'custom', title: 'Use custom scale factors'},
+          }),
+        ]),
+        $new('li.options', [
+          $new('label', [
+            'Zoom step, %',
+            $new('input#zoomStep', {type: 'number', min: 100, max: 400, step: 1}),
+          ]),
+          $newSelect('When fully zoomed out:', 'zoomOut', {
+            stay: 'stay in zoom mode',
+            auto: 'stay if still hovered',
+            unzoom: 'undo zoom mode',
+            close: 'close popup',
+          }),
+          $new('label', {
+            style: 'flex: 1',
+            title: `
+              Scale factors to use when “zooms to” selector is set to “custom”.
+              0 = fit to window,
+              0! = same as 0 but also removes smaller values,
+              * after a value marks the default zoom factor, for example: 1*
+              The popup won't shrink below the image's natural size or window size for bigger mages.
+              ${scalesHint}
+            `.trim().replace(/\n\s+/g, '\r'),
+          }, [
+            'Custom scale factors:',
+            $new('input#scales', {placeholder: scalesHint}),
+          ]),
+        ]),
+        $new('li.options.row', [
+          $new([
+            $newCheck('Centered*', 'center',
+              '...or try to keep the original link/thumbnail unobscured by the popup'),
+            $newCheck('Preload on hover*', 'preload',
+              'Provides smoother experience but increases network traffic'),
+            $newCheck('Run in image tabs', 'imgtab'),
+          ]),
+          $new([
+            $newCheck('Mute videos', 'mute'),
+            $newCheck('Spoof hotlinking*`, ', 'xhr',
+              'Disable only if you spoof the HTTP headers yourself'),
+            $newCheck('Set status on <html>*', 'globalStatus',
+              "Causes slowdowns so don't enable unless you explicitly use it in your custom CSS"),
+          ]),
+          $new([
+            $newCheck('Show when fully loaded*', 'waitLoad',
+              '...or show a partial image while still loading'),
+            $newCheck('Fade-in transition', 'uiFadein'),
+            $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
+          ]),
+          $newCheck("Show a switch for 'auto-start' mode in userscript manager menu",
+            'startAltShown'),
+        ]),
+        $new('li.options.stretch', [
+          $new('label', [
+            'Background',
+            $new('span', [
+              $new('input#uiBackgroundColor', {type: 'color'}), $new('u'),
+              $newRange('uiBackgroundOpacity', 'Opacity: $%'),
+            ]),
+          ]),
+          $new('label', [
+            'Border color, opacity, size',
+            $new('span', [
+              $new('input#uiBorderColor', {type: 'color'}), $new('u'),
+              $newRange('uiBorderOpacity', 'Opacity: $%'),
+              $newRange('uiBorder', 'Border size: $px', 0, 20),
+            ]),
+          ]),
+          $new('label', [
+            'Shadow color, opacity, size',
+            $new('span', [
+              $new('input#uiShadowColor', {type: 'color'}), $new('u'),
+              $newRange('uiShadowOpacity', 'Opacity: $%'),
+              $newRange('uiShadow', 'Shadow blur radius: $px\n"0" disables the shadow.', 0, 20),
+            ]),
+          ]),
+          $new('label', ['Padding', $new('span', $newRange('uiPadding', 'Padding: $px'))]),
+          $new('label', ['Margin', $new('span', $newRange('uiMargin', 'Margin: $px'))]),
+        ]),
+        $new('li', [
+          $newLink('Custom CSS:', `${MPIV_BASE_URL}Custom-CSS`),
+          ' e.g. ', $new('b', '#mpiv-popup { animation: none !important }'),
+          $newLink('View the built-in CSS', '', {
+            id: '_reveal',
+            tabIndex: 0,
+            style: 'float: right',
+            title: 'You can copy parts of it to override them in your custom CSS',
+          }),
+          $new('.column', [
+            $new('textarea#css', {spellcheck: false}),
+            $new('textarea#_cssApp', {spellcheck: false, hidden: true, readOnly: true, rows: 30}),
+          ]),
+        ]),
+        $new('li', {style: 'display: flex; justify-content: space-between;'}, [
+          $new('div',
+            $newLink('Custom host rules:', `${MPIV_BASE_URL}Custom-host-rules`)),
+          $new('div', {style: 'white-space: pre-line'}, [
+            'To disable, put any symbol except ', $new('code', 'a..z 0..9 - .'),
+            '\nin "d" value, for example ', $new('code', '"d": "!foo.com"'),
+          ]),
+          $new('div',
+            $new('input#_search',
+              {type: 'search', placeholder: 'Search', style: 'width: 10em; margin-left: 1em'})),
+        ]),
+        $new('li', {
+          style: 'margin-left: -3px; margin-right: -3px; overflow-y: auto; ' +
+                 'padding-left: 3px; padding-right: 3px;',
+        }, [
+          $new('div#_rules.column',
+            $new('textarea#css', {spellcheck: false, rows: 1})),
+        ]),
+        $new('li', [
+          $new('div#_installLoading', {hidden: true}, 'Loading...'),
+          $new('div#_installHint', {hidden: true}, [
+            'Double-click the rule (or select and press Enter) to add it. ',
+            'Click ', $new('code', 'Apply'), ' or ', $new('code', 'OK'), ' to confirm.',
+          ]),
+          $newLink('Install rule from repository...', `${MPIV_BASE_URL}Rules`, {id: '_install'}),
+        ]),
+      ]),
+      $new('div', {style: 'text-align:center'}, [
+        $new('button#_ok', {accessKey: 'o'}, 'OK'),
+        $new('button#_apply', {accessKey: 'a'}, 'Apply'),
+        $new('button#_import', {style: 'margin-right: 0'}, 'Import'),
+        $new('button#_export', {style: 'margin-left: 0'}, 'Export'),
+        $new('button#_cancel', 'Cancel'),
+        $new('div#_exportNotification', {hidden: true}, 'Copied to clipboard'),
+      ]),
+    ]),
+  ];
 }
 
 function createGlobalStyle() {
@@ -3939,8 +3981,37 @@ const $ = (sel, node = doc) =>
 const $$ = (sel, node = doc) =>
   node.querySelectorAll(sel);
 
-const $create = (tag, props) =>
-  Object.assign(doc.createElement(tag), props);
+const $new = (sel, props, children) => {
+  if (typeof sel !== 'string') {
+    children = props;
+    props = sel;
+    sel = '';
+  }
+  if (!children && props != null && ({}).toString.call(props) !== '[object Object]') {
+    children = props;
+    props = null;
+  }
+  const isFrag = sel === 'fragment';
+  const [, tag, id, cls] = sel.match(/^(\w*)(?:#([^.]+))?(?:\.(.+))?$/);
+  const el = isFrag ? doc.createDocumentFragment() : doc.createElement(tag || 'div');
+  if (id) el.id = id;
+  if (cls) el.className = cls.replace(/\./g, ' ');
+  if (props) {
+    for (const [k, v] of Object.entries(props)) {
+      if (k.startsWith('data-')) el.setAttribute(k, v);
+      else el[k] = v;
+    }
+  }
+  if (children != null) {
+    if (Array.isArray(children))
+      el.append(...children.filter(Boolean));
+    else if (children instanceof Node)
+      el.appendChild(children);
+    else
+      el.textContent = children;
+  }
+  return el;
+};
 
 const $css = (el, props) =>
   Object.entries(props).forEach(([k, v]) =>
