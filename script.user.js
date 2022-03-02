@@ -183,7 +183,7 @@ const App = {
   },
 
   canCloseVid() {
-    return !ai || !ai.popup || ai.popup.tagName !== 'VIDEO' || !cfg.keepVids;
+    return !ai || !ai.popup || !isVideo(ai.popup) || !cfg.keepVids;
   },
 
   canCommit(w, h) {
@@ -827,6 +827,7 @@ const Events = {
         node === doc.body ||
         node === doc.documentElement ||
         node === elSetup ||
+        isVideo(node) && !e.ctrlKey ||
         ai.gallery && ai.rectHovered)
       return;
     if (node.shadowRoot)
@@ -935,7 +936,7 @@ const Events = {
         ai.shiftKeyTime = now();
         Status.set('+shift');
         Bar.show(true);
-        if (p.tagName === 'VIDEO')
+        if (isVideo(p))
           p.controls = true;
         return;
       case 'KeyA':
@@ -971,7 +972,7 @@ const Events = {
         Popup.move();
         break;
       case 'KeyM':
-        if (p.tagName === 'VIDEO')
+        if (isVideo(p))
           p.muted = !p.muted;
         break;
       case 'KeyT':
@@ -1443,6 +1444,7 @@ const Ruler = {
     }
 
     // rules that disable previewing
+    /** @type mpiv.HostRule[] */
     const disablers = [
       dotDomain.endsWith('.stackoverflow.com') && {
         e: '.post-tag, .post-tag img',
@@ -1451,6 +1453,7 @@ const Ruler = {
     ];
 
     // optimization: a rule is created only when on domain
+    /** @type mpiv.HostRule[] */
     const perDomain = [
       hostname.includes('startpage') && {
         r: /\boiu=(.+)/,
@@ -1571,7 +1574,7 @@ const Ruler = {
           let data, a, n, img, src;
           if (location.pathname.startsWith('/p/') || location.pathname.startsWith('/tv/')) {
             img = $('img[srcset], video', node.parentNode);
-            if (img && (img.localName === 'video' || parseFloat(img.sizes) > 900))
+            if (img && (isVideo(img) || parseFloat(img.sizes) > 900))
               src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
           }
           if (!src && (n = node.closest('a[href*="/p/"], article'))) {
@@ -1637,6 +1640,7 @@ const Ruler = {
       },
     ];
 
+    /** @type mpiv.HostRule[] */
     const main = [
       {
         r: /[/?=](https?%3A%2F%2F[^&]+)/i,
@@ -3962,6 +3966,8 @@ const eventModifiers = e =>
   (e.shiftKey ? '+' : '');
 
 const isFunction = val => typeof val === 'function';
+
+const isVideo = el => el && el.tagName === 'VIDEO';
 
 const now = performance.now.bind(performance);
 
