@@ -3608,8 +3608,8 @@ function createSetupElement() {
     ]);
   const $newKbd = (str, tag = 'fragment') =>
     $new(tag, str.split(/({.+?})/).map(s => s[0] === '{' ? $new('kbd', s.slice(1, -1)) : s));
-  const $newRange = (id, title, min = 0, max = 100, step = 1) =>
-    $new('input', {id, min, max, step, type: 'range', 'data-title': title});
+  const $newRange = (id, title, min = 0, max = 100, step = 1, type = 'range') =>
+    $new('input', {id, min, max, step, type, 'data-title': title});
   const $newSelect = (label, id, values) =>
     $new('label', [
       label,
@@ -3664,14 +3664,9 @@ function createSetupElement() {
             ctrl: 'Ctrl',
             auto: 'automatically',
           }),
-          $new('label', [
-            'after, sec',
-            $new('input#delay', {type: 'number', min: .05, max: 10, step: .05, title: 'seconds'}),
-          ]),
-          $new('label', {title: '(if the full version of the hovered image is ...% larger)'}, [
-            'if larger, %',
-            $new('input#scale', {type: 'number', min: 0, max: 100, step: 1}),
-          ]),
+          $new('label', ['after, sec', $newRange('delay', 'seconds', .05, 10, .05, 'number')]),
+          $new('label', {title: '(if the full version of the hovered image is ...% larger)'},
+            ['if larger, %', $newRange('scale', null, 0, 100, 1, 'number')]),
           $newSelect('Zoom activates on', 'zoom', {
             context: 'Right click / Shift',
             wheel: 'Wheel up / Shift',
@@ -3686,10 +3681,7 @@ function createSetupElement() {
           }),
         ]),
         $new('li.options', [
-          $new('label', [
-            'Zoom step, %',
-            $new('input#zoomStep', {type: 'number', min: 100, max: 400, step: 1}),
-          ]),
+          $new('label', ['Zoom step, %', $newRange('zoomStep', null, 100, 400, 1, 'number')]),
           $newSelect('When fully zoomed out:', 'zoomOut', {
             stay: 'stay in zoom mode',
             auto: 'stay if still hovered',
@@ -3706,10 +3698,7 @@ function createSetupElement() {
               The popup won't shrink below the image's natural size or window size for bigger mages.
               ${scalesHint}
             `.trim().replace(/\n\s+/g, '\r'),
-          }, [
-            'Custom scale factors:',
-            $new('input#scales', {placeholder: scalesHint}),
-          ]),
+          }, ['Custom scale factors:', $new('input#scales', {placeholder: scalesHint})]),
         ]),
         $new('li.options.row', [
           $new([
@@ -4014,8 +4003,11 @@ const $new = (sel, props, children) => {
   if (cls) el.className = cls.replace(/\./g, ' ');
   if (props) {
     for (const [k, v] of Object.entries(props)) {
-      if (k.startsWith('data-')) el.setAttribute(k, v);
-      else el[k] = v;
+      if (!k.startsWith('data-')) {
+        el[k] = v;
+      } else if (v != null) {
+        el.setAttribute(k, v);
+      }
     }
   }
   if (children != null) {
