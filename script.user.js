@@ -132,7 +132,11 @@ const App = {
 
   activate(info, event) {
     const {match, node, rule, url} = info;
+    const auto = cfg.start === 'auto';
+    const vidCtrl = cfg.videoCtrl && isVideo(node);
     if (elSetup) console.info({node, rule, url, match});
+    if (auto && vidCtrl && !event.ctrlKey)
+      return;
     if (ai.node) App.deactivate();
     ai = info;
     ai.force = event.ctrlKey;
@@ -142,9 +146,9 @@ const App = {
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
-    if (ai.force) {
+    if (ai.force && (auto || !vidCtrl)) {
       App.start();
-    } else if (cfg.start === 'auto' && !rule.manual) {
+    } else if (auto && !vidCtrl && !rule.manual) {
       App.belate();
     } else {
       Status.set('ready');
@@ -729,6 +733,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   uiPadding: 0,
   uiMargin: 0,
   version: 6,
+  videoCtrl: true,
   waitLoad: false,
   xhr: true,
   zoom: 'context',
@@ -815,6 +820,7 @@ const Events = {
   hoverData: null,
   hoverTimer: 0,
   ignoreKeyHeld: false,
+  keys: new Set(),
 
   onMouseOver(e) {
     let node = e.target;
@@ -827,7 +833,6 @@ const Events = {
         node === doc.body ||
         node === doc.documentElement ||
         node === elSetup ||
-        isVideo(node) && !e.ctrlKey ||
         ai.gallery && ai.rectHovered)
       return;
     if (node.shadowRoot)
@@ -910,23 +915,12 @@ const Events = {
   },
 
   onKeyDown(e) {
+    Events.keys.add(e.key);
     // Synthesized events may be of the wrong type and not have a `key`
     const key = eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
-    const p = ai.popup || false; // simple polyfill for `p?.foo`
-    if (!p &&
-        !Events.ignoreKeyHeld &&
-        key === '^Control' &&
-        (cfg.start === 'ctrl' || cfg.start === 'context' || ai.rule.manual)) {
-      dropEvent(e);
-      if (Events.hoverData) {
-        Events.hoverData.e = e;
-        Events.onMouseOverThrottled(true);
-      }
-      if (ai.node) {
-        ai.force = true;
-        App.start();
-      }
-    }
+    const p = ai.popup;
+    if (!p && key === '^ContextMenu')
+      return Events.onContext.call(this, e);
     if (!p || e.repeat)
       return;
     switch (key) {
@@ -1008,20 +1002,39 @@ const Events = {
   },
 
   onKeyUp(e) {
+    const p = ai.popup || false;
+    const {keys} = Events;
     if (e.key === 'Shift' && ai.shiftKeyTime) {
       Status.set('-shift');
       Bar.hide(true);
-      if ((ai.popup || {}).controls)
-        ai.popup.controls = false;
+      if (p.controls)
+        p.controls = false;
       // Chrome doesn't expose events for clicks on video controls so we'll guess
       if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
         ai.controlled = false;
-      else if (ai.popup && (ai.zoomed || ai.rectHovered !== false))
+      else if (p && (ai.zoomed || ai.rectHovered !== false))
         App.toggleZoom();
       else
         App.deactivate({wait: true});
       ai.shiftKeyTime = 0;
+    } else if (
+      e.key === 'Control' && !p && !Events.ignoreKeyHeld && keys.size === 1 &&
+      (cfg.start === 'ctrl' || cfg.start === 'context' || ai.rule.manual)
+    ) {
+      dropEvent(e);
+      if (Events.hoverData) {
+        Events.hoverData.e = e;
+        Events.onMouseOverThrottled(true);
+      }
+      if (ai.node) {
+        ai.force = true;
+        App.start();
+      }
     }
+    if (e.key === 'Control')
+      keys.clear();
+    else if (!keys.has('Control'))
+      keys.delete(e.key);
   },
 
   onContext(e) {
@@ -1030,7 +1043,7 @@ const Events = {
     const p = ai.popup;
     if (cfg.zoom === 'context' && p && App.toggleZoom()) {
       dropEvent(e);
-    } else if (!p && (
+    } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || e.ctrlKey) && (
       cfg.start === 'context' ||
       cfg.start === 'contextMK' ||
       cfg.start === 'contextM' && (e.button === 2) ||
@@ -3441,6 +3454,7 @@ const CSS_SETUP = /*language=css*/ `
   a {
     text-decoration: none;
     color: LinkText;
+    cursor: pointer;
   }
   a:hover {
     text-decoration: underline;
@@ -3600,7 +3614,7 @@ function createSetupElement() {
   const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/';
   const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const $newLink = (text, href, props) =>
-    $new('a', Object.assign({href, target: '_blank'}, props), text);
+    $new('a', Object.assign({target: '_blank'}, href && {href}, props), text);
   const $newCheck = (label, id, title, props) =>
     $new('label', Object.assign({title}, props), [
       $new('input', {id, type: 'checkbox'}),
@@ -3629,13 +3643,13 @@ function createSetupElement() {
       $new('div#_x'),
       $new('ul.column', [
         $new('details', {style: 'margin: -1em 0 0'}, [
-          $new('summary', {style: 'cursor:pointer; color:LinkText'},
-            $new('b', 'Click to view help & hotkeys')),
+          $new('summary', {style: 'cursor: pointer; font: bold 16px normal; margin-bottom: .5em'},
+            $new('b', 'MPIV Help & hotkeys')),
           $newTable({
             'Activate': 'move mouse cursor over thumbnail',
             'Deactivate': 'move cursor off thumbnail, or click, or zoom out fully',
             'Prevent/freeze': 'hold down {Shift} while entering/leaving thumbnail',
-            'Force-activate\n(for small pics)': 'hold {Ctrl} while entering image element',
+            'Force-activate\n(videos or small pics)': 'hold {Ctrl} while entering image element',
             '---1': '',
             'Start zooming':
               'configurable: automatic or via right-click / {Shift} while popup is visible',
@@ -3707,6 +3721,7 @@ function createSetupElement() {
             $newCheck('Preload on hover*', 'preload',
               'Provides smoother experience but increases network traffic'),
             $newCheck('Run in image tabs', 'imgtab'),
+            $newCheck('Require Ctrl key for <video>', 'videoCtrl'),
             $newCheck('Keep preview on blur*', 'keepOnBlur',
               'i.e. when mouse pointer moves outside the page'),
           ]),

@@ -36,6 +36,7 @@ declare namespace mpiv {
     uiPadding: number,
     uiMargin: number,
     version: number
+    videoCtrl: boolean // require Ctrl to preview a <video>
     waitLoad: boolean
     xhr: boolean
     zoom: 'context' | 'wheel' | 'shift' | 'auto'
