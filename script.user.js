@@ -1810,7 +1810,7 @@ const Ruler = {
         u: '//gyazo.com/',
         r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
         s: (m, _, rule) => Ruler.toggle(rule, 'q', !m[1]) ? m.input : `https://i.${m[0]}`,
-        _q: 'meta[name="twitter:image"]',
+        _q: 'link[rel="image_src"]',
       },
       {
         u: '||hostingkartinok.com/show-image.php',
