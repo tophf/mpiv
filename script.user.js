@@ -1716,7 +1716,8 @@ const Ruler = {
       {
         u: '||fastpic.',
         e: 'a[href*="fastpic"]',
-        s: m => m[0].replace('http:', 'https:').replace('fastpic.ru', 'fastpic.org'),
+        s: m => m[0].replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, '/$2$1')
+          .replace(/^\w+:\/\/[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+)/, 'https://fastpic.org/view$1$2.html'),
         q: 'img[src*="/big/"]',
       },
       {
