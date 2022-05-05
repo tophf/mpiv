@@ -1990,12 +1990,12 @@ const Ruler = {
         q: m => (m = tryJSON(m)) && (
           m = pick(m, 'graphql.shortcode_media') || pick(m, 'items[0]') || 0
         ) && (
-                  m.video_url ||
-                  m.display_url ||
-                  pick(m, 'video_versions[0].url') ||
-                  pick(m, 'carousel_media[0].image_versions2.candidates[0].url') ||
-                  pick(m, 'image_versions2.candidates[0].url')
-                ),
+          m.video_url ||
+          m.display_url ||
+          pick(m, 'video_versions[0].url') ||
+          pick(m, 'carousel_media[0].image_versions2.candidates[0].url') ||
+          pick(m, 'image_versions2.candidates[0].url')
+        ),
         rect: 'div.PhotoGridMediaItem',
         c: m => (m = tryJSON(m)) && (
           pick(m, 'items[0].caption.text') ||
