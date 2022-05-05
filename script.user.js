@@ -1656,6 +1656,9 @@ const Ruler = {
         s: (m, node) => node.previousElementSibling.src,
         follow: true,
       },
+      dotDomain.match(/\.(dumpoir|greatfon|picuki)\.com$/) && {
+        tabfix: true,
+      },
     ];
 
     /** @type mpiv.HostRule[] */
@@ -2371,7 +2374,7 @@ const RuleMatcher = {
     const tn = node.tagName;
     const isPic = tn === 'IMG' || tn === 'VIDEO';
     const isPicOrLink = isPic || tn === 'A';
-    let m, html, info;
+    let m, _m, html, info, _rule;
     for (const rule of rules || Ruler.rules) {
       if (skipRules && skipRules.includes(rule) ||
           rule.u && (!url || !Ruler.runU(rule, url)) ||
@@ -2391,16 +2394,19 @@ const RuleMatcher = {
         continue;
       if (rule.s === '')
         return {};
-      let hasS = rule.s != null;
+      _m = m;
+      _rule = rule;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (isPic && !hasS && !skipRules)
-        continue;
-      hasS &= rule.s !== 'gallery';
-      const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
-      if (urls)
-        return RuleMatcher.makeInfo(hasS, rule, m, node, skipRules, urls);
+      if (!isPic || rule.s != null || skipRules)
+        break;
     }
+    if (!_m)
+      return;
+    const hasS = _rule.s != null && _rule.s !== 'gallery';
+    const urls = hasS ? Ruler.runS(node, _rule, _m) : [_m.input];
+    if (urls)
+      return RuleMatcher.makeInfo(hasS, _rule, _m, node, skipRules, urls);
   },
 
   /** @returns ?mpiv.RuleMatchInfo */
@@ -2914,7 +2920,6 @@ const Util = {
 
   tabFixUrl() {
     return ai.rule.tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
-           navigator.userAgent.includes('Gecko/') &&
            flattenHtml(`data:text/html;charset=utf8,
       <style>
         body {
