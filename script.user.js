@@ -146,7 +146,7 @@ const App = {
     Calc.updateViewSize();
     Events.toggle(true);
     Events.trackMouse(event);
-    if (ai.force && (auto || !vidCtrl)) {
+    if (ai.force) {
       App.start();
     } else if (auto && !vidCtrl && !rule.manual) {
       App.belate();
