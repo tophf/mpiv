@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.23
+// @version     1.2.24
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1723,9 +1723,13 @@ const Ruler = {
       },
       {
         u: '||fastpic.',
-        e: 'a[href*="fastpic"]',
-        s: m => m[0].replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, '/$2$1')
-          .replace(/^\w+:\/\/[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+)/, 'https://fastpic.org/view$1$2.html'),
+        s: (m, node) => {
+          const a = node.closest('a');
+          const url = Req.findImageUrl(a || node)
+            .replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, '/$2$1')
+            .replace(/^\w+:\/\/[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/, 'https://fastpic.org/view$1$2.html');
+          return a || url.includes('.png') ? url : [url, url.replace(/\.jpe?g/, '.png')];
+        },
         q: 'img[src*="/big/"]',
       },
       {
