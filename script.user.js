@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.24
+// @version     1.2.25
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -129,6 +129,7 @@ const App = {
   isImageTab: false,
   globalStyle: '',
   popupStyleBase: '',
+  tabfix: /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain),
 
   activate(info, event) {
     const {match, node, rule, url} = info;
@@ -1656,9 +1657,6 @@ const Ruler = {
         s: (m, node) => node.previousElementSibling.src,
         follow: true,
       },
-      dotDomain.match(/\.(dumpoir|greatfon|picuki)\.com$/) && {
-        tabfix: true,
-      },
     ];
 
     /** @type mpiv.HostRule[] */
@@ -2378,7 +2376,7 @@ const RuleMatcher = {
     const tn = node.tagName;
     const isPic = tn === 'IMG' || tn === 'VIDEO';
     const isPicOrLink = isPic || tn === 'A';
-    let m, _m, html, info, _rule;
+    let m, html, info;
     for (const rule of rules || Ruler.rules) {
       if (skipRules && skipRules.includes(rule) ||
           rule.u && (!url || !Ruler.runU(rule, url)) ||
@@ -2398,19 +2396,16 @@ const RuleMatcher = {
         continue;
       if (rule.s === '')
         return {};
-      _m = m;
-      _rule = rule;
+      let hasS = rule.s != null;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (!isPic || rule.s != null || skipRules)
-        break;
+      if (isPic && !hasS && !skipRules)
+        continue;
+      hasS &= rule.s !== 'gallery';
+      const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
+      if (urls)
+        return RuleMatcher.makeInfo(hasS, rule, m, node, skipRules, urls);
     }
-    if (!_m)
-      return;
-    const hasS = _rule.s != null && _rule.s !== 'gallery';
-    const urls = hasS ? Ruler.runS(node, _rule, _m) : [_m.input];
-    if (urls)
-      return RuleMatcher.makeInfo(hasS, _rule, _m, node, skipRules, urls);
   },
 
   /** @returns ?mpiv.RuleMatchInfo */
@@ -2923,7 +2918,8 @@ const Util = {
   },
 
   tabFixUrl() {
-    return ai.rule.tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
+    const {tabfix = App.tabfix} = ai.rule;
+    return tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
            flattenHtml(`data:text/html;charset=utf8,
       <style>
         body {
