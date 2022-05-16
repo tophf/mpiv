@@ -23,7 +23,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.25
+// @version     1.2.26
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -145,9 +145,10 @@ const App = {
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
     Util.suppressTooltip();
     Calc.updateViewSize();
+    Events.ctrl = false;
     Events.toggle(true);
     Events.trackMouse(event);
-    if (ai.force) {
+    if (ai.force && (auto || cfg.start === 'ctrl' || cfg.start === 'context')) {
       App.start();
     } else if (auto && !vidCtrl && !rule.manual) {
       App.belate();
@@ -919,7 +920,7 @@ const Events = {
     // Synthesized events may be of the wrong type and not have a `key`
     const key = describeKey(e);
     const p = ai.popup;
-    if (key === '^Control') {
+    if (!p && key === '^Control') {
       addEventListener('keyup', Events.onKeyUp, true);
       Events.ctrl = true;
     }
@@ -1723,9 +1724,10 @@ const Ruler = {
         u: '||fastpic.',
         s: (m, node) => {
           const a = node.closest('a');
-          const url = Req.findImageUrl(a || node)
+          const url = decodeURIComponent(Req.findImageUrl(a || node))
             .replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, '/$2$1')
-            .replace(/^\w+:\/\/[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/, 'https://fastpic.org/view$1$2.html');
+            .replace(/^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
+              'https://fastpic.org/view$1$2.html');
           return a || url.includes('.png') ? url : [url, url.replace(/\.jpe?g/, '.png')];
         },
         q: 'img[src*="/big/"]',
