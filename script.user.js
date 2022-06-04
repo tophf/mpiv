@@ -1091,7 +1091,7 @@ const Events = {
     window[onOff]('mouseout', Events.onMouseOut, passive);
     window[onOff]('mousedown', Events.onMouseDown, passive);
     window[onOff]('keyup', Events.onKeyUp, true);
-    window[onOff](WHEEL_EVENT, Events.onMouseScroll, {passive: false});
+    window[onOff](WHEEL_EVENT, Events.onMouseScroll, {passive: false, capture: true});
   },
 
   trackMouse(e) {
