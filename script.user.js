@@ -1993,8 +1993,8 @@ const Ruler = {
           '||instagram.com/p/',
           '||instagram.com/tv/',
         ],
-        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '')
-        + '/?__a=1&__d=dis',
+        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') +
+        '/?__a=1&__d=dis',
         q: m => (m = tryJSON(m)) && (
           m = pick(m, 'graphql.shortcode_media') || pick(m, 'items[0]') || 0
         ) && (
