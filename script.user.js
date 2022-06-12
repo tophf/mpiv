@@ -1609,7 +1609,7 @@ const Ruler = {
           rule._img = img;
           return (
             !a && !src ? false :
-              !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1' : ''}` :
+              !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1&__d=dis' : ''}` :
                 data.video_url || data.display_url);
         },
         c: (html, doc, node, rule) =>
@@ -1993,7 +1993,8 @@ const Ruler = {
           '||instagram.com/p/',
           '||instagram.com/tv/',
         ],
-        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') + '/?__a=1',
+        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '')
+        + '/?__a=1&__d=dis',
         q: m => (m = tryJSON(m)) && (
           m = pick(m, 'graphql.shortcode_media') || pick(m, 'items[0]') || 0
         ) && (
