@@ -74,6 +74,7 @@ const isFF = CSS.supports('-moz-appearance', 'none');
 const AudioContext = window.AudioContext || function () {};
 
 const PREFIX = 'mpiv-';
+const NOAA_ATTR = 'data-no-aa';
 const STATUS_ATTR = `${PREFIX}status`;
 const MSG = Object.assign({}, ...[
   'getViewSize',
@@ -941,10 +942,10 @@ const Events = {
           p.controls = true;
         return;
       case 'KeyA':
-        if (!p.hasAttribute('data-no-aa'))
-          p.setAttribute('data-no-aa', '');
+        if (!p.hasAttribute(NOAA_ATTR))
+          p.setAttribute(NOAA_ATTR, '');
         else
-          p.removeAttribute('data-no-aa');
+          p.removeAttribute(NOAA_ATTR);
         break;
       case 'ArrowRight':
       case 'KeyJ':
@@ -3907,7 +3908,7 @@ ${App.popupStyleBase = `
   animation: none;
   transition: none;
 }
-#\mpiv-popup[data-no-aa],
+#\mpiv-popup[${NOAA_ATTR}],
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
 }
