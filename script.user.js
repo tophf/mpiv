@@ -3657,7 +3657,7 @@ function createSetupElement() {
     $new('style', CSS_SETUP),
     $new('style#_css', cfg._getCss()),
     $new(`main#${PREFIX}setup`, [
-      $new('div#_x'),
+      $new('div#_x', 'x'),
       $new('ul.column', [
         $new('details', {style: 'margin: -1em 0 0'}, [
           $new('summary', {style: 'cursor: pointer; font: bold 16px normal; margin-bottom: .5em'},
