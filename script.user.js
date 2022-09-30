@@ -314,11 +314,6 @@ const App = {
   },
 
   start() {
-    // check explicitly as the cursor may have moved into an iframe so mouseout wasn't reported
-    if (!Util.isHovered(ai.node)) {
-      App.deactivate();
-      return;
-    }
     App.updateStyles();
     if (ai.gallery)
       App.startGallery();
@@ -845,16 +840,17 @@ const Events = {
     // we don't want to process everything in the path of a quickly moving mouse cursor
     Events.hoverData = {e, node, start: now()};
     Events.hoverTimer = Events.hoverTimer || setTimeout(Events.onMouseOverThrottled, SETTLE_TIME);
+    node.addEventListener('mouseout', Events.onMouseOutThrottled);
   },
 
   onMouseOverThrottled(force) {
-    if (!Events.hoverData)
+    const {start, e, node, nodeOut} = Events.hoverData || {};
+    if (!node || node === nodeOut && (Events.hoverData = null, 1))
       return;
-    const {start, e, node} = Events.hoverData;
     // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
     const wait = force ? 0 : start + SETTLE_TIME - now();
-    Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
-    if (Events.hoverTimer || !Util.isHovered(node))
+    const t = Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
+    if (t)
       return;
     Events.hoverData = null;
     if (!Ruler.rules)
@@ -867,6 +863,13 @@ const Events = {
   onMouseOut(e) {
     if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && App.canCloseVid())
       App.deactivate();
+  },
+
+  onMouseOutThrottled(e) {
+    const d = Events.hoverData;
+    if (d) d.nodeOut = this;
+    this.removeEventListener('mouseout', Events.onMouseOutThrottled);
+    Events.hoverTimer = 0;
   },
 
   onMouseOutShadow(e) {
@@ -1095,6 +1098,7 @@ const Events = {
     window[onOff]('mousedown', Events.onMouseDown, passive);
     window[onOff]('keyup', Events.onKeyUp, true);
     window[onOff](WHEEL_EVENT, Events.onMouseScroll, {passive: false, capture: true});
+    ai.node.removeEventListener('mouseout', Events.onMouseOutThrottled);
   },
 
   trackMouse(e) {
@@ -2868,11 +2872,6 @@ const Util = {
       consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
       consoleArgs: m.map(([, v]) => v),
     };
-  },
-
-  isHovered(el) {
-    // doesn't work in image tabs, browser bug?
-    return App.isImageTab || el.closest(':hover');
   },
 
   isVideoUrl: url => url.startsWith('data:video') || Util.isVideoUrlExt(url),
