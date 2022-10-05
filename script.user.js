@@ -3816,7 +3816,7 @@ function createSetupElement() {
                  'padding-left: 3px; padding-right: 3px;',
         }, [
           $new('div#_rules.column',
-            $new('textarea#css', {spellcheck: false, rows: 1})),
+            $new('textarea', {spellcheck: false, rows: 1})),
         ]),
         $new('li', [
           $new('div#_installLoading', {hidden: true}, 'Loading...'),
