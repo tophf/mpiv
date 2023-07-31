@@ -755,7 +755,10 @@ const CspSniffer = {
       xhr.timeout = Math.max(2000, (performance.timing.responseEnd - performance.timeOrigin) * 2);
       xhr.onreadystatechange = () => {
         if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
-          this.csp = this._parse(xhr.getResponseHeader('content-security-policy'));
+          this.csp = this._parse([
+            xhr.getResponseHeader('content-security-policy'),
+            $prop('meta[http-equiv="Content-Security-Policy"]', 'content'),
+          ].filter(Boolean).join(','));
           this.init = this.busy = xhr.onreadystatechange = null;
           xhr.abort();
           resolve();
