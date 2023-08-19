@@ -4,6 +4,7 @@
 // @description Shows images and videos behind links and thumbnails.
 //
 // @include     *
+// @run-at      document-start
 //
 // @grant       GM_addElement
 // @grant       GM_download
@@ -23,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.28
+// @version     1.2.29
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -90,18 +91,13 @@ const RX_EVAL_BLOCKED = /'Trusted(Script| Type)'|unsafe-eval/;
 const RX_MEDIA_URL = /^(?!data:)[^?#]+?\.(avif|bmp|jpe?g?|gif|mp4|png|svgz?|web[mp])($|[?#])/i;
 const ZOOM_MAX = 16;
 const SYM_U = Symbol('u');
-const TRUSTED = (({trustedTypes}, policy) =>
-  trustedTypes ? trustedTypes.createPolicy('mpiv', policy) : policy
-)(window, {
-  createHTML: str => str,
-  createScript: str => str,
-});
 const FN_ARGS = {
   s: ['m', 'node', 'rule'],
   c: ['text', 'doc', 'node', 'rule'],
   q: ['text', 'doc', 'node', 'rule'],
   g: ['text', 'doc', 'url', 'm', 'rule', 'node', 'cb'],
 };
+let trustedHTML, trustedScript;
 //#endregion
 //#region GM4 polyfill
 
@@ -169,12 +165,6 @@ const App = {
     } else {
       ai.timer = setTimeout(App.start, cfg.delay);
     }
-  },
-
-  checkImageTab() {
-    const el = doc.body.firstElementChild;
-    App.isImageTab = el && el === doc.body.lastElementChild && el.matches('img, video');
-    App.isEnabled = cfg.imgtab || !App.isImageTab;
   },
 
   checkProgress({start} = {}) {
@@ -424,7 +414,7 @@ const Bar = {
     Bar.updateDetails();
     Bar.show();
     b.textContent = '';
-    b.innerHTML = TRUSTED.createHTML(label);
+    b.innerHTML = trustedHTML ? trustedHTML(label) : label;
     if (!b.parentNode) {
       doc.body.appendChild(b);
       Util.forceLayout(b);
@@ -1429,7 +1419,7 @@ const Ruler = {
     const errors = new Map();
     const customRules = (cfg.hosts || []).map(Ruler.parse, errors);
     const hasGMAE = typeof GM_addElement === 'function';
-    const canEval = nonce || hasGMAE;
+    const canEval = nonce || (nonce = ($('script[nonce]') || {}).nonce || '') || hasGMAE;
     const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
     const evalRules = [];
     const evalCode = [`window[${JSON.stringify(evalId)}]=[`];
@@ -1453,9 +1443,9 @@ const Ruler = {
       if (canEval) {
         const GMAE = hasGMAE
           ? GM_addElement // eslint-disable-line no-undef
-          : (tag, {textContent}) => document.head.appendChild(
+          : (tag, {textContent: txt}) => document.head.appendChild(
             Object.assign(document.createElement(tag), {
-              textContent: TRUSTED.createScript(textContent),
+              textContent: trustedScript ? trustedScript(txt) : txt,
               nonce,
             }));
         evalCode.push(']; document.currentScript.remove();');
@@ -2883,7 +2873,11 @@ const Util = {
 
   newFunction(...args) {
     try {
-      return App.NOP || new Function(...args);
+      return App.NOP || (trustedScript
+        // eslint-disable-next-line no-eval
+        ? window.eval(trustedScript(`(function anonymous(${args.slice(0, -1).join(',')}){${args.slice(-1)[0]}})`))
+        : new Function(...args)
+      );
     } catch (e) {
       if (!RX_EVAL_BLOCKED.test(e.message))
         throw e;
@@ -4087,15 +4081,19 @@ const $remove = node =>
 //#endregion
 //#region Init
 
-nonce = ($('script[nonce]') || {}).nonce || '';
-
-Config.load({save: true}).then(res => {
-  cfg = res;
+(async () => {
+  cfg = await Config.load({save: true});
+  if (!doc.body) {
+    await new Promise(resolve =>
+      new MutationObserver((_, mo) => doc.body && (mo.disconnect(), resolve()))
+        .observe(document, {subtree: true, childList: true}));
+  }
+  const el = doc.body.firstElementChild;
+  if (el) {
+    App.isImageTab = el === doc.body.lastElementChild && el.matches('img, video');
+    App.isEnabled = cfg.imgtab || !App.isImageTab;
+  }
   if (Menu) Menu.register();
-
-  if (doc.body) App.checkImageTab();
-  else addEventListener('DOMContentLoaded', App.checkImageTab, {once: true});
-
   addEventListener('mouseover', Events.onMouseOver, true);
   addEventListener('contextmenu', Events.onContext, true);
   addEventListener('keydown', Events.onKeyDown, true);
@@ -4104,6 +4102,21 @@ Config.load({save: true}).then(res => {
   if (['greasyfork.org', 'github.com'].includes(hostname))
     addEventListener('click', setupClickedRule, true);
   addEventListener('message', App.onMessage, true);
-});
+})();
+
+if (window.trustedTypes) {
+  const TT = window.trustedTypes;
+  const CP = 'createPolicy';
+  const createPolicy = TT[CP];
+  TT[CP] = function ovr(name, opts) {
+    let fn;
+    const p = createPolicy.call(TT, name, opts);
+    if ((trustedHTML || (fn = p.createHTML) && (trustedHTML = fn.bind(p))) &&
+        (trustedScript || (fn = p.createScript) && (trustedScript = fn.bind(p))) &&
+        TT[CP] === ovr)
+      TT[CP] = createPolicy;
+    return p;
+  };
+}
 
 //#endregion
