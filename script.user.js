@@ -350,12 +350,8 @@ const App = {
     try {
       const startUrl = ai.url;
       const p = await Req.getDoc(ai.rule.s !== 'gallery' && startUrl);
-      const items = await new Promise(resolve => {
-        const it = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node,
-          resolve);
-        if (Array.isArray(it))
-          resolve(it);
-      });
+      const items = await new Promise(resolve => resolve(
+        ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node, resolve)));
       // bail out if the gallery's async callback took too long
       if (ai.url !== startUrl) return;
       ai.gNum = items.length;
@@ -2354,7 +2350,7 @@ const RuleMatcher = {
   /** @returns {Object} */
   adaptiveFind(node, opts) {
     const tn = node.tagName;
-    const src = node.currentSrc || node.src;
+    const src = node.currentSrc || node.src || '';
     const isPic = tn === 'IMG' || tn === 'VIDEO' && Util.isVideoUrlExt(src);
     let a, info, url;
     // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
