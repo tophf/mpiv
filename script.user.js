@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.29
+// @version     1.2.30
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1279,7 +1279,7 @@ const Popup = {
       p.dataset.galleryFlip = '';
       p.setAttribute('loaded', '');
     }
-    doc.body.insertBefore(p, ai.bar || undefined);
+    doc.body.insertBefore(p, ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
     await 0;
     if (App.checkProgress({start: true}) === false)
       return;
@@ -4107,8 +4107,8 @@ if (window.trustedTypes) {
   TT[CP] = function ovr(name, opts) {
     let fn;
     const p = createPolicy.call(TT, name, opts);
-    if ((trustedHTML || (fn = p.createHTML) && (trustedHTML = fn.bind(p))) &&
-        (trustedScript || (fn = p.createScript) && (trustedScript = fn.bind(p))) &&
+    if ((trustedHTML || (fn = opts.createHTML) && (trustedHTML = fn.bind(p))) &&
+        (trustedScript || (fn = opts.createScript) && (trustedScript = fn.bind(p))) &&
         TT[CP] === ovr)
       TT[CP] = createPolicy;
     return p;
