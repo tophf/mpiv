@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.30
+// @version     1.2.31
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -428,7 +428,7 @@ const Bar = {
   },
 
   hide(isForced) {
-    if (ai.bar && (isForced || !ai.bar.dataset.force)) {
+    if (ai.bar && (isForced || ai.bar.dataset.force == null)) {
       $css(ai.bar, {opacity: 0});
       delete ai.bar.dataset.force;
     }
@@ -529,7 +529,7 @@ const Calc = {
       nw = ai.nwidth = w;
       p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
     }
-    p.className = `${PREFIX}show`;
+    p.classList.add(`${PREFIX}show`);
     p.removeAttribute('style');
     const s = getComputedStyle(p);
     const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
@@ -700,6 +700,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   keepOnBlur: false,
   keepVids: false,
   mute: false,
+  night: false,
   preload: false,
   scale: 1.25,
   scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
@@ -968,6 +969,9 @@ const Events = {
       case 'KeyM':
         if (isVideo(p))
           p.muted = !p.muted;
+        break;
+      case 'KeyN':
+        p.classList.toggle('mpiv-night');
         break;
       case 'KeyT':
         GM.openInTab(Util.tabFixUrl() || p.src);
@@ -1273,6 +1277,8 @@ const Popup = {
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
+    if (cfg.night)
+      p.classList.add('mpiv-night');
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     if (inGallery) {
@@ -3624,14 +3630,14 @@ function createSetupElement() {
   const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const $newLink = (text, href, props) =>
     $new('a', Object.assign({target: '_blank'}, href && {href}, props), text);
-  const $newCheck = (label, id, title, props) =>
+  const $newCheck = (label, id, title = '', props) =>
     $new('label', Object.assign({title}, props), [
       $new('input', {id, type: 'checkbox'}),
       label,
     ]);
   const $newKbd = (str, tag = 'fragment') =>
     $new(tag, str.split(/({.+?})/).map(s => s[0] === '{' ? $new('kbd', s.slice(1, -1)) : s));
-  const $newRange = (id, title, min = 0, max = 100, step = 1, type = 'range') =>
+  const $newRange = (id, title = '', min = 0, max = 100, step = 1, type = 'range') =>
     $new('input', {id, min, max, step, type, 'data-title': title});
   const $newSelect = (label, id, values) =>
     $new('label', [
@@ -3666,6 +3672,7 @@ function createSetupElement() {
             'Rotate': '{L} {r} keys (left or right)',
             'Flip/mirror': '{h} {v} keys (horizontally or vertically)',
             'Previous/next\nin album': 'mouse wheel, {j} {k} or {←} {→} keys',
+            'Night mode toggle': '{n} key',
             '---2': '',
           }),
           $newTable({
@@ -3735,6 +3742,7 @@ function createSetupElement() {
               'i.e. when mouse pointer moves outside the page'),
           ]),
           $new([
+            $newCheck('Night mode', 'night'),
             $newCheck('Mute videos', 'mute'),
             $newCheck('Spoof hotlinking*`, ', 'xhr',
               'Disable only if you spoof the HTTP headers yourself'),
@@ -3903,6 +3911,12 @@ ${App.popupStyleBase = `
 #\mpiv-popup[${NOAA_ATTR}],
 #\mpiv-popup.\mpiv-zoom-max {
   image-rendering: pixelated;
+}
+#\mpiv-popup.\mpiv-night:not(#\\0) {
+  box-shadow: 0 0 0 9999px #000;
+}
+body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
+  background: #000;
 }
 #\mpiv-setup {
 }
