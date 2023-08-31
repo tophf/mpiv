@@ -147,6 +147,7 @@ declare namespace mpiv {
     large: boolean
     /** naturalHeight */
     nheight: number
+    night: boolean
     /** naturalWidth */
     nwidth: number
     popup: HTMLImageElement | HTMLVideoElement

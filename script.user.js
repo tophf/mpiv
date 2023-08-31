@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.31
+// @version     1.2.32
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -971,7 +971,7 @@ const Events = {
           p.muted = !p.muted;
         break;
       case 'KeyN':
-        p.classList.toggle('mpiv-night');
+        ai.night = p.classList.toggle('mpiv-night');
         break;
       case 'KeyT':
         GM.openInTab(Util.tabFixUrl() || p.src);
@@ -1277,7 +1277,7 @@ const Popup = {
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
-    if (cfg.night)
+    if ((ai.night = (ai.night != null ? ai.night : cfg.night)))
       p.classList.add('mpiv-night');
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
