@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.32
+// @version     1.2.33
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -65,6 +65,10 @@ let ai = {rule: {}};
 /** @type Element */
 let elSetup;
 let nonce;
+
+// parameter
+let IS_SHOW_CAPTION = false // determine if shwoing image caption
+let IS_SHOW_INFO = false // determine if shwoing image info
 
 const doc = document;
 const hostname = location.hostname;
@@ -444,11 +448,11 @@ const Bar = {
         item.desc,
       ].filter(Boolean).join(' - ')}`;
       Bar.set(c.trim() || ' ', 'gallery', true);
-    } else if ('caption' in ai) {
+    } else if ('caption' in ai && IS_SHOW_CAPTION) {
       Bar.set(ai.caption, 'caption');
     } else if (ai.tooltip) {
       Bar.set(ai.tooltip.text, 'tooltip');
-    } else {
+    } else if(IS_SHOW_INFO){
       Bar.set(' ', 'info');
     }
   },
@@ -950,6 +954,12 @@ const Events = {
         break;
       case 'KeyD':
         Req.saveFile();
+        break;
+      case 'KeyC':
+        IS_SHOW_CAPTION = ~IS_SHOW_CAPTION
+        break;
+      case 'KeyI':
+        IS_SHOW_INFO = ~IS_SHOW_INFO
         break;
       case 'KeyH': // flip horizontally
       case 'KeyV': // flip vertically
