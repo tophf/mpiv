@@ -151,6 +151,7 @@ declare namespace mpiv {
     /** naturalWidth */
     nwidth: number
     popup: HTMLImageElement | HTMLVideoElement
+    popover?: HTMLElement
     /** true when 'load' event fired on the element */
     popupLoaded: boolean
     /** time, ms */

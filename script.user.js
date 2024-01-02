@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.32
+// @version     1.2.33
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1285,6 +1285,8 @@ const Popup = {
       p.dataset.galleryFlip = '';
       p.setAttribute('loaded', '');
     }
+    const poo = typeof p.showPopover === 'function' && $('[popover]:popover-open');
+    ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, {opacity: 0}), poo) || null;
     doc.body.insertBefore(p, ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
     await 0;
     if (App.checkProgress({start: true}) === false)
@@ -1300,6 +1302,10 @@ const Popup = {
     if (!p) return;
     p.removeEventListener('load', Popup.onLoad);
     p.removeEventListener('error', App.handleError);
+    if (ai.popover) {
+      ai.popover.style.removeProperty('opacity');
+      ai.popover = null;
+    }
     if (isFunction(p.pause))
       p.pause();
     if (ai.blobUrl)
