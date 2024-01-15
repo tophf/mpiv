@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.33
+// @version     1.2.34
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1508,11 +1508,20 @@ const Ruler = {
         html: true,
       },
       ...dotDomain.endsWith('.deviantart.com') && [{
-        e: '[data-super-full-img] *, img[src*="/th/"]',
-        s: (m, node) =>
-          $propUp(node, 'data-super-full-img') ||
-          (node = node.dataset.embedId && node.nextElementSibling) &&
-          node.dataset.embedId && node.src,
+        e: 'a[href*="/art/"] img[src*="/v1/"]',
+        r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
+        s: ([, base, name, ext, tok], node) => {
+          node = node.closest('a');
+          let v = isFF && node.wrappedJSObject || node;
+          for (const k in v)
+            if (typeof k === 'string' && k.startsWith('__reactProps') && (v = v[k].children)
+            && (v = v.props) && (v = v.deviation) && (v = v.media) && (v = v.types)
+            && (v = v.find(t => t.t === 'fullview')))
+              return base + (
+                v.c ? v.c.replace('<prettyName>', name) : `/v1/fill/w_${v.w},h_${v.h}/${name}-fullview${ext}`
+              ) + tok;
+          return false;
+        },
       }, {
         e: '.dev-view-deviation img',
         s: () => [
