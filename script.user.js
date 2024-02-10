@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.34
+// @version     1.2.35
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1511,16 +1511,10 @@ const Ruler = {
         e: 'a[href*="/art/"] img[src*="/v1/"]',
         r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
         s: ([, base, name, ext, tok], node) => {
-          node = node.closest('a');
-          let v = isFF && node.wrappedJSObject || node;
-          for (const k in v)
-            if (typeof k === 'string' && k.startsWith('__reactProps') && (v = v[k].children)
-            && (v = v.props) && (v = v.deviation) && (v = v.media) && (v = v.types)
-            && (v = v.find(t => t.t === 'fullview')))
-              return base + (
-                v.c ? v.c.replace('<prettyName>', name) : `/v1/fill/w_${v.w},h_${v.h}/${name}-fullview${ext}`
-              ) + tok;
-          return false;
+          let v = Util.getReactChildren(node.closest('a'), 'props.deviation.media.types');
+          return v && (v = v.find(t => t.t === 'fullview')) && `${base}${
+            v.c ? v.c.replace('<prettyName>', name)
+              : `/v1/fill/w_${v.w},h_${v.h}/${name}-fullview${ext}`}${tok}`;
         },
       }, {
         e: '.dev-view-deviation img',
@@ -1543,19 +1537,9 @@ const Ruler = {
         s: '$1=5$2',
       },
       dotDomain.endsWith('.facebook.com') && {
-        e: 'a[href*="ref=hovercard"]',
-        s: (m, node) =>
-          'https://www.facebook.com/photo.php?fbid=' +
-          /\/[0-9]+_([0-9]+)_/.exec($('img', node).src)[1],
-        follow: true,
-      },
-      dotDomain.endsWith('.facebook.com') && {
-        r: /(fbcdn|external).*?(app_full_proxy|safe_image).+?(src|url)=(http.+?)[&"']/,
-        s: (m, node) =>
-          node.parentNode.className.includes('video') && m[4].includes('fbcdn') ? '' :
-            decodeURIComponent(m[4]),
-        html: true,
-        follow: true,
+        e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
+        s: (m, el) => (m = Util.getReactChildren(el.parentNode)) &&
+          getObjProp(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
       },
       dotDomain.endsWith('.flickr.com') &&
       pick(unsafeWindow, 'YUI_config.flickr.api.site_key') && {
@@ -1748,47 +1732,6 @@ const Ruler = {
           return a || url.includes('.png') ? url : [url, url.replace(/\.jpe?g/, '.png')];
         },
         q: 'img[src*="/big/"]',
-      },
-      {
-        u: '||facebook.com/',
-        r: /photo\.php|[^/]+\/photos\//,
-        s: (m, node) =>
-          node.id === 'fbPhotoImage' ? false :
-            /gradient\.png$/.test(m.input) ? '' :
-              m.input.replace('www.facebook.com', 'mbasic.facebook.com'),
-        q: [
-          'div + span > a:first-child:not([href*="tag_faces"])',
-          'div + span > a[href*="tag_faces"] ~ a',
-        ],
-        rect: '#fbProfileCover',
-      },
-      {
-        u: '||fbcdn.',
-        r: /fbcdn.+?[0-9]+_([0-9]+)_[0-9]+_[a-z]\.(jpg|png)/,
-        s: m =>
-          dotDomain.endsWith('.facebook.com') &&
-          tryCatch(() => unsafeWindow.PhotoSnowlift.getInstance().stream.cache.image[m[1]].url) ||
-          false,
-        manual: true,
-      },
-      {
-        u: ['||fbcdn-', 'fbcdn.net/'],
-        r: /(https?:\/\/(fbcdn-[-\w.]+akamaihd|[-\w.]+?fbcdn)\.net\/[-\w/.]+?)_[a-z]\.(jpg|png)(\?[0-9a-zA-Z0-9=_&]+)?/,
-        s: (m, node) => {
-          if (node.id === 'fbPhotoImage') {
-            const a = $('a.fbPhotosPhotoActionsItem[href$="dl=1"]', doc.body);
-            if (a) return a.href.includes(m.input.match(/[0-9]+_[0-9]+_[0-9]+/)[0]) ? '' : a.href;
-          }
-          if (m[4])
-            return false;
-          const pn = node.parentNode;
-          if (pn.outerHTML.includes('/hovercard/'))
-            return '';
-          if (node.outerHTML.includes('profile') && pn.parentNode.href.includes('/photo'))
-            return false;
-          return m[1].replace(/\/[spc][\d.x]+/g, '').replace('/v/', '/') + '_n.' + m[3];
-        },
-        rect: '.photoWrap',
       },
       {
         u: '||flickr.com/photos/',
@@ -2882,6 +2825,13 @@ const Util = {
       consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
       consoleArgs: m.map(([, v]) => v),
     };
+  },
+
+  getReactChildren(el, path) {
+    if (isFF) el = el.wrappedJSObject || el;
+    for (const k in el)
+      if (typeof k === 'string' && k.startsWith('__reactProps'))
+        return (el = el[k].children) && (path ? getObjProp(el, path) : el);
   },
 
   isVideoUrl: url => url.startsWith('data:video') || Util.isVideoUrlExt(url),
@@ -4009,6 +3959,13 @@ const eventModifiers = e =>
 
 /** @param {KeyboardEvent} e */
 const describeKey = e => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
+
+const getObjProp = (obj, path) => {
+  if (obj && path)
+    for (const p of path.split('.'))
+      if (obj) obj = obj[p]; else break;
+  return obj;
+};
 
 const isFunction = val => typeof val === 'function';
 
