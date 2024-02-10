@@ -702,7 +702,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   mute: false,
   night: false,
   preload: false,
-  scale: 1.25,
+  scale: 1.05,
   scales: ['0!', 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
   start: 'auto',
   startAlt: 'context',
