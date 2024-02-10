@@ -2316,7 +2316,7 @@ const Ruler = {
 
   /** @returns {?Array} if falsy then the rule should be skipped */
   runS(node, rule, m) {
-    let urls = [];
+    let urls = [], u;
     for (const s of ensureArray(rule.s))
       urls.push(
         typeof s === 'string' ? Util.decodeUrl(Ruler.substituteSingle(s, m)) :
@@ -2326,10 +2326,10 @@ const Ruler = {
       console.warn('Rule discarded: "s" array is not allowed with "q"\n%o', rule);
       return;
     }
-    if (Array.isArray(urls[0]))
-      urls = urls[0];
-    // `false` returned by "s" property means "skip this rule", "" means "stop all rules"
-    return urls[0] !== false && Array.from(new Set(urls), Util.decodeUrl);
+    if (Array.isArray(u = urls[0]))
+      u = [urls = u][0];
+    return u === '' /* "stop all rules" */ ? urls
+      : u && Array.from(new Set(urls), Util.decodeUrl);
   },
 
   /** @returns {boolean} */
