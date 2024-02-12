@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.35
+// @version     1.2.36
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -350,8 +350,10 @@ const App = {
     try {
       const startUrl = ai.url;
       const p = await Req.getDoc(ai.rule.s !== 'gallery' && startUrl);
-      const items = await new Promise(resolve => resolve(
-        ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node, resolve)));
+      const items = await new Promise(cb => {
+        const res = ai.gallery(p.responseText, p.doc, p.finalUrl, ai.match, ai.rule, ai.node, cb);
+        if (res !== undefined) cb(res);
+      });
       // bail out if the gallery's async callback took too long
       if (ai.url !== startUrl) return;
       ai.gNum = items.length;
@@ -1892,7 +1894,7 @@ const Ruler = {
           '||imgur.com/gallery/',
         ],
         s: 'gallery', // suppressing an unused network request for remote `document`
-        g: async (text, doc, url, m, rule, node, cb) => {
+        async g() {
           let u = `https://imgur.com/ajaxalbums/getimages/${ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
           let info = tryJSON((await Req.gmXhr(u)).responseText) || 0;
           let images = (info.data || 0).images || [];
@@ -1916,9 +1918,8 @@ const Ruler = {
           }
           if (items[0] && info.title && !`${items[0].desc || ''}`.includes(info.title))
             items.title = info.title;
-          cb(items);
+          return items;
         },
-        css: '.post > .hover { display:none!important; }',
       },
       {
         u: '||imgur.com/',
