@@ -2830,7 +2830,7 @@ const Util = {
 
   getReactChildren(el, path) {
     if (isFF) el = el.wrappedJSObject || el;
-    for (const k in el)
+    for (const k of Object.keys(el))
       if (typeof k === 'string' && k.startsWith('__reactProps'))
         return (el = el[k].children) && (path ? getObjProp(el, path) : el);
   },
