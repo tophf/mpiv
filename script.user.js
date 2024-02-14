@@ -1541,7 +1541,7 @@ const Ruler = {
       dotDomain.endsWith('.facebook.com') && {
         e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
         s: (m, el) => (m = Util.getReactChildren(el.parentNode)) &&
-          getObjProp(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
+          pick(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
       },
       dotDomain.endsWith('.flickr.com') &&
       pick(unsafeWindow, 'YUI_config.flickr.api.site_key') && {
@@ -1623,19 +1623,19 @@ const Ruler = {
           const json = tryJSON(text);
           const media =
             pick(json, 'graphql.shortcode_media') ||
-            pick(json, 'items[0]');
+            pick(json, 'items.0');
           const items =
             pick(media, 'edge_sidecar_to_children.edges', res => res.map(e => ({
               url: e.node.video_url || e.node.display_url,
             }))) ||
             pick(media, 'carousel_media', res => res.map(e => ({
-              url: pick(e, 'video_versions[0].url') || pick(e, 'image_versions2.candidates[0].url'),
+              url: pick(e, 'video_versions.0.url') || pick(e, 'image_versions2.candidates.0.url'),
             })));
           items.title = rule._getCaption(media) || '';
           return items;
         },
         _getCaption: data => pick(data, 'caption.text') ||
-          pick(data, 'edge_media_to_caption.edges[0].node.text'),
+          pick(data, 'edge_media_to_caption.edges.0.node.text'),
       },
       ...dotDomain.endsWith('.reddit.com') && [{
         u: '||i.reddituploads.com/',
@@ -1957,18 +1957,18 @@ const Ruler = {
         s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') +
         '/?__a=1&__d=dis',
         q: m => (m = tryJSON(m)) && (
-          m = pick(m, 'graphql.shortcode_media') || pick(m, 'items[0]') || 0
+          m = pick(m, 'graphql.shortcode_media') || pick(m, 'items.0') || 0
         ) && (
           m.video_url ||
           m.display_url ||
-          pick(m, 'video_versions[0].url') ||
-          pick(m, 'carousel_media[0].image_versions2.candidates[0].url') ||
-          pick(m, 'image_versions2.candidates[0].url')
+          pick(m, 'video_versions.0.url') ||
+          pick(m, 'carousel_media.0.image_versions2.candidates.0.url') ||
+          pick(m, 'image_versions2.candidates.0.url')
         ),
         rect: 'div.PhotoGridMediaItem',
         c: m => (m = tryJSON(m)) && (
-          pick(m, 'items[0].caption.text') ||
-          pick(m, 'graphql.shortcode_media.edge_media_to_caption.edges[0].node.text') ||
+          pick(m, 'items.0.caption.text') ||
+          pick(m, 'graphql.shortcode_media.edge_media_to_caption.edges.0.node.text') ||
           ''
         ),
       },
@@ -2830,7 +2830,7 @@ const Util = {
     if (isFF) el = el.wrappedJSObject || el;
     for (const k of Object.keys(el))
       if (typeof k === 'string' && k.startsWith('__reactProps'))
-        return (el = el[k].children) && (path ? getObjProp(el, path) : el);
+        return (el = el[k].children) && (path ? pick(el, path) : el);
   },
 
   isVideoUrl: url => url.startsWith('data:video') || Util.isVideoUrlExt(url),
@@ -3959,13 +3959,6 @@ const eventModifiers = e =>
 /** @param {KeyboardEvent} e */
 const describeKey = e => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
 
-const getObjProp = (obj, path) => {
-  if (obj && path)
-    for (const p of path.split('.'))
-      if (obj) obj = obj[p]; else break;
-  return obj;
-};
-
 const isFunction = val => typeof val === 'function';
 
 const isVideo = el => el && el.tagName === 'VIDEO';
@@ -3988,9 +3981,12 @@ const tryCatch = function (fn, ...args) {
 const tryJSON = str =>
   tryCatch(JSON.parse, str);
 
-const pick = (obj, path, fn) => (
-  obj = path.split(/[[.]/).reduce((res, k) => res && res[k.endsWith(']') ? k.slice(0, -1) : k], obj)
-) && (fn ? fn(obj) : obj);
+const pick = (obj, path, fn) => {
+  if (obj && path)
+    for (const p of path.split('.'))
+      if (obj) obj = obj[p]; else break;
+  return fn && obj !== undefined ? fn(obj) : obj;
+};
 
 const $ = (sel, node = doc) =>
   node.querySelector(sel) || false;
