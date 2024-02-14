@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.36
+// @version     1.2.37
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -412,7 +412,11 @@ const Bar = {
     Bar.updateDetails();
     Bar.show();
     b.textContent = '';
-    b.innerHTML = trustedHTML ? trustedHTML(label) : label;
+    if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(label)) { // checking for <tag...>...</tag>
+      b.innerHTML = trustedHTML ? trustedHTML(label) : label;
+    } else {
+      b.textContent = label;
+    }
     if (!b.parentNode) {
       doc.body.appendChild(b);
       Util.forceLayout(b);
@@ -4088,8 +4092,8 @@ if (window.trustedTypes) {
   TT[CP] = function ovr(name, opts) {
     let fn;
     const p = createPolicy.call(TT, name, opts);
-    if ((trustedHTML || (fn = opts.createHTML) && (trustedHTML = fn.bind(p))) &&
-        (trustedScript || (fn = opts.createScript) && (trustedScript = fn.bind(p))) &&
+    if ((trustedHTML || (fn = p.createHTML) && (trustedHTML = fn.bind(p))) &&
+        (trustedScript || (fn = p.createScript) && (trustedScript = fn.bind(p))) &&
         TT[CP] === ovr)
       TT[CP] = createPolicy;
     return p;
