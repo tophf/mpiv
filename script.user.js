@@ -264,7 +264,7 @@ const App = {
     }
     const fe = Util.formatError(e, rule);
     if (!rule || !ai.urls || !ai.urls.length)
-      console.warn(fe.consoleFormat, ...fe.consoleArgs);
+      console.warn(...fe);
     if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
       if (ai.url) {
@@ -2804,28 +2804,26 @@ const Util = {
   },
 
   formatError(e, rule) {
-    const message =
-      e.message ||
+    const msg = e.message;
+    const {url: u, imageUrl: iu} = ai;
+    e = msg ? e :
       e.readyState && 'Request failed.' ||
       e.type === 'error' && `File can't be displayed.${
         $('div[bgactive*="flashblock"]', doc) ? ' Check Flashblock settings.' : ''
       }` ||
       e;
-    const m = [
-      [`${GM_info.script.name}: %c${message}%c`, 'font-weight:bold'],
-      ['', 'font-weight:normal'],
-    ];
-    m.push(...[
-      ['Node: %o', ai.node],
-      ['Rule: %o', rule],
-      ai.url && ['URL: %s', ai.url],
-      ai.imageUrl && ai.imageUrl !== ai.url && ['File: %s', ai.imageUrl],
-    ].filter(Boolean));
-    return {
-      message,
-      consoleFormat: m.map(([k]) => k).filter(Boolean).join('\n'),
-      consoleArgs: m.map(([, v]) => v),
-    };
+    let fmt;
+    const res = [
+      fmt = '%c%s%c', 'font-weight:bold', e, 'font-weight:normal',
+      (fmt += '\nNode: %o', ai.node),
+      (fmt += '\nRule: %o', rule),
+      u && (fmt += '\nURL: %s', u),
+      iu && iu !== u && (fmt += '\nFile: %s', iu),
+      e.stack,
+    ].filter(Boolean);
+    res[0] = fmt;
+    res.message = msg || e;
+    return res;
   },
 
   getReactChildren(el, path) {
