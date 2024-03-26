@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.37
+// @version     1.2.38
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -4092,8 +4092,8 @@ if (window.trustedTypes) {
   TT[CP] = function ovr(name, opts) {
     let fn;
     const p = createPolicy.call(TT, name, opts);
-    if ((trustedHTML || (fn = p.createHTML) && (trustedHTML = fn.bind(p))) &&
-        (trustedScript || (fn = p.createScript) && (trustedScript = fn.bind(p))) &&
+    if ((trustedHTML || opts[fn = 'createHTML'] && (trustedHTML = p[fn].bind(p))) &&
+        (trustedScript || opts[fn = 'createScript'] && (trustedScript = p[fn].bind(p))) &&
         TT[CP] === ovr)
       TT[CP] = createPolicy;
     return p;
