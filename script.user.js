@@ -127,7 +127,7 @@ const App = {
   globalStyle: '',
   popupStyleBase: '',
   tabfix: /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain),
-  NOP: /\.(instagram|chrome|google)\.com$/.test(dotDomain) &&
+  NOP: /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) &&
     (() => {}),
 
   activate(info, event) {
