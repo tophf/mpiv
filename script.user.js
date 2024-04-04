@@ -2163,20 +2163,17 @@ const Ruler = {
         rule.d = undefined;
       else if (isBatchOp && rule.d && !hostname.includes(rule.d))
         return false;
-      if ('e' in rule) {
-        let {e} = rule;
-        if (typeof e === 'string') {
-          e = e.trim();
-        } else if (
-          Array.isArray(e) && !e.every((s, i) => typeof s === 'string' && (e[i] = s.trim())) ||
-          e && !Object.entries(e).filter(Ruler.isValidE2).length
-        ) {
+      let {e} = rule;
+      if (e != null) {
+        e = typeof e === 'string' ? e.trim()
+          : Array.isArray(e) ? e.join(',').trim()
+            : Object.entries(e).every(Ruler.isValidE2) && e;
+        if (!e)
           throw new Error('Invalid syntax for "e". Examples: ' +
             '"e": ".image" or ' +
             '"e": [".image1", ".image2"] or ' +
             '"e": {".parent": ".image"} or ' +
             '"e": {".parent1": ".image1", ".parent2": ".image2"}');
-        }
         if (isBatchOp) rule.e = e || undefined;
       }
       let compileTo = isBatchOp ? rule : {};
@@ -2246,10 +2243,7 @@ const Ruler = {
   },
 
   /** @returns {?boolean|mpiv.RuleMatchInfo} */
-  runE(rule, node) {
-    const {e} = rule;
-    if (typeof e === 'string')
-      return node.matches(e);
+  runE(rule, e, node) {
     let p, img, res, info;
     for (const selParent in e) {
       if ((p = node.closest(selParent)) && (img = $(e[selParent], p))) {
@@ -2344,32 +2338,36 @@ const RuleMatcher = {
     const tn = node.tagName;
     const isPic = tn === 'IMG' || tn === 'VIDEO';
     const isPicOrLink = isPic || tn === 'A';
-    let m, html, info;
+    let html;
     for (const rule of rules || Ruler.rules) {
+      let e, m;
       if (skipRules && skipRules.includes(rule) ||
           rule.u && (!url || !Ruler.runU(rule, url)) ||
-          rule.e && !rules && !(info = Ruler.runE(rule, node)))
+          !rules && (e = rule.e) &&
+            !(m = typeof e === 'string' ? node.matches(e) : Ruler.runE(rule, e, node)))
         continue;
-      if (info && info.url)
-        return info;
-      if (rule.r)
-        m = !noHtml && rule.html && (isPicOrLink || rule.e)
-          ? rule.r.exec(html || (html = node.outerHTML))
-          : url && rule.r.exec(url);
-      else if (url)
-        m = Object.assign([url], {index: 0, input: url});
-      else
-        m = [];
+      if (m && m.url)
+        return m;
+      const h = !noHtml && rule.html;
+      const {r, s} = rule;
+      let hasS = s != null;
+      m = !r ? hasS :
+        h && (rule.e || isPicOrLink)
+          ? r.exec(html || (html = node.outerHTML))
+          : url && r.exec(url);
       if (!m)
         continue;
-      if (rule.s === '')
+      if (s === '')
         return {};
-      let hasS = rule.s != null;
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
       if (isPic && !hasS && !skipRules)
         continue;
-      hasS &= rule.s !== 'gallery';
+      if (m === true) {
+        e = h ? html || (html = node.outerHTML) : url;
+        m = [e]; m.index = 0; m.input = e;
+      }
+      hasS &= s !== 'gallery';
       const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
       if (urls)
         return RuleMatcher.makeInfo(hasS, rule, m, node, skipRules, urls);
