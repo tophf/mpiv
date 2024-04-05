@@ -2083,10 +2083,8 @@ const Ruler = {
       },
       {
         u: '||wiki',
-        r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)\/(revision\/)?/i,
-        s: '/\\/thumb(?=\\/)|' +
-           '\\/scale-to-width(-[a-z]+)?\\/[0-9]+|' +
-           '\\/revision\\/latest|\\/[^\\/]+$//g',
+        r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)/i,
+        s: String.raw`/\/thumb(?=\/)|\/scale-to-width(-[a-z]+)?\/[0-9]+//g`,
         xhr: !hostname.includes('wiki'),
       },
       {
