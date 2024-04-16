@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.39
+// @version     1.2.40
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -2083,8 +2083,9 @@ const Ruler = {
       },
       {
         u: '||wiki',
-        r: /\/(thumb|images)\/.+\.(jpe?g|gif|png|svg)/i,
-        s: String.raw`/\/thumb(?=\/)|\/scale-to-width(-[a-z]+)?\/[0-9]+//g`,
+        r: /\/(?:thumb|images)\/.+\.(?:jpe?g|gif|png|svg)/i,
+        s: m => m.input.replace(/\/(thumb(?=\/)|\d+px[^/]+(?=$|\?))/g, '')
+          .replace(/\/(scale-to-width(-[a-z]+)?\/\d+|(zoom-crop|smart)(\/(width|height)\/\d+)+)/g, '/'),
         xhr: !hostname.includes('wiki'),
       },
       {
