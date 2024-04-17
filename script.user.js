@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.40
+// @version     1.2.41
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1804,10 +1804,14 @@ const Ruler = {
         s: 'https://imagecurl.com/images/$1$2$3',
       },
       {
-        u: '||imagebam.com/image/',
-        q: 'meta[property="og:image"]',
-        tabfix: true,
-        xhr: hostname.includes('planetsuzy'),
+        u: '||imagebam.com/',
+        r: /^(https:\/\/)thumbs\d+(\.imagebam\.com\/).*?([^/]+)_t\./,
+        s: '$1www$2view/$3',
+        q: 'img.main-image',
+      },
+      {
+        u: '||www.imagebam.com/view/',
+        q: 'img.main-image',
       },
       {
         u: '||imageban.ru/thumbs',
@@ -2350,7 +2354,7 @@ const RuleMatcher = {
       const h = !noHtml && rule.html;
       const {r, s} = rule;
       let hasS = s != null;
-      m = !r ? hasS :
+      m = !r ? hasS || !!rule.q :
         h && (rule.e || isPicOrLink)
           ? r.exec(html || (html = node.outerHTML))
           : url && r.exec(url);
