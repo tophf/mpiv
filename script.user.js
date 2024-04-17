@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.41
+// @version     1.2.42
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -233,7 +233,7 @@ const App = {
   deactivate({wait} = {}) {
     App.stopTimers();
     if (ai.req)
-      tryCatch.call(ai.req, ai.req.abort);
+      tryCatch(ai.req.abort);
     if (ai.tooltip)
       ai.tooltip.node.title = ai.tooltip.text;
     Status.set(false);
@@ -2338,10 +2338,7 @@ const RuleMatcher = {
 
   /** @returns ?mpiv.RuleMatchInfo */
   find(url, node, {noHtml, rules, skipRules} = {}) {
-    const tn = node.tagName;
-    const isPic = tn === 'IMG' || tn === 'VIDEO';
-    const isPicOrLink = isPic || tn === 'A';
-    let html;
+    let tn, isPic, html, h;
     for (const rule of rules || Ruler.rules) {
       let e, m;
       if (skipRules && skipRules.includes(rule) ||
@@ -2351,25 +2348,22 @@ const RuleMatcher = {
         continue;
       if (m && m.url)
         return m;
-      const h = !noHtml && rule.html;
       const {r, s} = rule;
       let hasS = s != null;
-      m = !r ? hasS || !!rule.q :
-        h && (rule.e || isPicOrLink)
-          ? r.exec(html || (html = node.outerHTML))
-          : url && r.exec(url);
+      h = !noHtml && (r || hasS) && rule.html && (html || (html = node.outerHTML));
+      if (r) {
+        m = h ? r.exec(h) : url && r.exec(url);
+      } else {
+        m = ['']; m[0] = m.input = h || url || ''; m.index = 0;
+      }
       if (!m)
         continue;
       if (s === '')
         return {};
       // a rule with follow:true for the currently hovered IMG produced a URL,
       // but we'll only allow it to match rules without 's' in the nested find call
-      if (isPic && !hasS && !skipRules)
+      if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === 'IMG' || tn === 'VIDEO'))
         continue;
-      if (m === true) {
-        e = h ? html || (html = node.outerHTML) : url;
-        m = [e]; m.index = 0; m.input = e;
-      }
       hasS &= s !== 'gallery';
       const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
       if (urls)
@@ -2414,7 +2408,7 @@ const Req = {
 
   gmXhr(url, opts = {}) {
     if (ai.req)
-      tryCatch.call(ai.req, ai.req.abort);
+      tryCatch(ai.req.abort);
     return new Promise((resolve, reject) => {
       const {anonymous} = ai.rule || {};
       ai.req = GM.xmlHttpRequest(Object.assign({
@@ -3977,9 +3971,9 @@ const sumProps = (...props) => {
   return sum;
 };
 
-const tryCatch = function (fn, ...args) {
+const tryCatch = (fn, ...args) => {
   try {
-    return fn.apply(this, args);
+    return fn(...args);
   } catch (e) {}
 };
 

@@ -65,7 +65,7 @@ rules:
   lines-around-comment: [0]
   lines-around-directive: [0]
   max-len: [2, {
-    code: 100,
+    code: 120,
     ignoreComments: true,
     ignoreRegExpLiterals: true,
     ignoreTemplateLiterals: true,
