@@ -24,7 +24,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.42
+// @version     1.2.43
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -407,7 +407,7 @@ const Bar = {
       ai.bar = null;
       return;
     }
-    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`});
+    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, style: 'opacity:0'});
     App.updateStyles();
     Bar.updateDetails();
     Bar.show();
@@ -424,19 +424,22 @@ const Bar = {
     b.className = `${PREFIX}show ${PREFIX}${className}`;
   },
 
-  show(isForced) {
+  show(force) {
+    if (!force && !cfg.uiInfo)
+      return;
     clearTimeout(ai.timerBar);
     ai.bar.style.removeProperty('opacity');
-    if (isForced)
-      ai.bar.dataset.force = '';
+    if (force)
+      ai.bar.dataset.force = force;
     else
       ai.timerBar = setTimeout(Bar.hide, 3000);
   },
 
-  hide(isForced) {
-    if (ai.bar && (isForced || ai.bar.dataset.force == null)) {
+  hide(force) {
+    if (ai.bar && (force || cfg.uiInfo && ai.bar.dataset.force == null)) {
+      if (force) ai.bar.dataset.force = force;
       $css(ai.bar, {opacity: 0});
-      delete ai.bar.dataset.force;
+      setTimeout(() => delete ai.bar.dataset.force, 20);
     }
   },
 
@@ -682,7 +685,8 @@ class Config {
   }
 }
 
-Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
+Config.DEFAULTS = /** @type mpiv.Config */ {
+  __proto__: null,
   center: false,
   css: '',
   delay: 500,
@@ -720,6 +724,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   uiBorder: 0,
   uiFadein: true,
   uiFadeinGallery: true, // some computers show white background while loading so fading hides it
+  uiInfo: true,
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
   uiShadow: 20,
@@ -732,7 +737,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ Object.assign(Object.create(null), {
   zoom: 'context',
   zoomOut: 'auto',
   zoomStep: 133,
-});
+};
 
 const CspSniffer = {
 
@@ -936,7 +941,8 @@ const Events = {
           return;
         ai.shiftKeyTime = now();
         Status.set('+shift');
-        Bar.show(true);
+        if (cfg.uiInfo)
+          Bar.show(1);
         if (isVideo(p))
           p.controls = true;
         return;
@@ -971,6 +977,13 @@ const Events = {
         }
         Bar.updateDetails();
         Popup.move();
+        break;
+      case 'KeyI':
+        if (ai.bar) {
+          clearTimeout(ai.timerBar);
+          if (ai.bar.style.opacity) Bar.show(2);
+          else Bar.hide(2);
+        }
         break;
       case 'KeyM':
         if (isVideo(p))
@@ -1019,7 +1032,8 @@ const Events = {
     }
     if (p && e.key === 'Shift' && ai.shiftKeyTime) {
       Status.set('-shift');
-      Bar.hide(true);
+      if (cfg.uiInfo)
+        Bar.hide(1);
       if (p.controls)
         p.controls = false;
       // Chrome doesn't expose events for clicks on video controls so we'll guess
@@ -3620,9 +3634,9 @@ function createSetupElement() {
     $new(`main#${PREFIX}setup`, [
       $new('div#_x', 'x'),
       $new('ul.column', [
-        $new('details', {style: 'margin: -1em 0 0'}, [
-          $new('summary', {style: 'cursor: pointer; font: bold 16px normal; margin-bottom: .5em'},
-            $new('b', 'MPIV Help & hotkeys')),
+        $new('details', {style: 'order: 1'}, [
+          $new('summary', {style: 'cursor: pointer'},
+            $new('b', 'Help & hotkeys')),
           $newTable({
             'Activate': 'move mouse cursor over thumbnail',
             'Deactivate': 'move cursor off thumbnail, or click, or zoom out fully',
@@ -3641,6 +3655,7 @@ function createSetupElement() {
           $newTable({
             'Antialiasing on/off': ['{a}', $new('td', {rowSpan: 4}, 'key while popup is visible')],
             'Download': '{d}',
+            'Info on/off': '{i}',
             'Mute/unmute': '{m}',
             'Open in tab': '{t}',
           }),
@@ -3715,6 +3730,7 @@ function createSetupElement() {
               '...until you press Esc key or click elsewhere'),
           ]),
           $new([
+            $newCheck('Show info*', 'uiInfo', 'Hint: use "i" key in the popup'),
             $newCheck('Show when fully loaded*', 'waitLoad',
               '...or show a partial image while still loading'),
             $newCheck('Fade-in transition', 'uiFadein'),
@@ -3812,7 +3828,6 @@ function createGlobalStyle() {
   left: 0;
   right: 0;
   opacity: 0;
-  transition: opacity 1s ease .25s;
   text-align: center;
   font-family: sans-serif;
   font-size: 15px;
@@ -3821,6 +3836,9 @@ function createGlobalStyle() {
   color: white;
   padding: 4px 10px;
   text-shadow: .5px .5px 2px #000;
+}
+#\mpiv-bar:not([data-force="2"]) {
+  transition: opacity 1s ease .25s;
 }
 #\mpiv-bar.\mpiv-show,
 #\mpiv-bar[data-force] {

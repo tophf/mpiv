@@ -31,6 +31,7 @@ declare namespace mpiv {
     uiBorder: number,
     uiFadein: boolean
     uiFadeinGallery: boolean
+    uiInfo: boolean
     uiShadowColor: string,
     uiShadowOpacity: number,
     uiShadow: number,
