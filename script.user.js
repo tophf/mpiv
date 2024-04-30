@@ -9,6 +9,7 @@
 // @grant       GM_addElement
 // @grant       GM_download
 // @grant       GM_getValue
+// @grant       GM_getValues
 // @grant       GM_openInTab
 // @grant       GM_registerMenuCommand
 // @grant       GM_unregisterMenuCommand
@@ -24,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.43
+// @version     1.2.44
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -407,40 +408,36 @@ const Bar = {
       ai.bar = null;
       return;
     }
-    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, style: 'opacity:0'});
+    const force = !b && 0;
+    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, className: `${PREFIX}${className}`});
     App.updateStyles();
     Bar.updateDetails();
-    Bar.show();
-    b.textContent = '';
+    setTimeout(Bar.show, 0, force);
     if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(label)) { // checking for <tag...>...</tag>
       b.innerHTML = trustedHTML ? trustedHTML(label) : label;
     } else {
       b.textContent = label;
     }
-    if (!b.parentNode) {
+    if (!b.parentNode)
       doc.body.appendChild(b);
-      Util.forceLayout(b);
-    }
-    b.className = `${PREFIX}show ${PREFIX}${className}`;
   },
 
   show(force) {
-    if (!force && !cfg.uiInfo)
+    const b = ai.bar;
+    if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || Util.elShown(b))
       return;
     clearTimeout(ai.timerBar);
-    ai.bar.style.removeProperty('opacity');
-    if (force)
-      ai.bar.dataset.force = force;
-    else
-      ai.timerBar = setTimeout(Bar.hide, 3000);
+    b.classList.add(PREFIX + 'show');
+    $dataset(b, 'force', force || null);
+    ai.timerBar = !force && setTimeout(Bar.hide, 3000);
   },
 
   hide(force) {
-    if (ai.bar && (force || cfg.uiInfo && ai.bar.dataset.force == null)) {
-      if (force) ai.bar.dataset.force = force;
-      $css(ai.bar, {opacity: 0});
-      setTimeout(() => delete ai.bar.dataset.force, 20);
-    }
+    const b = ai.bar;
+    if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !Util.elShown(b))
+      return;
+    $dataset(b, 'force', force || null);
+    b.classList.remove(PREFIX + 'show');
   },
 
   updateName() {
@@ -481,8 +478,7 @@ const Bar = {
       Calc.aspectRatio(ai.nwidth, ai.nheight)
     }`.replace(/\x20/g, '\xA0');
     if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
-      if (zoom) ai.bar.dataset.zoom = zoom;
-      else delete ai.bar.dataset.zoom;
+      $dataset(ai.bar, 'zoom', zoom || null);
       Bar.show();
     }
   },
@@ -725,6 +721,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ {
   uiFadein: true,
   uiFadeinGallery: true, // some computers show white background while loading so fading hides it
   uiInfo: true,
+  uiInfoOnce: true,
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
   uiShadow: 20,
@@ -979,11 +976,7 @@ const Events = {
         Popup.move();
         break;
       case 'KeyI':
-        if (ai.bar) {
-          clearTimeout(ai.timerBar);
-          if (ai.bar.style.opacity) Bar.show(2);
-          else Bar.hide(2);
-        }
+        (Util.elShown(ai.bar) ? Bar.hide : Bar.show)(2);
         break;
       case 'KeyM':
         if (isVideo(p))
@@ -2809,6 +2802,8 @@ const Util = {
       keys.every(k => Util.deepEqual(a[k], b[k]));
   },
 
+  elShown: el => el && el.classList.contains(PREFIX + 'show'),
+
   extractFileExt: url => (url = RX_MEDIA_URL.exec(url)) && url[1],
 
   forceLayout(node) {
@@ -3730,7 +3725,10 @@ function createSetupElement() {
               '...until you press Esc key or click elsewhere'),
           ]),
           $new([
-            $newCheck('Show info*', 'uiInfo', 'Hint: use "i" key in the popup'),
+            $new({style: 'display:flex'}, [
+              $newCheck('Show info*', 'uiInfo', 'Hint: press "i" or hold "Shift" in the popup'),
+              $newCheck('...once*', 'uiInfoOnce', '...when first showing the popup'),
+            ]),
             $newCheck('Show when fully loaded*', 'waitLoad',
               '...or show a partial image while still loading'),
             $newCheck('Fade-in transition', 'uiFadein'),
@@ -3827,7 +3825,6 @@ function createGlobalStyle() {
   top: 0;
   left: 0;
   right: 0;
-  opacity: 0;
   text-align: center;
   font-family: sans-serif;
   font-size: 15px;
@@ -3840,9 +3837,8 @@ function createGlobalStyle() {
 #\mpiv-bar:not([data-force="2"]) {
   transition: opacity 1s ease .25s;
 }
-#\mpiv-bar.\mpiv-show,
-#\mpiv-bar[data-force] {
-  opacity: 1;
+#\mpiv-bar:not(.\mpiv-show) {
+  opacity: 0;
 }
 #\mpiv-bar[data-zoom]::after {
   content: " (" attr(data-zoom) ")";
@@ -4071,6 +4067,9 @@ const $propUp = (node, prop) =>
 
 const $remove = node =>
   node && node.remove();
+
+const $dataset = ({dataset: d}, key, val) =>
+  val == null ? delete d[key] : (d[key] = val);
 
 //#endregion
 //#region Init
