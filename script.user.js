@@ -944,10 +944,7 @@ const Events = {
           p.controls = true;
         return;
       case 'KeyA':
-        if (!p.hasAttribute(NOAA_ATTR))
-          p.setAttribute(NOAA_ATTR, '');
-        else
-          p.removeAttribute(NOAA_ATTR);
+        p.toggleAttribute(NOAA_ATTR);
         break;
       case 'ArrowRight':
       case 'KeyJ':
@@ -3715,8 +3712,8 @@ function createSetupElement() {
               'i.e. when mouse pointer moves outside the page'),
           ]),
           $new([
-            $newCheck('Night mode', 'night'),
-            $newCheck('Mute videos', 'mute'),
+            $newCheck('Night mode*', 'night', 'Hotkey: "n" in the popup'),
+            $newCheck('Mute videos*', 'mute', 'Hotkey: "m" in the popup'),
             $newCheck('Spoof hotlinking*`, ', 'xhr',
               'Disable only if you spoof the HTTP headers yourself'),
             $newCheck('Set status on <html>*', 'globalStatus',
@@ -3726,7 +3723,7 @@ function createSetupElement() {
           ]),
           $new([
             $new({style: 'display:flex'}, [
-              $newCheck('Show info*', 'uiInfo', 'Hint: press "i" or hold "Shift" in the popup'),
+              $newCheck('Show info*', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
               $newCheck('...once*', 'uiInfoOnce', '...when first showing the popup'),
             ]),
             $newCheck('Show when fully loaded*', 'waitLoad',
