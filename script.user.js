@@ -417,8 +417,10 @@ const Bar = {
     } else {
       b.textContent = label;
     }
-    if (!b.parentNode)
+    if (!b.parentNode) {
       doc.body.appendChild(b);
+      Util.forceLayout(b);
+    }
   },
 
   show(force) {
@@ -427,7 +429,7 @@ const Bar = {
       return;
     clearTimeout(ai.timerBar);
     b.classList.add(PREFIX + 'show');
-    $dataset(b, 'force', force || null);
+    $dataset(b, 'force', force === 2 ? '' : null);
     ai.timerBar = !force && setTimeout(Bar.hide, 3000);
   },
 
@@ -435,7 +437,7 @@ const Bar = {
     const b = ai.bar;
     if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !Util.elShown(b))
       return;
-    $dataset(b, 'force', force || null);
+    $dataset(b, 'force', force === 2 ? '' : null);
     b.classList.remove(PREFIX + 'show');
   },
 
@@ -1172,7 +1174,7 @@ const Gallery = {
     ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir || 1)].url)[0];
     App.startSingle();
     Bar.updateName();
-    Bar.show(0);
+    if (dir) Bar.show(0);
   },
 
   nextIndex(dir) {
@@ -3828,12 +3830,14 @@ function createGlobalStyle() {
   color: white;
   padding: 4px 10px;
   text-shadow: .5px .5px 2px #000;
-}
-#\mpiv-bar:not([data-force="2"]) {
   transition: opacity 1s ease .25s;
-}
-#\mpiv-bar:not(.\mpiv-show) {
   opacity: 0;
+}
+#\mpiv-bar[data-force] {
+  transition: none;
+}
+#\mpiv-bar.\mpiv-show {
+  opacity: 1;
 }
 #\mpiv-bar[data-zoom]::after {
   content: " (" attr(data-zoom) ")";
