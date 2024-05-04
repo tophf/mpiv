@@ -373,7 +373,7 @@ const App = {
   },
 
   stopTimers() {
-    for (const timer of ['timer', 'timerBar', 'timerStatus'])
+    for (const timer of ['timer', 'timerStatus'])
       clearTimeout(ai[timer]);
     clearInterval(ai.timerProgress);
   },
@@ -1172,6 +1172,7 @@ const Gallery = {
     ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir || 1)].url)[0];
     App.startSingle();
     Bar.updateName();
+    Bar.show(0);
   },
 
   nextIndex(dir) {
