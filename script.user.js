@@ -361,9 +361,8 @@ const App = {
       ai.gItems = items.length && items;
       if (ai.gItems) {
         const i = items.index;
-        ai.gIndex = i === (i | 0) && items[i] ? i | 0 :
-          typeof i === 'string' ? clamp(items.findIndex(x => x.url === i), 0) :
-            Gallery.findIndex(ai.url);
+        ai.gIndex = i >= 0 && items[i] ? +i :
+          Gallery.findIndex(typeof i === 'string' ? i : ai.url);
         setTimeout(Gallery.next);
       } else {
         throw 'Empty gallery';
@@ -1147,14 +1146,15 @@ const Gallery = {
     const sel = gUrl.split('#')[1];
     if (!sel)
       return 0;
-    if (/^\d+$/.test(sel))
-      return parseInt(sel);
-    for (let i = ai.gNum; i--;) {
-      let {url} = ai.gItems[i];
-      if (Array.isArray(url))
-        url = url[0];
-      if (url.indexOf(sel, url.lastIndexOf('/')) > 0)
-        return i;
+    let i = +sel;
+    if (i >= 0 && i === (i | 0))
+      return i;
+    for (i = 0; i < ai.gNum; i++) {
+      const {url} = ai.gItems[i];
+      if (Array.isArray(url)
+        ? url.indexOf(sel) || url.some(u => u.indexOf(sel, u.lastIndexOf('/')) > 0)
+        : url === sel || url.indexOf(sel, url.lastIndexOf('/')) > 0
+      ) return i;
     }
     return 0;
   },
@@ -1180,6 +1180,7 @@ const Gallery = {
 
   defaultParser(text, doc, docUrl, m, rule) {
     const {g} = rule;
+    const gi = g.index;
     const qEntry = g.entry;
     const qCaption = ensureArray(g.caption);
     const qImage = g.image || 'img';
@@ -1187,16 +1188,14 @@ const Gallery = {
     const fix =
       (typeof g.fix === 'string' ? Util.newFunction('s', 'isURL', g.fix) : g.fix) ||
       (s => s.trim());
-    const items = [...$$(qEntry || qImage, doc)]
-      .map(processEntry)
-      .filter(Boolean);
+    const elems = [...$$(qEntry || qImage, doc)];
+    const items = elems.map(processEntry).filter(Boolean);
     items.title = processTitle();
     items.index =
-      typeof g.index === 'string' &&
-      Req.findImageUrl(tryCatch($, g.index, doc), docUrl) ||
-      RX_HAS_CODE.test(g.index) &&
-      Util.newFunction('items', 'node', g.index)(items, ai.node) ||
-      g.index;
+      RX_HAS_CODE.test(gi) ? Util.newFunction('items', 'node', gi)(items, ai.node) :
+        typeof gi === 'string' ? Req.findImageUrl(tryCatch($, gi, doc), docUrl) :
+          gi == null ? Math.max(0, elems.indexOf(ai.node)) :
+            gi;
     return items;
 
     function processEntry(entry) {
@@ -1208,19 +1207,17 @@ const Gallery = {
       } catch (e) {}
       return item.url && item;
     }
-
-    function processCaption(selector) {
-      const el = $(selector, this) ||
-                 $orSelf(selector, this.previousElementSibling) ||
-                 $orSelf(selector, this.nextElementSibling);
-      return el && fix(el.textContent);
+    function processCaption(sel) {
+      const el = !sel ? this
+        : $(sel, this) ||
+          $orSelf(sel, this.previousElementSibling) ||
+          $orSelf(sel, this.nextElementSibling);
+      return el && fix(Ruler.runCHandler.default(el) || el.textContent);
     }
-
     function processTitle() {
       const el = $(qTitle, doc);
       return el && fix(el.getAttribute('content') || el.textContent) || '';
     }
-
     function $orSelf(selector, el) {
       if (el && !el.matches(qEntry))
         return el.matches(selector) ? el : $(selector, el);
@@ -2224,14 +2221,14 @@ const Ruler = {
         el.getAttribute('title') ||
         el.textContent;
     },
-    default: () =>
+    default: (text, doc, el = ai.node) =>
       (ai.tooltip || 0).text ||
-      ai.node.alt ||
-      $propUp(ai.node, 'title') ||
+      el.alt ||
+      $propUp(el, 'title') ||
       Req.getFileName(
-        ai.node.tagName === (ai.popup || 0).tagName
+        el.tagName === (ai.popup || 0).tagName
           ? ai.url
-          : ai.node.src || $propUp(ai.node, 'href')),
+          : el.src || $propUp(el, 'href')),
   },
 
   runQ(text, doc, docUrl) {
