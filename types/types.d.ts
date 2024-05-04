@@ -143,6 +143,8 @@ declare namespace mpiv {
     flipY: boolean
     force: boolean
     gIndex: number
+    gItem: GalleryItem
+    gItemNext: GalleryItem
     gItems: GalleryItemsArray
     gNum: number
     imageUrl: StringOrArrayOfStrings
@@ -158,8 +160,6 @@ declare namespace mpiv {
     popupLoaded: boolean
     /** time, ms */
     preloadStart: number
-    /** used by gallery to preload the next image */
-    preloadUrl: string
     rect: DOMRect
     /** is mouse still over PopupInfo.rect */
     rectHovered: boolean

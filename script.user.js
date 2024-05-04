@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.44
+// @version     1.2.45
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -103,7 +103,7 @@ let trustedHTML, trustedScript;
 //#region GM4 polyfill
 
 if (typeof GM === 'undefined' || !GM.xmlHttpRequest)
-  this.GM = {info: GM_info};
+  this.GM = {__proto__: null, info: GM_info};
 if (!GM.getValue)
   GM.getValue = GM_getValue; // we use it only with `await` so no need to return a Promise
 if (!GM.setValue)
@@ -1163,7 +1163,7 @@ const Gallery = {
 
   next(dir) {
     if (dir) ai.gIndex = Gallery.nextIndex(dir);
-    const item = ai.gItems[ai.gIndex];
+    const item = ai.gItem = ai.gItems[ai.gIndex];
     if (Array.isArray(item.url)) {
       ai.urls = item.url.slice(1);
       ai.url = item.url[0];
@@ -1171,7 +1171,7 @@ const Gallery = {
       ai.urls = null;
       ai.url = item.url;
     }
-    ai.preloadUrl = ensureArray(ai.gItems[Gallery.nextIndex(dir || 1)].url)[0];
+    ai.gItemNext = ai.gItems[Gallery.nextIndex(dir || 1)];
     App.startSingle();
     Bar.updateName();
     if (dir) Bar.show(0);
@@ -1375,15 +1375,35 @@ const Popup = {
       this.setAttribute('loaded', '');
       ai.popupLoaded = true;
       Status.set('-loading');
-      if (ai.preloadUrl) {
-        $new('img', {src: ai.preloadUrl});
-        ai.preloadUrl = null;
-      }
+      let i = ai.gItem;
+      if (i) i.url = this.src;
+      if ((i = ai.gItemNext))
+        Popup.preload(this, i);
     }
   },
 
   onZoom() {
     this.classList.remove(`${PREFIX}zooming`);
+  },
+
+  async preload(p, item, u = item.url, el = $new('img')) {
+    ai.gItemNext = null;
+    if (!Array.isArray(u)) {
+      el.src = u;
+      return;
+    }
+    for (const arr = u; p === ai.popup && item.url === arr && (u = arr[0]);) {
+      const {type} = await new Promise(cb => {
+        el.src = u;
+        el.onload = el.onerror = cb;
+      });
+      if (arr[0] === u)
+        arr.shift();
+      if (type === 'load') {
+        item.url = u;
+        break;
+      }
+    }
   },
 };
 
