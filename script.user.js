@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.45
+// @version     1.2.46
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -74,6 +74,7 @@ const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
 const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 const isFF = CSS.supports('-moz-appearance', 'none');
 const AudioContext = window.AudioContext || function () {};
+const {from: arrayFrom, isArray} = Array;
 
 const PREFIX = 'mpiv-';
 const NOAA_ATTR = 'data-no-aa';
@@ -317,7 +318,7 @@ const App = {
     ai.imageUrl = null;
     if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
       Req.findRedirect();
-    } else if (ai.rule.q && !Array.isArray(ai.urls)) {
+    } else if (ai.rule.q && !isArray(ai.urls)) {
       App.startFromQ();
     } else {
       Popup.create(ai.url);
@@ -665,7 +666,7 @@ class Config {
     }
     if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
       App.globalStyle = '';
-    if (!Array.isArray(c.scales))
+    if (!isArray(c.scales))
       c.scales = [];
     c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
     Object.assign(this, DEFAULTS, c);
@@ -1153,7 +1154,7 @@ const Gallery = {
       return i;
     for (i = 0; i < ai.gNum; i++) {
       const {url} = ai.gItems[i];
-      if (Array.isArray(url)
+      if (isArray(url)
         ? url.indexOf(sel) || url.some(u => u.indexOf(sel, u.lastIndexOf('/')) > 0)
         : url === sel || url.indexOf(sel, url.lastIndexOf('/')) > 0
       ) return i;
@@ -1164,7 +1165,7 @@ const Gallery = {
   next(dir) {
     if (dir) ai.gIndex = Gallery.nextIndex(dir);
     const item = ai.gItem = ai.gItems[ai.gIndex];
-    if (Array.isArray(item.url)) {
+    if (isArray(item.url)) {
       ai.urls = item.url.slice(1);
       ai.url = item.url[0];
     } else {
@@ -1388,7 +1389,7 @@ const Popup = {
 
   async preload(p, item, u = item.url, el = $new('img')) {
     ai.gItemNext = null;
-    if (!Array.isArray(u)) {
+    if (!isArray(u)) {
       el.src = u;
       return;
     }
@@ -2151,7 +2152,7 @@ const Ruler = {
     /** @type mpiv.HostRule[] */
     (Ruler.rules = [].concat(customRules, disablers, perDomain, main).filter(Boolean))
       .forEach(rule => {
-        if (Array.isArray(rule.e))
+        if (isArray(rule.e))
           rule.e = rule.e.join(',');
       });
   },
@@ -2193,7 +2194,7 @@ const Ruler = {
       let {e} = rule;
       if (e != null) {
         e = typeof e === 'string' ? e.trim()
-          : Array.isArray(e) ? e.join(',').trim()
+          : isArray(e) ? e.join(',').trim()
             : Object.entries(e).every(Ruler.isValidE2) && e;
         if (!e)
           throw new Error('Invalid syntax for "e". Examples: ' +
@@ -2258,7 +2259,7 @@ const Ruler = {
     let url;
     if (isFunction(ai.rule.q)) {
       url = ai.rule.q(text, doc, ai.node, ai.rule);
-      if (Array.isArray(url)) {
+      if (isArray(url)) {
         ai.urls = url.slice(1);
         url = url[0];
       }
@@ -2295,10 +2296,10 @@ const Ruler = {
       console.warn('Rule discarded: "s" array is not allowed with "q"\n%o', rule);
       return;
     }
-    if (Array.isArray(u = urls[0]))
+    if (isArray(u = urls[0]))
       u = [urls = u][0];
     return u === '' /* "stop all rules" */ ? urls
-      : u && Array.from(new Set(urls), Util.decodeUrl);
+      : u && arrayFrom(new Set(urls), Util.decodeUrl);
   },
 
   /** @returns {boolean} */
@@ -2809,8 +2810,8 @@ const Util = {
   deepEqual(a, b) {
     if (!a || !b || typeof a !== 'object' || typeof a !== typeof b)
       return a === b;
-    if (Array.isArray(a)) {
-      return Array.isArray(b) &&
+    if (isArray(a)) {
+      return isArray(b) &&
         a.length === b.length &&
         a.every((v, i) => Util.deepEqual(v, b[i]));
     }
@@ -3979,7 +3980,7 @@ const dropEvent = e =>
   (e.preventDefault(), e.stopPropagation());
 
 const ensureArray = v =>
-  Array.isArray(v) ? v : [v];
+  isArray(v) ? v : [v];
 
 /** @param {KeyboardEvent} e */
 const eventModifiers = e =>
@@ -4051,7 +4052,7 @@ const $new = (sel, props, children) => {
     }
   }
   if (children != null) {
-    if (Array.isArray(children))
+    if (isArray(children))
       el.append(...children.filter(Boolean));
     else if (children instanceof Node)
       el.appendChild(children);
