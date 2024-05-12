@@ -1591,12 +1591,14 @@ const Ruler = {
         r: new RegExp([
           /(avatars.+?&s=)\d+/,
           /(raw\.github)(\.com\/.+?\/img\/.+)$/,
-          /\/(github\.com\/.+?\/blob\/[^/]+\/.+?\.(?:avif|webp|png|jpe?g|bmp|gif|cur|ico))$/,
+          /\/(github)(\.com\/.+?\/)blob\/([^/]+\/.+?\.(?:avif|webp|png|jpe?g|bmp|gif|cur|ico|svg))$/,
         ].map(rx => rx.source).join('|')),
         s: m => `https://${
           m[1] ? `${m[1]}460` :
             m[2] ? `${m[2]}usercontent${m[3]}` :
-              `${m[4]}?raw=1`
+              $('.AppHeader-context-item > .octicon-lock')
+                ? `${m[4]}${m[5]}raw/${m[6]}`
+                : `raw.${m[4]}usercontent${m[5]}${m[6]}`
         }`,
       },
       isGoogleImages && {
