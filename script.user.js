@@ -70,8 +70,6 @@ let nonce;
 const doc = document;
 const hostname = location.hostname;
 const dotDomain = '.' + hostname;
-const isGoogleDomain = /(^|\.)google(\.com?)?(\.\w+)?$/.test(hostname);
-const isGoogleImages = isGoogleDomain && /[&?]tbm=isch(&|$)/.test(location.search);
 const isFF = CSS.supports('-moz-appearance', 'none');
 const AudioContext = window.AudioContext || function () {};
 const {from: arrayFrom, isArray} = Array;
@@ -1456,8 +1454,11 @@ const Ruler = {
  'r' is checked only if 'u' matches first
 */
   init() {
+    let dd = dotDomain.split('.').slice(-3).reverse();
+    if (dd[2] && (dd[1] === 'com' || dd[1] === 'co' && (dd[1] += 'm'))) dd.shift();
     const errors = new Map();
-    const customRules = (cfg.hosts || []).map(Ruler.parse, errors);
+    /** @type mpiv.HostRule[] */
+    const rules = Ruler.rules = (cfg.hosts || []).map(Ruler.parse, errors).filter(Boolean);
     const hasGMAE = typeof GM_addElement === 'function';
     const canEval = nonce || (nonce = ($('script[nonce]') || {}).nonce || '') || hasGMAE;
     const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
@@ -1470,7 +1471,7 @@ const Ruler = {
       }
       if (canEval) {
         evalCode.push(evalRules.length ? ',' : '',
-          '[', customRules.indexOf(rule), ',{',
+          '[', rules.indexOf(rule), ',{',
           ...Object.keys(FN_ARGS)
             .map(k => RX_HAS_CODE.test(rule[k]) && `${k}(${FN_ARGS[k]}){${rule[k]}},`)
             .filter(Boolean),
@@ -1494,52 +1495,40 @@ const Ruler = {
           isFF && (wnd = wnd.wrappedJSObject)[evalId];
       }
       if (result) {
-        for (const [index, fns] of result) {
-          Object.assign(customRules[index], fns);
-        }
+        for (const [index, fns] of result)
+          Object.assign(rules[index], fns);
         delete wnd[evalId];
       } else {
         console.warn('Site forbids compiling JS code in these custom rules', evalRules);
       }
     }
 
-    // rules that disable previewing
-    /** @type mpiv.HostRule[] */
-    const disablers = [
-      dotDomain.endsWith('.stackoverflow.com') && {
-        e: '.post-tag, .post-tag img',
-        s: '',
-      },
-    ];
-
     // optimization: a rule is created only when on domain
-    /** @type mpiv.HostRule[] */
-    const perDomain = [
-      hostname.includes('startpage') && {
-        r: /\boiu=(.+)/,
-        s: '$1',
-        follow: true,
-      },
-      dotDomain.endsWith('.4chan.org') && {
+    switch (dd.join('.')) {
+
+      case '4chan.org': rules.push({
         e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
         q: '.op .fileText a',
         css: '#post-preview{display:none}',
-      },
-      hostname.includes('amazon.') && {
+      }); break;
+
+      case 'amazon.com': rules.push({
         r: /.+?images\/I\/.+?\./,
         s: m => {
           const uh = doc.getElementById('universal-hover');
           return uh ? '' : m[0] + 'jpg';
         },
         css: '#zoomWindow{display:none!important;}',
-      },
-      dotDomain.endsWith('.bing.com') && {
+      }); break;
+
+      case 'bing.com': rules.push({
         e: 'a[m*="murl"]',
         r: /murl&quot;:&quot;(.+?)&quot;/,
         s: '$1',
         html: true,
-      },
-      ...dotDomain.endsWith('.deviantart.com') && [{
+      }); break;
+
+      case 'deviantart.com': rules.push({
         e: 'a[href*="/art/"] img[src*="/v1/"]',
         r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
         s: ([, base, name, ext, tok], node) => {
@@ -1557,24 +1546,27 @@ const Ruler = {
       }, {
         e: 'a[data-hook=deviation_link]',
         q: 'link[as=image]',
-      }] || [],
-      dotDomain.endsWith('.discord.com') && {
+      }); break;
+
+      case 'discord.com': rules.push({
         u: '||discordapp.net/external/',
         r: /\/https?\/(.+)/,
         s: '//$1',
         follow: true,
-      },
-      dotDomain.endsWith('.dropbox.com') && {
+      }); break;
+
+      case 'dropbox.com': rules.push({
         r: /(.+?&size_mode)=\d+(.*)/,
         s: '$1=5$2',
-      },
-      dotDomain.endsWith('.facebook.com') && {
+      }); break;
+
+      case 'facebook.com': rules.push({
         e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
         s: (m, el) => (m = Util.getReactChildren(el.parentNode)) &&
           pick(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
-      },
-      dotDomain.endsWith('.flickr.com') &&
-      pick(unsafeWindow, 'YUI_config.flickr.api.site_key') && {
+      }); break;
+
+      case 'flickr.com': if (pick(unsafeWindow, 'YUI_config.flickr.api.site_key')) rules.push({
         r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
         s: m => `https://www.flickr.com/services/rest/?${
           new URLSearchParams({
@@ -1586,8 +1578,9 @@ const Ruler = {
           }).toString()}`,
         q: text => JSON.parse(text).sizes.size.pop().source,
         anonymous: true,
-      },
-      dotDomain.endsWith('.github.com') && {
+      }); break;
+
+      case 'github.com': rules.push({
         r: new RegExp([
           /(avatars.+?&s=)\d+/,
           /(raw\.github)(\.com\/.+?\/img\/.+)$/,
@@ -1600,13 +1593,13 @@ const Ruler = {
                 ? `${m[4]}${m[5]}raw/${m[6]}`
                 : `raw.${m[4]}usercontent${m[5]}${m[6]}`
         }`,
-      },
-      isGoogleImages && {
+      }); break;
+
+      case 'google.com': if (/[&?]tbm=isch(&|$)/.test(location.search)) rules.push({
         e: 'a[href*="imgres?imgurl="] img',
         s: (m, node) => new URLSearchParams(node.closest('a').search).get('imgurl'),
         follow: true,
-      },
-      isGoogleImages && {
+      }, {
         e: '[data-tbnid] a:not([href])',
         s: (m, a) => {
           const a2 = $('a[jsaction*="mousedown"]', a.closest('[data-tbnid]')) || a;
@@ -1620,8 +1613,9 @@ const Ruler = {
           a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
           a2.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
         },
-      },
-      dotDomain.endsWith('.instagram.com') && {
+      }); break;
+
+      case 'instagram.com': rules.push({
         e: 'a[href*="/p/"],' +
           'article [role="button"][tabindex="0"],' +
           'article [role="button"][tabindex="0"] div',
@@ -1668,8 +1662,9 @@ const Ruler = {
         },
         _getCaption: data => pick(data, 'caption.text') ||
           pick(data, 'edge_media_to_caption.edges.0.node.text'),
-      },
-      ...dotDomain.endsWith('.reddit.com') && [{
+      }); break;
+
+      case 'reddit.com': rules.push({
         u: '||i.reddituploads.com/',
       }, {
         e: '[data-url*="i.redd.it"] img[src*="thumb"]',
@@ -1677,26 +1672,33 @@ const Ruler = {
       }, {
         r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
         s: 'https://i$1',
-      }] || [],
-      dotDomain.endsWith('.tumblr.com') && {
+      }); break;
+
+      case 'stackoverflow.com': rules.push({
+        e: '.post-tag, .post-tag img',
+        s: '',
+      }); break;
+
+      case 'startpage.com': rules.push({
+        r: /[&?]piurl=([^&]+)/,
+        s: '$1',
+        follow: true,
+      }); break;
+
+      case 'tumblr.com': rules.push({
         e: 'div.photo_stage_img, div.photo_stage > canvas',
         s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
         follow: true,
-      },
-      dotDomain.endsWith('.tweetdeck.twitter.com') && {
-        e: 'a.media-item, a.js-media-image-link',
-        s: (m, node) => /http[^)]+/.exec(node.style.backgroundImage)[0],
-        follow: true,
-      },
-      dotDomain.endsWith('.twitter.com') && {
+      }); break;
+
+      case 'twitter.com': rules.push({
         e: '.grid-tweet > .media-overlay',
         s: (m, node) => node.previousElementSibling.src,
         follow: true,
-      },
-    ];
+      }); break;
+    }
 
-    /** @type mpiv.HostRule[] */
-    const main = [
+    rules.push(
       {
         r: /[/?=](https?%3A%2F%2F[^&]+)/i,
         s: '$1',
@@ -2149,15 +2151,8 @@ const Ruler = {
       },
       {
         r: RX_MEDIA_URL,
-      },
-    ];
-
-    /** @type mpiv.HostRule[] */
-    (Ruler.rules = [].concat(customRules, disablers, perDomain, main).filter(Boolean))
-      .forEach(rule => {
-        if (isArray(rule.e))
-          rule.e = rule.e.join(',');
-      });
+      }
+    );
   },
 
   format(rule, {expand} = {}) {
