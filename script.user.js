@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.46
+// @version     1.2.47
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -431,7 +431,7 @@ const Bar = {
     clearTimeout(ai.timerBar);
     b.classList.add(PREFIX + 'show');
     $dataset(b, 'force', force === 2 ? '' : null);
-    ai.timerBar = !force && setTimeout(Bar.hide, 3000);
+    ai.timerBar = !force && setTimeout(Bar.hide, cfg.uiInfoHide * 1000);
   },
 
   hide(force) {
@@ -723,6 +723,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ {
   uiFadein: true,
   uiFadeinGallery: true, // some computers show white background while loading so fading hides it
   uiInfo: true,
+  uiInfoHide: 3,
   uiInfoOnce: true,
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
@@ -3727,30 +3728,32 @@ function createSetupElement() {
               '...or try to keep the original link/thumbnail unobscured by the popup'),
             $newCheck('Preload on hover*', 'preload',
               'Provides smoother experience but increases network traffic'),
-            $newCheck('Run in image tabs', 'imgtab'),
-            $newCheck('Require Ctrl key for <video>', 'videoCtrl'),
+            $newCheck('Require Ctrl key for video', 'videoCtrl'),
+            $newCheck('Mute videos*', 'mute', 'Hotkey: "m" in the popup'),
+            $newCheck('Keep playing video*', 'keepVids',
+              '...until you press Esc key or click elsewhere'),
             $newCheck('Keep preview on blur*', 'keepOnBlur',
               'i.e. when mouse pointer moves outside the page'),
           ]),
           $new([
+            $newCheck('Wait for complete image*', 'waitLoad',
+              '...or immediately show a partial image while still loading'),
+            $new({style: 'display:flex; align-items:center'}, [
+              $newCheck('Show info for', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
+              $new('input#uiInfoHide', {min: 1, step: 'any', type: 'number'}),
+              'sec',
+            ]),
+            $newCheck('Show info only at start*', 'uiInfoOnce', '...or every time the info changes'),
+            $newCheck('Fade-in transition', 'uiFadein'),
+            $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
+          ]),
+          $new([
             $newCheck('Night mode*', 'night', 'Hotkey: "n" in the popup'),
-            $newCheck('Mute videos*', 'mute', 'Hotkey: "m" in the popup'),
-            $newCheck('Spoof hotlinking*`, ', 'xhr',
+            $newCheck('Run in image tabs', 'imgtab'),
+            $newCheck('Spoof hotlinking*', 'xhr',
               'Disable only if you spoof the HTTP headers yourself'),
             $newCheck('Set status on <html>*', 'globalStatus',
               "Causes slowdowns so don't enable unless you explicitly use it in your custom CSS"),
-            $newCheck('Keep playing video*', 'keepVids',
-              '...until you press Esc key or click elsewhere'),
-          ]),
-          $new([
-            $new({style: 'display:flex'}, [
-              $newCheck('Show info*', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
-              $newCheck('...once*', 'uiInfoOnce', '...when first showing the popup'),
-            ]),
-            $newCheck('Show when fully loaded*', 'waitLoad',
-              '...or show a partial image while still loading'),
-            $newCheck('Fade-in transition', 'uiFadein'),
-            $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
             $newCheck('Auto-start switch in menu*', 'startAltShown',
               "Show a switch for 'auto-start' mode in userscript manager menu"),
           ]),
