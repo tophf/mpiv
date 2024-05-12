@@ -197,7 +197,7 @@ const App = {
     const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
     if (wait > 0) {
       ai.timer = setTimeout(App.checkProgress, wait);
-    } else if ((ai.urls || 0).length && Math.max(w, h) < 130) {
+    } else if ((!w || !h) && (ai.urls || []).length) {
       App.handleError({type: 'error'});
     } else {
       App.commit();
@@ -1301,10 +1301,10 @@ const Popup = {
     ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, {opacity: 0}), poo) || null;
     doc.body.insertBefore(p, ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
     await 0;
-    if (App.checkProgress({start: true}) === false)
+    if (ai.popup !== p || App.checkProgress({start: true}) === false)
       return;
     if (p.complete)
-      Popup.onLoad.call(ai.popup);
+      Popup.onLoad.call(p);
     else if (!isVideo)
       p.addEventListener('load', Popup.onLoad, {once: true});
   },
