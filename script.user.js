@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.47
+// @version     1.2.48
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -231,7 +231,7 @@ const App = {
   },
 
   deactivate({wait} = {}) {
-    App.stopTimers();
+    App.stopTimers(true);
     if (ai.req)
       tryCatch(ai.req.abort);
     if (ai.tooltip)
@@ -268,7 +268,7 @@ const App = {
     if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
       if (ai.url) {
-        App.stopTimers();
+        App.stopTimers(true);
         App.startSingle();
       } else {
         App.deactivate();
@@ -371,8 +371,8 @@ const App = {
     }
   },
 
-  stopTimers() {
-    for (const timer of ['timer', 'timerStatus'])
+  stopTimers(bar) {
+    for (const timer of ['timer', 'timerStatus', bar && 'timerBar'])
       clearTimeout(ai[timer]);
     clearInterval(ai.timerProgress);
   },
