@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.48
+// @version     1.2.49
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -181,9 +181,11 @@ const App = {
     }
   },
 
-  canCloseVid() {
-    return !ai || !ai.popup || !isVideo(ai.popup) || !cfg.keepVids;
-  },
+  canClose: (p = ai.popup) => !p || (
+    isVideo(p)
+      ? !cfg.keepVids
+      : document.fullscreenElement !== p
+  ),
 
   canCommit(w, h) {
     if (!ai.force && ai.rect && !ai.gItems &&
@@ -825,7 +827,7 @@ const Events = {
     let node = e.target;
     Events.ignoreKeyHeld = e.shiftKey;
     if (!App.isEnabled ||
-        !App.canCloseVid() ||
+        !App.canClose() ||
         e.shiftKey ||
         ai.zoomed ||
         node === ai.popup ||
@@ -860,7 +862,7 @@ const Events = {
   },
 
   onMouseOut(e) {
-    if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && App.canCloseVid())
+    if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && App.canClose())
       App.deactivate();
   },
 
@@ -883,7 +885,7 @@ const Events = {
     Events.trackMouse(e);
     if (e.shiftKey)
       return;
-    if (!ai.zoomed && !ai.rectHovered && App.canCloseVid()) {
+    if (!ai.zoomed && !ai.rectHovered && App.canClose()) {
       App.deactivate();
     } else if (ai.zoomed) {
       Popup.move();
@@ -896,7 +898,7 @@ const Events = {
   },
 
   onMouseDown({shiftKey, button, target}) {
-    if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !App.canCloseVid())) {
+    if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !App.canClose())) {
       ai.controlled = ai.zoomed = true;
     } else if (button === 2 || shiftKey) {
       // Shift = ignore; RMB will be processed in onContext
@@ -914,7 +916,7 @@ const Events = {
       Gallery.next(-dir);
     } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
       App.toggleZoom();
-    } else if (App.canCloseVid()) {
+    } else if (App.canClose()) {
       App.deactivate();
       return;
     }
@@ -957,6 +959,9 @@ const Events = {
         break;
       case 'KeyD':
         Req.saveFile();
+        break;
+      case 'KeyF':
+        p.requestFullscreen();
         break;
       case 'KeyH': // flip horizontally
       case 'KeyV': // flip vertically
@@ -3520,13 +3525,23 @@ const CSS_SETUP = /*language=css*/ `
   #_installHint {
     color: green;
   }
-  #_usage, #_usage * {
-    font: inherit;
-    color: inherit;
+  #_usage {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1em;
   }
-  #_usage th, #_usage kbd {
-    font-weight: bold;
+  #_usage th {
+    font-weight: normal;
+    padding-right: .5em;
+  }
+  #_usage tr:nth-last-child(n + 2) > :not(br) {
     white-space: pre-line;
+    border-bottom: 1px dotted #8888;
+  }
+  #_usage kbd {
+    font-family: monospace;
+    font-weight: bold;
   }
   @keyframes fade-in {
     from { background-color: deepskyblue }
@@ -3623,8 +3638,7 @@ function createSetupElement() {
       $new('input', {id, type: 'checkbox'}),
       label,
     ]);
-  const $newKbd = (str, tag = 'fragment') =>
-    $new(tag, str.split(/({.+?})/).map(s => s[0] === '{' ? $new('kbd', s.slice(1, -1)) : s));
+  const $newKbd = s => s[0] === '{' ? $new('kbd', s.slice(1, -1)) : s;
   const $newRange = (id, title = '', min = 0, max = 100, step = 1, type = 'range') =>
     $new('input', {id, min, max, step, type, 'data-title': title});
   const $newSelect = (label, id, values) =>
@@ -3633,43 +3647,46 @@ function createSetupElement() {
       $new('select', {id}, Object.entries(values).map(([k, v]) =>
         $new('option', Object.assign({value: k}, typeof v === 'object' ? v : {textContent: v})))),
     ]);
-  const $newTable = obj =>
-    $new('table#_usage', Object.entries(obj).map(([name, val]) =>
-      $new('tr', name.startsWith('---') ? $new('td', '\xA0') : [
-        $new('th', name),
-        ...ensureArray(val).map(cell => cell instanceof Node ? cell : $newKbd(cell, 'td')),
-      ])));
+  const $newTR = ([name, val]) =>
+    $new('tr', !name ? $new('br') : [
+      $new('th', ((name = name.split(/(\n)/))[0] = $new('b', name[0])) && name),
+      $new('td', val.split(/({.+?})/).map($newKbd)),
+    ]);
   return [
     $new('style', CSS_SETUP),
     $new('style#_css', cfg._getCss()),
     $new(`main#${PREFIX}setup`, [
       $new('div#_x', 'x'),
       $new('ul.column', [
-        $new('details', {style: 'order: 1'}, [
+        $new('details', {style: 'order:1; padding-top: .5em;'}, [
           $new('summary', {style: 'cursor: pointer'},
             $new('b', 'Help & hotkeys')),
-          $newTable({
-            'Activate': 'move mouse cursor over thumbnail',
-            'Deactivate': 'move cursor off thumbnail, or click, or zoom out fully',
-            'Prevent/freeze': 'hold down {Shift} while entering/leaving thumbnail',
-            'Force-activate\n(videos or small pics)': 'hold {Ctrl} while entering image element',
-            '---1': '',
-            'Start zooming':
-              'configurable: automatic or via right-click / {Shift} while popup is visible',
-            'Zoom': 'mouse wheel',
-            'Rotate': '{L} {r} keys (left or right)',
-            'Flip/mirror': '{h} {v} keys (horizontally or vertically)',
-            'Previous/next\nin album': 'mouse wheel, {j} {k} or {←} {→} keys',
-            'Night mode toggle': '{n} key',
-            '---2': '',
-          }),
-          $newTable({
-            'Antialiasing on/off': ['{a}', $new('td', {rowSpan: 4}, 'key while popup is visible')],
-            'Download': '{d}',
-            'Info on/off': '{i}',
-            'Mute/unmute': '{m}',
-            'Open in tab': '{t}',
-          }),
+          $new('#_usage', [
+            $new('table', [
+              ['Activate', 'hover the target'],
+              ['Deactivate', 'move cursor off target, or click, or zoom out fully'],
+              ['Ignore target', 'hold {Shift} -> hover the target -> release the key'],
+              ['Freeze popup', 'hold {Shift} -> leave the target -> release the key'],
+              ['Force-activate\n(videos or small pics)', 'hold {Ctrl} -> hover the target -> release the key'],
+            ].map($newTR)),
+            $new('table', [
+              ['Start zooming', 'configurable (automatic or via right-click)\nor tap {Shift} while popup is visible'],
+              ['Zoom', 'mouse wheel'],
+              [],
+              ['Rotate', '{L} {r} for "left" or "right"'],
+              ['Flip/mirror', '{h} {v} for "horizontal" or "vertical"'],
+              ['Previous/next\n(in album)', 'mouse wheel, {j} {k} or {←} {→} keys'],
+            ].map($newTR)),
+            $new('table', [
+              ['Antialiasing', '{a}'],
+              ['Download', '{d}'],
+              ['Fullscreen', '{f}'],
+              ['Info', '{i}'],
+              ['Mute', '{m}'],
+              ['Night mode', '{n}'],
+              ['Open in tab', '{t}'],
+            ].map($newTR)),
+          ]),
         ]),
         $new('li.options.stretch', [
           $newSelect('Popup shows on', 'start', {
