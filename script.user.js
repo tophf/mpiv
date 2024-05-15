@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.49
+// @version     1.2.50
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -270,7 +270,7 @@ const App = {
     if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
       if (ai.url) {
-        App.stopTimers(true);
+        App.stopTimers();
         App.startSingle();
       } else {
         App.deactivate();
