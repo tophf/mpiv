@@ -9,24 +9,30 @@ A fork of [MPIV](https://greasyfork.org/en/scripts/404-mouseover-popup-image-vie
 
 Action | Trigger
 ---|---
-**Activate** | move mouse cursor over thumbnail
-**Deactivate** | move cursor off thumbnail, or click, or zoom out fully
-**Prevent/freeze** | hold down <code>Shift</code> while entering/leaving thumbnail
-**Force-activate<br>(for small pics)** | hold <code>Ctrl</code> while entering image element
+**Activate** | hover the target and wait...<br>or configure activation on <kbd><b>Ctrl</b></kbd> or <kbd><b>AppMenu</b></kbd> key
+**Deactivate** | move cursor off target, or click, or zoom out fully
+**Ignore target** | hold <kbd><b>Shift</b></kbd> ⏵ hover the target ⏵ release the key
+**Freeze popup** | hold <kbd><b>Shift</b></kbd> ⏵ leave the target ⏵ release the key
+**Force-activate<br>(videos or small pics)** | hold <kbd><b>Ctrl</b></kbd> ⏵ hover the target ⏵ release the key
 &nbsp; |
-**Start zooming** | configurable: automatic or via right-click / <code>Shift</code> while popup is visible
-**Zoom** | mouse wheel / <code>-</code> <code>=</code> keys (minus or equals)
-**Rotate** | <code>L</code> <code>r</code> keys (left or right)
-**Flip/mirror** | <code>h</code> <code>v</code> keys (horizontally or vertically)
-**Previous/next in album** | mouse wheel, <code>j</code> <code>k</code> or <code>←</code> <code>→</code> keys
+**Start zooming** | configurable (automatic or via right-click)<br>or tap <kbd><b>Shift</b></kbd> while popup is visible
+**Zoom** | mouse wheel
 &nbsp; |
-**Download** | <code>d</code> key while popup is visible
-**Mute/unmute video** | <code>m</code> key while popup is visible
-**Open in tab** | <code>t</code> key while popup is visible
+**Rotate** | <kbd><b>L</b></kbd> <kbd><b>r</b></kbd> for "left" or "right"
+**Flip/mirror** | <kbd><b>h</b></kbd> <kbd><b>v</b></kbd> for "horizontal" or "vertical"
+**Previous/next<br>(in album)** | mouse wheel, <kbd><b>j</b></kbd> <kbd><b>k</b></kbd> or <kbd><b>←</b></kbd> <kbd><b>→</b></kbd> keys
+**Antialiasing** | <kbd><b>a</b></kbd>
+**Caption in info** | <kbd><b>c</b></kbd>
+**Download** | <kbd><b>d</b></kbd>
+**Fullscreen** | <kbd><b>f</b></kbd>
+**Info** | <kbd><b>i</b></kbd>
+**Mute** | <kbd><b>m</b></kbd>
+**Night mode** | <kbd><b>n</b></kbd>
+**Open in tab** | <kbd><b>t</b></kbd>
 &nbsp; |
-**Configure** | userscript manager toolbar icon -> User Script Commands -> `MPIV: configure`
+**Configure** | userscript manager toolbar icon ⏵ User Script Commands ⏵ `MPIV: configure`
 
-![config UI screenshot](https://i.imgur.com/ilJd0xd.png)
+![config UI screenshot](https://i.imgur.com/glmgJVl.png)
 
 ### Technical notes
 
@@ -36,7 +42,7 @@ Action | Trigger
 
 * ShadowDOM support added for sites built with Web Components e.g. Polymer.
 
-* The internal status updates are not exposed by default on the `<html>` node because doing so slows down complex sites due to recalculation of the *entire* page layout. Instead only the hovered node (as reported by the matching rule) receives status updates on its `mpiv-status` attribute (it's not the `class` nor `data-` attribute to avoid confusing sites with unknown stuff being present in these standard places). If you were using the global status feature to customize CSS of those statuses, you'll need to enable it manually in the MPIV's config dialog.
+* The internal status updates are not exposed by default on the `<html>` node because doing so slows down complex sites due to recalculation of the *entire* page layout. Instead, only the hovered node (as reported by the matching rule) receives status updates on its `mpiv-status` attribute (it's not the `class` nor `data-` attribute to avoid confusing sites with unknown stuff being present in these standard places). If you were using the global status feature to customize CSS of those statuses, you'll need to enable it manually in the MPIV's config dialog.
 
 * Advanced `"e"` syntax for sites that show a small overlay when hovering thumbnails (usually transparent or semi-transparent) thus effectively hiding the thumbnails from MPIV. Now you can specify `"e": {".parent": ".image"}` where `.parent` selector should match the closest parent element that contains both the overlay and the actual image, which MPIV will find using the `.image` selector applied relatively to that parent element. To refer to that parent, use `:scope` like this: `{".parent": .":scope > img:first-child"}`. To specify multiple parent-image relations: `"e": {".parent1": ".image1", ".parent2": ".image2"}`.
 

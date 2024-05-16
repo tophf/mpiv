@@ -3676,9 +3676,9 @@ function createSetupElement() {
             $new('table', [
               ['Activate', 'hover the target'],
               ['Deactivate', 'move cursor off target, or click, or zoom out fully'],
-              ['Ignore target', 'hold {Shift} -> hover the target -> release the key'],
-              ['Freeze popup', 'hold {Shift} -> leave the target -> release the key'],
-              ['Force-activate\n(videos or small pics)', 'hold {Ctrl} -> hover the target -> release the key'],
+              ['Ignore target', 'hold {Shift} ⏵ hover the target ⏵ release the key'],
+              ['Freeze popup', 'hold {Shift} ⏵ leave the target ⏵ release the key'],
+              ['Force-activate\n(videos or small pics)', 'hold {Ctrl} ⏵ hover the target ⏵ release the key'],
             ].map($newTR)),
             $new('table', [
               ['Start zooming', 'configurable (automatic or via right-click)\nor tap {Shift} while popup is visible'],
