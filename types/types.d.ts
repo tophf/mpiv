@@ -32,6 +32,7 @@ declare namespace mpiv {
     uiFadein: boolean
     uiFadeinGallery: boolean
     uiInfo: boolean
+    uiInfoCaption: boolean
     /** seconds */
     uiInfoHide: number
     uiInfoOnce: boolean
@@ -113,6 +114,7 @@ declare namespace mpiv {
 
   type PopupInfo = {
     bar: Element
+    barText: string
     blobUrl: string
     /** buffering bar shown */
     bufBar: boolean

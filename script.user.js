@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.2.50
+// @version     1.3.0
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -410,17 +410,22 @@ const Bar = {
     }
     const force = !b && 0;
     if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, className: `${PREFIX}${className}`});
+    ai.barText = label;
     App.updateStyles();
     Bar.updateDetails();
+    Bar.setText(cfg.uiInfoCaption ? label : '');
     setTimeout(Bar.show, 0, force);
-    if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(label)) { // checking for <tag...>...</tag>
-      b.innerHTML = trustedHTML ? trustedHTML(label) : label;
-    } else {
-      b.textContent = label;
-    }
     if (!b.parentNode) {
       doc.body.appendChild(b);
       Util.forceLayout(b);
+    }
+  },
+
+  setText(text) {
+    if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(text)) { // checking for <tag...>...</tag>
+      ai.bar.innerHTML = trustedHTML ? trustedHTML(text) : text;
+    } else {
+      ai.bar.textContent = text;
     }
   },
 
@@ -723,6 +728,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ {
   uiFadein: true,
   uiFadeinGallery: true, // some computers show white background while loading so fading hides it
   uiInfo: true,
+  uiInfoCaption: true,
   uiInfoHide: 3,
   uiInfoOnce: true,
   uiShadowColor: '#000000',
@@ -957,11 +963,16 @@ const Events = {
       case 'KeyK':
         Gallery.next(-1);
         break;
+      case 'KeyC':
+        Bar.setText(ai.bar.firstChild ? '' : ai.barText);
+        Bar.show(0);
+        break;
       case 'KeyD':
         Req.saveFile();
         break;
       case 'KeyF':
-        p.requestFullscreen();
+        if (p !== document.fullscreenElement) p.requestFullscreen();
+        else document.exitFullscreen();
         break;
       case 'KeyH': // flip horizontally
       case 'KeyV': // flip vertically
@@ -3679,6 +3690,7 @@ function createSetupElement() {
             ].map($newTR)),
             $new('table', [
               ['Antialiasing', '{a}'],
+              ['Caption in info', '{c}'],
               ['Download', '{d}'],
               ['Fullscreen', '{f}'],
               ['Info', '{i}'],
@@ -3753,11 +3765,12 @@ function createSetupElement() {
             $newCheck('Wait for complete image*', 'waitLoad',
               '...or immediately show a partial image while still loading'),
             $new({style: 'display:flex; align-items:center'}, [
-              $newCheck('Show info for', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
+              $newCheck('Info: show for', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
               $new('input#uiInfoHide', {min: 1, step: 'any', type: 'number'}),
               'sec',
             ]),
-            $newCheck('Show info only at start*', 'uiInfoOnce', '...or every time the info changes'),
+            $newCheck('Info: only once*', 'uiInfoOnce', '...or every time the info changes'),
+            $newCheck('Info: caption*', 'uiInfoCaption', 'Hotkey: "c" in the popup'),
             $newCheck('Fade-in transition', 'uiFadein'),
             $newCheck('Fade-in transition in gallery', 'uiFadeinGallery'),
           ]),
@@ -3877,9 +3890,12 @@ function createGlobalStyle() {
 #\mpiv-bar.\mpiv-show {
   opacity: 1;
 }
-#\mpiv-bar[data-zoom]::after {
+#\mpiv-bar[data-zoom]:not(:empty)::after {
   content: " (" attr(data-zoom) ")";
   opacity: .8;
+}
+#\mpiv-bar[data-zoom]:empty::after {
+  content: attr(data-zoom);
 }
 #\mpiv-popup.\mpiv-show {
   display: inline;
