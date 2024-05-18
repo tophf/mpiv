@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.0
+// @version     1.3.1
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1282,7 +1282,10 @@ const Popup = {
   async create(src, pageUrl, error) {
     const inGallery = !cfg.uiFadeinGallery && ai.gItems && ai.popup && !ai.zooming &&
       (ai.popup.dataset.galleryFlip = '') === '';
-    Popup.destroy();
+    if (!ai.gItems)
+      Popup.destroy();
+    else if (ai.blobUrl)
+      URL.revokeObjectURL(ai.blobUrl);
     ai.imageUrl = src;
     if (!src)
       return;
@@ -1299,7 +1302,7 @@ const Popup = {
       [src, isVideo] = await Req.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
     if (ai !== myAi || !src)
       return;
-    const p = ai.popup = isVideo ? await PopupVideo.create() : $new('img');
+    const p = ai.popup || (ai.popup = isVideo ? await PopupVideo.create() : $new('img'));
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
@@ -1307,13 +1310,12 @@ const Popup = {
       p.classList.add('mpiv-night');
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
-    if (inGallery) {
-      p.dataset.galleryFlip = '';
-      p.setAttribute('loaded', '');
-    }
-    const poo = typeof p.showPopover === 'function' && $('[popover]:popover-open');
+    $dataset(p, 'galleryFlip', inGallery);
+    p.toggleAttribute('loaded', inGallery);
+    const poo = ai.popover || typeof p.showPopover === 'function' && $('[popover]:popover-open');
     ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, {opacity: 0}), poo) || null;
-    doc.body.insertBefore(p, ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
+    if (p.parentElement !== doc.body)
+      doc.body.insertBefore(p, ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
     await 0;
     if (ai.popup !== p || App.checkProgress({start: true}) === false)
       return;
