@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.1
+// @version     1.3.2
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -401,7 +401,7 @@ const App = {
 
 const Bar = {
 
-  set(label, className) {
+  set(label, className, prefix) {
     let b = ai.bar;
     if (typeof label !== 'string') {
       $remove(b);
@@ -414,6 +414,7 @@ const Bar = {
     App.updateStyles();
     Bar.updateDetails();
     Bar.setText(cfg.uiInfoCaption ? label : '');
+    $dataset(b, 'prefix', prefix);
     setTimeout(Bar.show, 0, force);
     if (!b.parentNode) {
       doc.body.appendChild(b);
@@ -452,11 +453,11 @@ const Bar = {
     if (gi) {
       const item = gi[i];
       const noDesc = !gi.some(_ => _.desc);
-      const c = `${n > 1 ? `[${i + 1}/${n}] ` : ''}${[
+      const c = [
         gi.title && (!i || noDesc) && !`${item.desc || ''}`.includes(gi.title) && gi.title || '',
         item.desc,
-      ].filter(Boolean).join(' - ')}`;
-      Bar.set(c.trim() || ' ', 'gallery', true);
+      ].filter(Boolean).join(' - ');
+      Bar.set(c.trim() || ' ', 'gallery', n > 1 ? `${i + 1}/${n}` : null);
     } else if ('caption' in ai) {
       Bar.set(ai.caption, 'caption');
     } else if (ai.tooltip) {
@@ -3891,6 +3892,10 @@ function createGlobalStyle() {
 }
 #\mpiv-bar.\mpiv-show {
   opacity: 1;
+}
+#\mpiv-bar[data-zoom]::before {
+  content: "[" attr(data-prefix) "] ";
+  color: gold;
 }
 #\mpiv-bar[data-zoom]:not(:empty)::after {
   content: " (" attr(data-zoom) ")";
