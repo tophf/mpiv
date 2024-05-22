@@ -3893,7 +3893,7 @@ function createGlobalStyle() {
 #\mpiv-bar.\mpiv-show {
   opacity: 1;
 }
-#\mpiv-bar[data-zoom]::before {
+#\mpiv-bar[data-zoom][data-prefix]::before {
   content: "[" attr(data-prefix) "] ";
   color: gold;
 }
