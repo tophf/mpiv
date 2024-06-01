@@ -401,7 +401,7 @@ const App = {
 
 const Bar = {
 
-  set(label, className, prefix) {
+  set(label, cls, prefix) {
     let b = ai.bar;
     if (typeof label !== 'string') {
       $remove(b);
@@ -409,11 +409,11 @@ const Bar = {
       return;
     }
     const force = !b && 0;
-    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, className: `${PREFIX}${className}`});
+    if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, className: `${PREFIX}${cls}`});
     ai.barText = label;
     App.updateStyles();
     Bar.updateDetails();
-    Bar.setText(cfg.uiInfoCaption ? label : '');
+    Bar.setText(cfg.uiInfoCaption || cls === 'error' || cls === 'xhr' ? label : '');
     $dataset(b, 'prefix', prefix);
     setTimeout(Bar.show, 0, force);
     if (!b.parentNode) {
