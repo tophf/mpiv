@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.3
+// @version     1.3.4
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -998,7 +998,7 @@ const Events = {
           p.muted = !p.muted;
         break;
       case 'KeyN':
-        ai.night = p.classList.toggle('mpiv-night');
+        ai.night = p.classList.toggle(`${PREFIX}night`);
         break;
       case 'KeyT':
         GM.openInTab(Util.tabFixUrl() || p.src);
@@ -1301,14 +1301,19 @@ const Popup = {
     Object.assign(ai, {pageUrl, xhr});
     if (xhr)
       [src, isVideo] = await Req.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
-    if (ai !== myAi || !src)
+    let vol;
+    if (ai !== myAi || !src || isVideo && (vol = await GM.getValue('volume'), ai !== myAi))
       return;
-    const p = ai.popup || (ai.popup = isVideo ? await PopupVideo.create() : $new('img'));
+    let p = ai.popup;
+    if (p) {
+      p.classList.remove(`${PREFIX}show`);
+      ai.popupLoaded = false;
+    } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
     p.id = `${PREFIX}popup`;
     p.src = src;
     p.addEventListener('error', App.handleError);
     if ((ai.night = (ai.night != null ? ai.night : cfg.night)))
-      p.classList.add('mpiv-night');
+      p.classList.add(`${PREFIX}night`);
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
     $dataset(p, 'galleryFlip', inGallery);
@@ -1427,7 +1432,7 @@ const Popup = {
 };
 
 const PopupVideo = {
-  async create() {
+  async create(volume) {
     ai.bufBar = false;
     ai.bufStart = now();
     return $new('video', {
@@ -1435,7 +1440,7 @@ const PopupVideo = {
       controls: true,
       muted: cfg.mute || new AudioContext().state === 'suspended',
       loop: true,
-      volume: clamp(+await GM.getValue('volume') || .5, 0, 1),
+      volume: clamp(+volume || .5, 0, 1),
       onprogress: PopupVideo.progress,
       oncanplaythrough: PopupVideo.progressDone,
       onvolumechange: PopupVideo.rememberVolume,
