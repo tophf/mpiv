@@ -32,7 +32,7 @@ Action | Trigger
 &nbsp; |
 **Configure** | userscript manager toolbar icon ⏵ User Script Commands ⏵ `MPIV: configure`
 
-![config UI screenshot](https://i.imgur.com/glmgJVl.png)
+![config UI screenshot](https://i.imgur.com/A7hplWg.png)
 
 ### Technical notes
 
