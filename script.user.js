@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.4
+// @version     1.3.5
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -2976,8 +2976,8 @@ async function setup({rule} = {}) {
   let uiCfg;
   let root = (elSetup || 0).shadowRoot;
   let {blankRuleElement} = setup;
-  /** @type NodeList */
-  const UI = new Proxy({}, {
+  /** @type {{[id:string]: HTMLElement}} */
+  const UI = setup.UI = new Proxy({}, {
     get(_, id) {
       return root.getElementById(id);
     },
@@ -3251,30 +3251,36 @@ function setupClickedRule(event) {
   }
 }
 
+/** @this {HTMLButtonElement} */
 async function setupRuleInstaller(e) {
   dropEvent(e);
-  const parent = this.parentElement;
-  parent.children._installLoading.hidden = false;
-  this.remove();
+  const parent = setup.UI._rules2;
+  this.disabled = true;
+  this.textContent = 'Loading...';
   let rules;
 
   try {
-    rules = extractRules(await Req.getDoc(this.href));
-    const selector = $new('select', {
+    rules = extractRules(await Req.getDoc(this.parentElement.href));
+    this.textContent = 'Rules loaded.';
+    const el = $new('select', {
       size: 8,
       style: 'width: 100%',
-      selectedIndex: findMatchingRuleIndex(),
-      ondblclick: e => e.target !== selector && maybeSetup(e),
+      ondblclick: e => e.target !== el && maybeSetup(e),
       onkeyup: e => e.key === 'Enter' && maybeSetup(e),
     }, rules.map(renderRule));
-    parent.children._installLoading.remove();
-    parent.children._installHint.hidden = false;
-    parent.appendChild(selector);
-    requestAnimationFrame(() => {
-      const optY = selector.selectedOptions[0].offsetTop - selector.offsetTop;
-      selector.scrollTo(0, optY - selector.offsetHeight / 2);
-      selector.focus();
+    const i = el.selectedIndex = findMatchingRuleIndex();
+    parent.append(
+      $new('div#_installHint', [
+        'Double-click the rule (or select and press Enter) to add it. ',
+        'Click ', $new('code', 'Apply'), ' or ', $new('code', 'OK'), ' to confirm.',
+      ]),
+      el
+    );
+    if (i) requestAnimationFrame(() => {
+      const optY = el.selectedOptions[0].offsetTop - el.offsetTop;
+      el.scrollTo(0, optY - el.offsetHeight / 2);
     });
+    el.focus();
   } catch (e) {
     parent.textContent = 'Error loading rules: ' + (e.message || e);
   }
@@ -3487,8 +3493,8 @@ const CSS_SETUP = /*language=css*/ `
     text-decoration: underline;
   }
   button {
-    padding: .2em 1em;
-    margin: 0 1em;
+    padding: .2em .5em;
+    margin-right: 1em;
   }
   kbd {
     padding: 1px 6px;
@@ -3679,7 +3685,7 @@ function createSetupElement() {
       $new('ul.column', [
         $new('details', {style: 'order:1; padding-top: .5em;'}, [
           $new('summary', {style: 'cursor: pointer'},
-            $new('b', 'Help & hotkeys')),
+            $new('b', 'Help & hotkeys...')),
           $new('#_usage', [
             $new('table', [
               ['Activate', 'hover the target'],
@@ -3852,21 +3858,16 @@ function createSetupElement() {
           $new('div#_rules.column',
             $new('textarea', {spellcheck: false, rows: 1})),
         ]),
-        $new('li', [
-          $new('div#_installLoading', {hidden: true}, 'Loading...'),
-          $new('div#_installHint', {hidden: true}, [
-            'Double-click the rule (or select and press Enter) to add it. ',
-            'Click ', $new('code', 'Apply'), ' or ', $new('code', 'OK'), ' to confirm.',
-          ]),
-          $newLink('Install rule from repository...', `${MPIV_BASE_URL}Rules`, {id: '_install'}),
-        ]),
+        $new('li#_rules2'),
       ]),
-      $new('div', {style: 'text-align:center'}, [
+      $new('div', [
         $new('button#_ok', {accessKey: 'o'}, 'OK'),
         $new('button#_apply', {accessKey: 'a'}, 'Apply'),
+        $new('button#_cancel', 'Cancel'),
+        $new('a', {href: `${MPIV_BASE_URL}Rules`},
+          $new('button#_install', {style: 'color: inherit'}, 'Find rule...')),
         $new('button#_import', {style: 'margin-right: 0'}, 'Import'),
         $new('button#_export', {style: 'margin-left: 0'}, 'Export'),
-        $new('button#_cancel', 'Cancel'),
         $new('div#_exportNotification', {hidden: true}, 'Copied to clipboard'),
       ]),
     ]),
