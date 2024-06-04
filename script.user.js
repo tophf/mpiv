@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.5
+// @version     1.3.6
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -149,19 +149,18 @@ const App = {
     Events.trackMouse(event);
     if (ai.force && (auto || cfg.start === 'ctrl' || cfg.start === 'context')) {
       App.start();
-    } else if (auto && !vidCtrl && !rule.manual) {
-      App.belate();
+    } else if ((auto || cfg.preload) && !vidCtrl && !rule.manual) {
+      App.belate(auto);
     } else {
       Status.set('ready');
     }
   },
 
-  belate() {
+  belate(auto) {
     if (cfg.preload) {
-      ai.preloadStart = now();
+      ai.preloadStart = auto ? now() : -1;
       App.start();
       Status.set('+preloading');
-      setTimeout(Status.set, cfg.delay, '-preloading');
     } else {
       ai.timer = setTimeout(App.start, cfg.delay);
     }
@@ -194,8 +193,10 @@ const App = {
       return false;
     }
     App.stopTimers();
-    const wait = ai.preloadStart && (ai.preloadStart + cfg.delay - now());
-    if (wait > 0) {
+    let wait = ai.preloadStart;
+    if (wait < 0 && !ai.force || !ai.popup)
+      return;
+    if (wait > 0 && (wait += cfg.delay - now()) > 0) {
       ai.timer = setTimeout(App.checkProgress, wait);
     } else if ((!w || !h) && (ai.urls || []).length) {
       App.handleError({type: 'error'});
@@ -206,13 +207,14 @@ const App = {
   },
 
   async commit() {
-    const p = ai.popup;
+    const p = ai.popupShown = ai.popup;
     const isDecoded = cfg.waitLoad && isFunction(p.decode);
     if (isDecoded) {
       await p.decode();
       if (p !== ai.popup)
         return;
     }
+    Status.set('-preloading');
     App.updateStyles();
     Calc.measurePopup();
     const willZoom = cfg.zoom === 'auto' || App.isImageTab && cfg.imgtab;
@@ -230,6 +232,8 @@ const App = {
       if (isFF && p.complete && !isDecoded)
         p.style.backgroundImage = `url('${p.src}')`;
     }
+    if (ai.preloadStart < 0 && isFunction(p.play))
+      p.play().catch(now);
   },
 
   deactivate({wait} = {}) {
@@ -315,6 +319,10 @@ const App = {
 
   startSingle() {
     Status.loading();
+    if (ai.force && ai.preloadStart < 0) {
+      App.commit();
+      return;
+    }
     ai.imageUrl = null;
     if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
       Req.findRedirect();
@@ -432,20 +440,22 @@ const Bar = {
 
   show(force) {
     const b = ai.bar;
-    if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || Util.elShown(b))
+    if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || ai.barShown)
       return;
     clearTimeout(ai.timerBar);
     b.classList.add(PREFIX + 'show');
     $dataset(b, 'force', force === 2 ? '' : null);
     ai.timerBar = !force && setTimeout(Bar.hide, cfg.uiInfoHide * 1000);
+    ai.barShown = true;
   },
 
   hide(force) {
     const b = ai.bar;
-    if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !Util.elShown(b))
+    if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !ai.barShown)
       return;
     $dataset(b, 'force', force === 2 ? '' : null);
     b.classList.remove(PREFIX + 'show');
+    ai.barShown = false;
   },
 
   updateName() {
@@ -834,14 +844,14 @@ const Events = {
     let node = e.target;
     Events.ignoreKeyHeld = e.shiftKey;
     if (!App.isEnabled ||
-        !App.canClose() ||
         e.shiftKey ||
         ai.zoomed ||
         node === ai.popup ||
         node === doc.body ||
         node === doc.documentElement ||
         node === elSetup ||
-        ai.gallery && ai.rectHovered)
+        ai.gallery && ai.rectHovered ||
+        !App.canClose())
       return;
     if (node.shadowRoot)
       node = Events.pierceShadow(node, e.clientX, e.clientY);
@@ -933,7 +943,7 @@ const Events = {
   onKeyDown(e) {
     // Synthesized events may be of the wrong type and not have a `key`
     const key = describeKey(e);
-    const p = ai.popup;
+    const p = ai.popupShown;
     if (!p && key === '^Control') {
       addEventListener('keyup', Events.onKeyUp, true);
       Events.ctrl = true;
@@ -991,7 +1001,7 @@ const Events = {
         Popup.move();
         break;
       case 'KeyI':
-        (Util.elShown(ai.bar) ? Bar.hide : Bar.show)(2);
+        (ai.barShown ? Bar.hide : Bar.show)(2);
         break;
       case 'KeyM':
         if (isVideo(p))
@@ -1033,7 +1043,7 @@ const Events = {
   },
 
   onKeyUp(e) {
-    const p = ai.popup || false;
+    const p = ai.popupShown || false;
     if (e.key === 'Control') {
       if (!p) removeEventListener('keyup', Events.onKeyUp, true);
       setTimeout(() => (Events.ctrl = false));
@@ -1071,7 +1081,7 @@ const Events = {
   onContext(e) {
     if (Events.ignoreKeyHeld)
       return;
-    const p = ai.popup;
+    const p = ai.popupShown;
     if (cfg.zoom === 'context' && p && App.toggleZoom()) {
       dropEvent(e);
     } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || Events.ctrl) && (
@@ -1307,6 +1317,7 @@ const Popup = {
     let p = ai.popup;
     if (p) {
       p.classList.remove(`${PREFIX}show`);
+      ai.popupShown = null;
       ai.popupLoaded = false;
     } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
     p.id = `${PREFIX}popup`;
@@ -1432,11 +1443,11 @@ const Popup = {
 };
 
 const PopupVideo = {
-  async create(volume) {
+  create(volume) {
     ai.bufBar = false;
     ai.bufStart = now();
     return $new('video', {
-      autoplay: true,
+      autoplay: ai.preloadStart !== -1,
       controls: true,
       muted: cfg.mute || new AudioContext().state === 'suspended',
       loop: true,
@@ -1451,7 +1462,7 @@ const PopupVideo = {
     const {duration} = this;
     if (duration && this.buffered.length && now() - ai.bufStart > 2000) {
       const pct = Math.round(this.buffered.end(0) / duration * 100);
-      if ((ai.bufBar |= pct > 0 && pct < 50))
+      if (ai.bar && (ai.bufBar |= pct > 0 && pct < 50))
         Bar.set(`${pct}% of ${Math.round(duration)}s`, 'xhr');
     }
   },
@@ -1478,7 +1489,7 @@ const Ruler = {
  'r' is checked only if 'u' matches first
 */
   init() {
-    let dd = dotDomain.split('.').slice(-3).reverse();
+    const dd = dotDomain.split('.').slice(-3).reverse();
     if (dd[2] && (dd[1] === 'com' || dd[1] === 'co' && (dd[1] += 'm'))) dd.shift();
     const errors = new Map();
     /** @type mpiv.HostRule[] */
@@ -2842,8 +2853,6 @@ const Util = {
       keys.every(k => Util.deepEqual(a[k], b[k]));
   },
 
-  elShown: el => el && el.classList.contains(PREFIX + 'show'),
-
   extractFileExt: url => (url = RX_MEDIA_URL.exec(url)) && url[1],
 
   forceLayout(node) {
@@ -3508,6 +3517,9 @@ const CSS_SETUP = /*language=css*/ `
     display: flex;
     flex-direction: column;
   }
+  .flex {
+    display: flex;
+  }
   .highlight {
     animation: 2s fade-in cubic-bezier(0, .75, .25, 1);
     animation-fill-mode: both;
@@ -3778,7 +3790,7 @@ function createSetupElement() {
           $new([
             $newCheck('Wait for complete image*', 'waitLoad',
               '...or immediately show a partial image while still loading'),
-            $new({style: 'display:flex; align-items:center'}, [
+            $new('div.flex', {style: 'align-items:center'}, [
               $newCheck('Info: show for', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
               $new('input#uiInfoHide', {min: 1, step: 'any', type: 'number'}),
               'sec',
@@ -3840,7 +3852,7 @@ function createSetupElement() {
             $new('textarea#_cssApp', {spellcheck: false, hidden: true, readOnly: true, rows: 30}),
           ]),
         ]),
-        $new('li', {style: 'display: flex; justify-content: space-between;'}, [
+        $new('li.flex', {style: 'justify-content: space-between;'}, [
           $new('div',
             $newLink('Custom host rules:', `${MPIV_BASE_URL}Custom-host-rules`)),
           $new('div', {style: 'white-space: pre-line'}, [
@@ -3860,14 +3872,14 @@ function createSetupElement() {
         ]),
         $new('li#_rules2'),
       ]),
-      $new('div', [
+      $new('div.flex', [
         $new('button#_ok', {accessKey: 'o'}, 'OK'),
         $new('button#_apply', {accessKey: 'a'}, 'Apply'),
         $new('button#_cancel', 'Cancel'),
-        $new('a', {href: `${MPIV_BASE_URL}Rules`},
+        $new('a', {href: `${MPIV_BASE_URL}Rules`, style: 'margin: 0 auto'},
           $new('button#_install', {style: 'color: inherit'}, 'Find rule...')),
         $new('button#_import', {style: 'margin-right: 0'}, 'Import'),
-        $new('button#_export', {style: 'margin-left: 0'}, 'Export'),
+        $new('button#_export', {style: 'margin: 0'}, 'Export'),
         $new('div#_exportNotification', {hidden: true}, 'Copied to clipboard'),
       ]),
     ]),

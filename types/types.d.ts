@@ -114,6 +114,7 @@ declare namespace mpiv {
 
   type PopupInfo = {
     bar: Element
+    barShown: boolean
     barText: string
     blobUrl: string
     /** buffering bar shown */
@@ -162,7 +163,8 @@ declare namespace mpiv {
     popover?: HTMLElement
     /** true when 'load' event fired on the element */
     popupLoaded: boolean
-    /** time, ms */
+    popupShown: HTMLImageElement | HTMLVideoElement
+    /** time, ms; -1 = preload without showing */
     preloadStart: number
     rect: DOMRect
     /** is mouse still over PopupInfo.rect */
