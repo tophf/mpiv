@@ -596,11 +596,10 @@ const Calc = {
     let {node, rule} = ai;
     let n = rule.rect && node.closest(rule.rect);
     if (n) return n.getBoundingClientRect();
-    const nested = node.getElementsByTagName('*');
+    const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [n];
     let maxArea = 0;
     let maxBounds;
-    n = node;
-    for (let i = 0; n; n = nested[i++]) {
+    for (let i = nested.indexOf(n); n; n = i > 0 && nested[--i]) {
       const bounds = n.getBoundingClientRect();
       const area = bounds.width * bounds.height;
       if (area > maxArea) {
