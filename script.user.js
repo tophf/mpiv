@@ -3554,9 +3554,8 @@ const CSS_SETUP = /*language=css*/ `
     color: green;
     font-weight: bold;
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 2px;
+    bottom: 4px;
+    right: 26px;
   }
   #_installHint {
     color: green;
@@ -3877,7 +3876,7 @@ function createSetupElement() {
         $new('button#_cancel', 'Cancel'),
         $new('a', {href: `${MPIV_BASE_URL}Rules`, style: 'margin: 0 auto'},
           $new('button#_install', {style: 'color: inherit'}, 'Find rule...')),
-        $new('button#_import', {style: 'margin-right: 0'}, 'Import'),
+        $new('button#_import', 'Import'),
         $new('button#_export', {style: 'margin: 0'}, 'Export'),
         $new('div#_exportNotification', {hidden: true}, 'Copied to clipboard'),
       ]),
