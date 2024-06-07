@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.6
+// @version     1.3.7
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -89,6 +89,7 @@ const SETTLE_TIME = 50;
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 const RX_EVAL_BLOCKED = /'Trusted(Script| Type)'|unsafe-eval/;
 const RX_MEDIA_URL = /^(?!data:)[^?#]+?\.(avif|bmp|jpe?g?|gif|mp4|png|svgz?|web[mp])($|[?#])/i;
+const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const ZOOM_MAX = 16;
 const SYM_U = Symbol('u');
 const FN_ARGS = {
@@ -1313,9 +1314,9 @@ const Popup = {
     let vol;
     if (ai !== myAi || !src || isVideo && (vol = await GM.getValue('volume'), ai !== myAi))
       return;
-    let p = ai.popup;
+    let p = ai.popup, blank;
     if (p) {
-      p.classList.remove(`${PREFIX}show`);
+      p.src = blank = BLANK_PIXEL;
       ai.popupShown = null;
       ai.popupLoaded = false;
     } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
@@ -1335,7 +1336,7 @@ const Popup = {
     await 0;
     if (ai.popup !== p || App.checkProgress({start: true}) === false)
       return;
-    if (p.complete)
+    if (!blank && p.complete)
       Popup.onLoad.call(p);
     else if (!isVideo)
       p.addEventListener('load', Popup.onLoad, {once: true});
