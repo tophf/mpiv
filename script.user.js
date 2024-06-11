@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.7
+// @version     1.3.8
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1489,8 +1489,6 @@ const Ruler = {
  'r' is checked only if 'u' matches first
 */
   init() {
-    const dd = dotDomain.split('.').slice(-3).reverse();
-    if (dd[2] && (dd[1] === 'com' || dd[1] === 'co' && (dd[1] += 'm'))) dd.shift();
     const errors = new Map();
     /** @type mpiv.HostRule[] */
     const rules = Ruler.rules = (cfg.hosts || []).map(Ruler.parse, errors).filter(Boolean);
@@ -1539,7 +1537,7 @@ const Ruler = {
     }
 
     // optimization: a rule is created only when on domain
-    switch (dd.join('.')) {
+    switch (dotDomain.match(/[^.]+(?=\.com?(?:\.[^.]+)?$)|[^.]+\.[^.]+$|$/)[0]) {
 
       case '4chan.org': rules.push({
         e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
@@ -1547,7 +1545,7 @@ const Ruler = {
         css: '#post-preview{display:none}',
       }); break;
 
-      case 'amazon.com': rules.push({
+      case 'amazon': rules.push({
         r: /.+?images\/I\/.+?\./,
         s: m => {
           const uh = doc.getElementById('universal-hover');
@@ -1556,14 +1554,14 @@ const Ruler = {
         css: '#zoomWindow{display:none!important;}',
       }); break;
 
-      case 'bing.com': rules.push({
+      case 'bing': rules.push({
         e: 'a[m*="murl"]',
         r: /murl&quot;:&quot;(.+?)&quot;/,
         s: '$1',
         html: true,
       }); break;
 
-      case 'deviantart.com': rules.push({
+      case 'deviantart': rules.push({
         e: 'a[href*="/art/"] img[src*="/v1/"]',
         r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
         s: ([, base, name, ext, tok], node) => {
@@ -1583,25 +1581,25 @@ const Ruler = {
         q: 'link[as=image]',
       }); break;
 
-      case 'discord.com': rules.push({
+      case 'discord': rules.push({
         u: '||discordapp.net/external/',
         r: /\/https?\/(.+)/,
         s: '//$1',
         follow: true,
       }); break;
 
-      case 'dropbox.com': rules.push({
+      case 'dropbox': rules.push({
         r: /(.+?&size_mode)=\d+(.*)/,
         s: '$1=5$2',
       }); break;
 
-      case 'facebook.com': rules.push({
+      case 'facebook': rules.push({
         e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
         s: (m, el) => (m = Util.getReactChildren(el.parentNode)) &&
           pick(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
       }); break;
 
-      case 'flickr.com': if (pick(unsafeWindow, 'YUI_config.flickr.api.site_key')) rules.push({
+      case 'flickr': if (pick(unsafeWindow, 'YUI_config.flickr.api.site_key')) rules.push({
         r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
         s: m => `https://www.flickr.com/services/rest/?${
           new URLSearchParams({
@@ -1615,7 +1613,7 @@ const Ruler = {
         anonymous: true,
       }); break;
 
-      case 'github.com': rules.push({
+      case 'github': rules.push({
         r: new RegExp([
           /(avatars.+?&s=)\d+/,
           /(raw\.github)(\.com\/.+?\/img\/.+)$/,
@@ -1630,7 +1628,7 @@ const Ruler = {
         }`,
       }); break;
 
-      case 'google.com': if (/[&?]tbm=isch(&|$)/.test(location.search)) rules.push({
+      case 'google': if (/[&?]tbm=isch(&|$)/.test(location.search)) rules.push({
         e: 'a[href*="imgres?imgurl="] img',
         s: (m, node) => new URLSearchParams(node.closest('a').search).get('imgurl'),
         follow: true,
@@ -1650,7 +1648,7 @@ const Ruler = {
         },
       }); break;
 
-      case 'instagram.com': rules.push({
+      case 'instagram': rules.push({
         e: 'a[href*="/p/"],' +
           'article [role="button"][tabindex="0"],' +
           'article [role="button"][tabindex="0"] div',
@@ -1699,7 +1697,7 @@ const Ruler = {
           pick(data, 'edge_media_to_caption.edges.0.node.text'),
       }); break;
 
-      case 'reddit.com': rules.push({
+      case 'reddit': rules.push({
         u: '||i.reddituploads.com/',
       }, {
         e: '[data-url*="i.redd.it"] img[src*="thumb"]',
@@ -1709,24 +1707,24 @@ const Ruler = {
         s: 'https://i$1',
       }); break;
 
-      case 'stackoverflow.com': rules.push({
+      case 'stackoverflow': rules.push({
         e: '.post-tag, .post-tag img',
         s: '',
       }); break;
 
-      case 'startpage.com': rules.push({
+      case 'startpage': rules.push({
         r: /[&?]piurl=([^&]+)/,
         s: '$1',
         follow: true,
       }); break;
 
-      case 'tumblr.com': rules.push({
+      case 'tumblr': rules.push({
         e: 'div.photo_stage_img, div.photo_stage > canvas',
         s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
         follow: true,
       }); break;
 
-      case 'twitter.com': rules.push({
+      case 'twitter': rules.push({
         e: '.grid-tweet > .media-overlay',
         s: (m, node) => node.previousElementSibling.src,
         follow: true,
