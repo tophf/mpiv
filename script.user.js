@@ -4182,7 +4182,7 @@ if (window.trustedTypes) {
     if ((trustedHTML || opts[fn = 'createHTML'] && (trustedHTML = p[fn].bind(p))) &&
         (trustedScript || opts[fn = 'createScript'] && (trustedScript = p[fn].bind(p))) &&
         TT[CP] === ovr)
-      TT[CP] = createPolicy;
+      delete TT[CP];
     return p;
   };
 }
