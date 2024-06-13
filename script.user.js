@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.3.8
+// @version     1.3.9
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -594,21 +594,21 @@ const Calc = {
   },
 
   rect() {
-    let {node, rule} = ai;
+    const {node, rule} = ai;
     let n = rule.rect && node.closest(rule.rect);
     if (n) return n.getBoundingClientRect();
-    const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [n];
+    const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [];
     let maxArea = 0;
     let maxBounds;
-    for (let i = nested.indexOf(n); n; n = i > 0 && nested[--i]) {
+    let i = 0;
+    do {
       const bounds = n.getBoundingClientRect();
       const area = bounds.width * bounds.height;
       if (area > maxArea) {
         maxArea = area;
         maxBounds = bounds;
-        node = n;
       }
-    }
+    } while ((n = nested[i++]) && node.contains(n));
     return maxBounds;
   },
 
