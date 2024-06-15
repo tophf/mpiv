@@ -3965,7 +3965,7 @@ ${App.popupStyleBase = `
   image-rendering: pixelated;
 }
 #\mpiv-popup.\mpiv-night:not(#\\0) {
-  box-shadow: 0 0 0 9999px #000;
+  box-shadow: 0 0 0 ${Math.max(screen.width, screen.height) / 2}px #000;
 }
 body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
   background: #000;
