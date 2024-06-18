@@ -2983,6 +2983,7 @@ async function setup({rule} = {}) {
   let uiCfg;
   let root = (elSetup || 0).shadowRoot;
   let {blankRuleElement} = setup;
+  let mover, moveX = 0, moveY = 0, moveBaseX = 0, moveBaseY = 0;
   /** @type {{[id:string]: HTMLElement}} */
   const UI = setup.UI = new Proxy({}, {
     get(_, id) {
@@ -3015,6 +3016,21 @@ async function setup({rule} = {}) {
   }
 
   function initEvents() {
+    UI._mover.onmousedown = e => {
+      if (e.button || eventModifiers(e))
+        return;
+      if (!mover) {
+        mover = UI._cssSetup.sheet;
+        mover.insertRule(':host {}');
+        mover = mover.cssRules[1];
+      }
+      addEventListener('mousemove', onMove, true);
+      addEventListener('mouseup', onMoveDone, true);
+      addEventListener('keydown', onMoveKey, true);
+      moveX = e.x - moveBaseX;
+      moveY = e.y - moveBaseY;
+      $css(mover, {opacity: .75});
+    };
     UI._apply.onclick = UI._cancel.onclick = UI._ok.onclick = UI._x.onclick = closeSetup;
     UI._export.onclick = e => {
       dropEvent(e);
@@ -3052,6 +3068,25 @@ async function setup({rule} = {}) {
       el.elSwatch = el.nextElementSibling;
       el.elOpacity = UI[el.id.replace('Color', 'Opacity')];
       el.elOpacity.elColor = el;
+    }
+    function onMove({x, y}) {
+      x = moveBaseX = clamp(x - moveX, -innerWidth + CSS_SETUP_X * 4, elSetup.clientWidth - CSS_SETUP_X);
+      y = moveBaseY = clamp(y - moveY, 0, innerHeight - CSS_SETUP_X * 3);
+      $css(mover, {transform: `translate(${x}px, ${y}px)`});
+      UI._ul.style.maxHeight = `calc(100vh - ${CSS_SETUP_MAX_Y + y - CSS_SETUP_X}px)`;
+    }
+    function onMoveDone() {
+      removeEventListener('mousemove', onMove, true);
+      removeEventListener('mouseup', onMoveDone, true);
+      removeEventListener('keydown', onMoveKey, true);
+      $css(mover, {opacity: ''});
+    }
+    function onMoveKey(e) {
+      if (e.key === 'Escape' && !eventModifiers(e)) {
+        e.stopPropagation();
+        onMove({x: moveX, y: moveY});
+        onMoveDone();
+      }
     }
     function colorOnInput() {
       this.elSwatch.style.setProperty('--color',
@@ -3353,16 +3388,19 @@ async function setupRuleInstaller(e) {
   }
 }
 
+const CSS_SETUP_X = 20;
+const CSS_SETUP_MAX_Y = 200;
 const CSS_SETUP = /*language=css*/ `
   :host {
     all: initial !important;
     position: fixed !important;
     z-index: 2147483647 !important;
-    top: 20px !important;
+    top: ${CSS_SETUP_X}px !important;
     right: 20px !important;
     padding: 1.5em !important;
     color: #000 !important;
-    background: #eee !important;
+    --bg: #eee;
+    background: var(--bg) !important;
     box-shadow: 5px 5px 25px 2px #000 !important;
     width: 33em !important;
     border: 1px solid black !important;
@@ -3379,7 +3417,8 @@ const CSS_SETUP = /*language=css*/ `
     text-align:left;
   }
   ul {
-    max-height: calc(100vh - 200px);
+    min-height: 430px;
+    max-height: calc(100vh - ${CSS_SETUP_MAX_Y}px);
     margin: 0 0 15px 0;
     padding: 0;
     list-style: none;
@@ -3538,6 +3577,24 @@ const CSS_SETUP = /*language=css*/ `
     border-color: #56b8ff;
     background: #d7eaff;
   }
+  #_mover {
+    cursor: move;
+    user-select: none;
+    position: absolute;
+    top: 0;
+    left: 8px;
+    right: 24px;
+    height: 24px;
+    text-align: center;
+    background: linear-gradient(transparent 10px, currentColor 10px, currentColor 11px, transparent 11px,
+      transparent 13px, currentColor 13px, currentColor 14px, transparent 14px);
+  }
+  #_mover::after {
+    content: 'MPIV ${GM.info.script.version}';
+    font: bold 150% sans;
+    background: var(--bg);
+    padding: 0 1ex;
+  }
   #_x {
     position: absolute;
     top: 0;
@@ -3587,7 +3644,7 @@ const CSS_SETUP = /*language=css*/ `
   @media (prefers-color-scheme: dark) {
     :host {
       color: #aaa !important;
-      background: #333 !important;
+      --bg: #333 !important;
     }
     a {
       color: deepskyblue;
@@ -3692,11 +3749,12 @@ function createSetupElement() {
   const kAutoTooltip = '...when activation is "automatically"';
   const kAutoProps = {'data-start-auto': ''};
   return [
-    $new('style', CSS_SETUP),
+    $new('style#_cssSetup', CSS_SETUP),
     $new('style#_css'),
     $new(`main#${PREFIX}setup`, [
-      $new('div#_x', 'x'),
-      $new('ul.column', [
+      $new('#_mover'),
+      $new('#_x', 'x'),
+      $new('ul#_ul.column', [
         $new('details', {style: 'order:1; padding-top: .5em;'}, [
           $new('summary', {style: 'cursor: pointer'},
             $new('b', 'Help & hotkeys...')),
