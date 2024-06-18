@@ -2989,22 +2989,26 @@ async function setup({rule} = {}) {
       return root.getElementById(id);
     },
   });
-  if (!rule || !elSetup)
-    init(await Config.load({save: true}));
+  if (!elSetup)
+    build();
+  init(await Config.load({save: true}));
+  if (elSetup.parentElement !== doc.body)
+    doc.body.append(elSetup);
   if (rule)
     installRule(rule);
 
-  function init(data) {
-    uiCfg = data;
-    $remove(elSetup);
+  function build() {
     elSetup = $new('div', {contentEditable: true});
     root = elSetup.attachShadow({mode: 'open'});
     root.append(...createSetupElement());
     initEvents();
+  }
+
+  function init(data) {
+    uiCfg = data;
     renderAll();
-    renderCustomScales();
+    renderVolatiles();
     renderRules();
-    doc.body.appendChild(elSetup);
     requestAnimationFrame(() => {
       UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elSetup.clientHeight / 4) + 'px';
     });
@@ -3039,11 +3043,8 @@ async function setup({rule} = {}) {
       }
     };
     UI.start.onchange = function () {
-      UI.delay.closest('label').hidden =
-        UI.preload.closest('label').hidden =
-          this.value !== 'auto';
+      UI[PREFIX + 'setup'].dataset.start = this.value;
     };
-    UI.start.onchange();
     UI.xhr.onclick = ({target: el}) => el.checked || confirm($propUp(el, 'title'));
     // color
     for (const el of $$('[type="color"]', root)) {
@@ -3107,11 +3108,8 @@ async function setup({rule} = {}) {
       cfg = uiCfg = collectConfig({save: true, clone: isApply});
       Ruler.init();
       Menu.reRegisterAlt();
-      if (isApply) {
-        renderCustomScales();
-        UI._css.textContent = cfg._getCss();
-        return;
-      }
+      if (isApply)
+        return renderVolatiles();
     }
     $remove(elSetup);
     elSetup = null;
@@ -3232,8 +3230,9 @@ async function setup({rule} = {}) {
       search.oninput();
   }
 
-  function renderCustomScales() {
+  function renderVolatiles() {
     UI.scales.value = uiCfg.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
+    UI._css.textContent = cfg._getCss();
   }
 
   function renderAll() {
@@ -3246,6 +3245,7 @@ async function setup({rule} = {}) {
       Object.assign(el, {target: '_blank', rel: 'noreferrer noopener external'});
     UI.delay.valueAsNumber = uiCfg.delay / 1000;
     UI.scale.valueAsNumber = Math.round(clamp(uiCfg.scale - 1, 0, 1) * 100);
+    UI.start.onchange();
   }
 }
 
@@ -3371,6 +3371,9 @@ const CSS_SETUP = /*language=css*/ `
   }
   main {
     font: 12px/15px sans-serif;
+  }
+  main:not([data-start=auto]) [data-start-auto] {
+    opacity: .5;
   }
   table {
     text-align:left;
@@ -3686,9 +3689,11 @@ function createSetupElement() {
       $new('th', ((name = name.split(/(\n)/))[0] = $new('b', name[0])) && name),
       $new('td', val.split(/({.+?})/).map($newKbd)),
     ]);
+  const kAutoTooltip = '...when activation is "automatically"';
+  const kAutoProps = {'data-start-auto': ''};
   return [
     $new('style', CSS_SETUP),
-    $new('style#_css', cfg._getCss()),
+    $new('style#_css'),
     $new(`main#${PREFIX}setup`, [
       $new('div#_x', 'x'),
       $new('ul.column', [
@@ -3735,7 +3740,8 @@ function createSetupElement() {
             ctrl: 'Ctrl',
             auto: 'automatically',
           }),
-          $new('label', ['after, sec', $newRange('delay', 'seconds', .05, 10, .05, 'number')]),
+          $new('label', {title: kAutoTooltip, ...kAutoProps},
+            ['after, sec', $newRange('delay', 'seconds', .05, 10, .05, 'number')]),
           $new('label', {title: '(if the full version of the hovered image is ...% larger)'},
             ['if larger, %', $newRange('scale', null, 0, 100, 1, 'number')]),
           $newSelect('Zoom activates on', 'zoom', {
@@ -3777,7 +3783,7 @@ function createSetupElement() {
               '...or try to keep the original link/thumbnail unobscured by the popup'),
             $newCheck('Preload on hover*', 'preload',
               'Provides smoother experience but increases network traffic'),
-            $newCheck('Require Ctrl key for video', 'videoCtrl'),
+            $newCheck('Require Ctrl key for video*', 'videoCtrl', kAutoTooltip, kAutoProps),
             $newCheck('Mute videos*', 'mute', 'Hotkey: "m" in the popup'),
             $newCheck('Keep playing video*', 'keepVids',
               '...until you press Esc key or click elsewhere'),
