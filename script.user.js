@@ -975,8 +975,13 @@ const Events = {
         Gallery.next(-1);
         break;
       case 'KeyC':
-        Bar.setText(ai.bar.firstChild ? '' : ai.barText);
-        Bar.show(0);
+        if (ai.bar.firstChild) {
+          Bar.setText('');
+          Bar.hide(0);
+        } else {
+          Bar.setText(ai.barText);
+          Bar.show(2);
+        }
         break;
       case 'KeyD':
         Req.saveFile();
