@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.0
+// @version     1.4.1
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -4034,7 +4034,7 @@ ${App.popupStyleBase = `
   image-rendering: pixelated;
 }
 #\mpiv-popup.\mpiv-night:not(#\\0) {
-  box-shadow: 0 0 0 ${Math.max(screen.width, screen.height) / 2}px #000;
+  box-shadow: 0 0 0 ${Math.max(screen.width, screen.height)}px #000;
 }
 body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
   background: #000;
