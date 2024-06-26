@@ -3751,7 +3751,7 @@ function createSetupElement() {
       $new('th', ((name = name.split(/(\n)/))[0] = $new('b', name[0])) && name),
       $new('td', val.split(/({.+?})/).map($newKbd)),
     ]);
-  const kAutoTooltip = '...when activation is "automatically"';
+  const kAutoTooltip = '...when the "popup shows" option is "automatically"';
   const kAutoProps = {'data-start-auto': ''};
   return [
     $new('style#_cssSetup', CSS_SETUP),
