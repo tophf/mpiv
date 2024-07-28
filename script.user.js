@@ -3596,7 +3596,7 @@ const CSS_SETUP = /*language=css*/ `
   }
   #_mover::after {
     content: 'MPIV ${GM.info.script.version}';
-    font: bold 150% sans;
+    font: bold 20px/1.3 sans;
     background: var(--bg);
     padding: 0 1ex;
   }
