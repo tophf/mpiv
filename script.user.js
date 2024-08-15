@@ -1322,6 +1322,7 @@ const Popup = {
     let p = ai.popup, blank;
     if (p) {
       p.src = blank = BLANK_PIXEL;
+      p.classList.remove(PREFIX + 'show');
       ai.popupShown = null;
       ai.popupLoaded = false;
     } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
