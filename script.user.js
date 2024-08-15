@@ -1177,20 +1177,7 @@ const Gallery = {
   },
 
   findIndex(gUrl) {
-    const sel = gUrl.split('#')[1];
-    if (!sel)
-      return 0;
-    let i = +sel;
-    if (i >= 0 && i === (i | 0))
-      return i;
-    for (i = 0; i < ai.gNum; i++) {
-      const {url} = ai.gItems[i];
-      if (isArray(url)
-        ? url.indexOf(sel) || url.some(u => u.indexOf(sel, u.lastIndexOf('/')) > 0)
-        : url === sel || url.indexOf(sel, url.lastIndexOf('/')) > 0
-      ) return i;
-    }
-    return 0;
+    return Math.max(0, ai.gItems.findIndex(({url}) => isArray(url) ? url.includes(gUrl) : url === gUrl));
   },
 
   next(dir) {
