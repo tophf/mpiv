@@ -2399,7 +2399,7 @@ const RuleMatcher = {
         return m;
       const {r, s} = rule;
       let hasS = s != null;
-      h = !noHtml && (r || hasS) && rule.html && (html || (html = node.outerHTML));
+      h = !(noHtml && rule === ai.rule) && (r || hasS) && rule.html && (html || (html = node.outerHTML));
       if (r) {
         m = h ? r.exec(h) : url && r.exec(url);
       } else {
