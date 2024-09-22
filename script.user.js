@@ -1355,7 +1355,7 @@ const Popup = {
   },
 
   destroyBlob() {
-    if (!ai.blobUrl) return
+    if (!ai.blobUrl) return;
     setTimeout(URL.revokeObjectURL, SETTLE_TIME, ai.blobUrl);
     ai.blobUrl = null;
   },
