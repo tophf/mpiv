@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.2
+// @version     1.4.3
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1283,12 +1283,15 @@ const Menu = window === top && GM.registerMenuCommand && {
 const Popup = {
 
   async create(src, pageUrl, error) {
-    const inGallery = !cfg.uiFadeinGallery && ai.gItems && ai.popup && !ai.zooming &&
-      (ai.popup.dataset.galleryFlip = '') === '';
-    if (!ai.gItems)
+    let p = ai.popup, blank;
+    const inGallery = p && !cfg.uiFadeinGallery && ai.gItems && !ai.zooming &&
+      (ai.popup.dataset.galleryFlip = '', true);
+    if (inGallery && p === document.fullscreenElement) {
+      Popup.destroyBlob();
+    } else if (p) {
       Popup.destroy();
-    else if (ai.blobUrl)
-      URL.revokeObjectURL(ai.blobUrl);
+      p = null;
+    }
     ai.imageUrl = src;
     if (!src)
       return;
@@ -1306,10 +1309,10 @@ const Popup = {
     let vol;
     if (ai !== myAi || !src || isVideo && (vol = await GM.getValue('volume'), ai !== myAi))
       return;
-    let p = ai.popup, blank;
     if (p) {
       p.src = blank = BLANK_PIXEL;
       p.classList.remove(PREFIX + 'show');
+      p.removeAttribute('style');
       ai.popupShown = null;
       ai.popupLoaded = false;
     } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
@@ -1346,10 +1349,15 @@ const Popup = {
     }
     if (isFunction(p.pause))
       p.pause();
-    if (ai.blobUrl)
-      setTimeout(URL.revokeObjectURL, SETTLE_TIME, ai.blobUrl);
     p.remove();
-    ai.zoomed = ai.popup = ai.popupLoaded = ai.blobUrl = null;
+    Popup.destroyBlob();
+    ai.zoomed = ai.popup = ai.popupLoaded = null;
+  },
+
+  destroyBlob() {
+    if (!ai.blobUrl) return
+    setTimeout(URL.revokeObjectURL, SETTLE_TIME, ai.blobUrl);
+    ai.blobUrl = null;
   },
 
   move() {
