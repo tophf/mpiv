@@ -552,9 +552,9 @@ const Calc = {
       nh = ai.nheight = w / nw * nh | 0;
       nw = ai.nwidth = w;
       p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
-    }
+    } else
+      p.style.cssText = '';
     p.classList.add(`${PREFIX}show`);
-    p.removeAttribute('style');
     const s = getComputedStyle(p);
     const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
     const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
