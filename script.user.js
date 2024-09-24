@@ -1795,15 +1795,16 @@ const Ruler = {
       },
       {
         u: '||fastpic.',
-        s: (m, node) => {
+        s: (m, node, rule) => {
           const a = node.closest('a');
           const url = decodeURIComponent(Req.findImageUrl(a || node))
             .replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, '/$2$1')
             .replace(/^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
               'https://fastpic.org/view$1$2.html');
+          Ruler.toggle(rule, 'q', url.includes('.html'));
           return a || url.includes('.png') ? url : [url, url.replace(/\.jpe?g/, '.png')];
         },
-        q: 'img[src*="/big/"]',
+        _q: 'img[src*="/big/"]',
       },
       {
         u: '||flickr.com/photos/',
