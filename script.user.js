@@ -339,8 +339,10 @@ const App = {
     try {
       const {responseText, doc, finalUrl} = await Req.getDoc(ai.url);
       const url = Ruler.runQ(responseText, doc, finalUrl);
-      if (!url)
-        throw 'The "q" rule did not produce any URL.';
+      if (!url) {
+        App.handleError(['The "q" rule did not produce any URL.', '\nRemote doc: %o', doc]);
+        return;
+      }
       if (RuleMatcher.isFollowableUrl(url, ai.rule)) {
         const info = RuleMatcher.find(url, ai.node, {noHtml: true});
         if (!info || !info.url)
@@ -2860,7 +2862,8 @@ const Util = {
   },
 
   formatError(e, rule) {
-    const msg = e.message;
+    const arr = isArray(e);
+    const msg = arr ? e[0] : e.message;
     const {url: u, imageUrl: iu} = ai;
     e = msg ? e :
       e.readyState && 'Request failed.' ||
@@ -2870,11 +2873,12 @@ const Util = {
       e;
     let fmt;
     const res = [
-      fmt = '%c%s%c', 'font-weight:bold', e, 'font-weight:normal',
+      fmt = '%c%s%c', 'font-weight:bold', arr ? msg : e, 'font-weight:normal',
       (fmt += '\nNode: %o', ai.node),
       (fmt += '\nRule: %o', rule),
       u && (fmt += '\nURL: %s', u),
       iu && iu !== u && (fmt += '\nFile: %s', iu),
+      ...arr ? (fmt += e[1], e.slice(2)) : [],
       e.stack,
     ].filter(Boolean);
     res[0] = fmt;
