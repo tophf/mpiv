@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.3
+// @version     1.4.4
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -3995,6 +3995,7 @@ function createGlobalStyle() {
 #\mpiv-popup {
   display: none;
   cursor: none;
+  box-shadow: none;
 ${cfg.uiFadein ? String.raw`
   animation: .2s \mpiv-fadein both;
   transition: box-shadow .25s, background-color .25s;
@@ -4020,7 +4021,6 @@ ${App.popupStyleBase = `
   ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')};` : ''}
   ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ''}
   ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ''}
-  box-shadow: ${cfg.uiShadow ? `2px 4px ${cfg.uiShadow}px 4px transparent` : 'none'};
 }
 #\mpiv-popup.\mpiv-show[loaded] {
   background-color: ${Util.color('Background')};
