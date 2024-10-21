@@ -39,6 +39,7 @@ declare namespace mpiv {
     uiShadowColor: string,
     uiShadowOpacity: number,
     uiShadow: number,
+    uiShadowOnLoad: boolean
     uiPadding: number,
     uiMargin: number,
     version: number

@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.4
+// @version     1.4.5
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -747,6 +747,7 @@ Config.DEFAULTS = /** @type mpiv.Config */ {
   uiShadowColor: '#000000',
   uiShadowOpacity: 80,
   uiShadow: 20,
+  uiShadowOnLoad: true,
   uiPadding: 0,
   uiMargin: 0,
   version: 6,
@@ -1286,8 +1287,7 @@ const Popup = {
 
   async create(src, pageUrl, error) {
     let p = ai.popup, blank;
-    const inGallery = p && !cfg.uiFadeinGallery && ai.gItems && !ai.zooming &&
-      (ai.popup.dataset.galleryFlip = '', true);
+    const inGallery = p && !cfg.uiFadeinGallery && ai.gItems && !ai.zooming;
     if (inGallery && p === document.fullscreenElement) {
       Popup.destroyBlob();
     } else if (p) {
@@ -1325,8 +1325,8 @@ const Popup = {
       p.classList.add(`${PREFIX}night`);
     if (ai.zooming)
       p.addEventListener('transitionend', Popup.onZoom);
-    $dataset(p, 'galleryFlip', inGallery);
-    p.toggleAttribute('loaded', inGallery);
+    $dataset(p, 'galleryFlip', inGallery ? '' : null);
+    p.toggleAttribute('loaded', !!inGallery);
     const poo = ai.popover || typeof p.showPopover === 'function' && $('[popover]:popover-open');
     ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, {opacity: 0}), poo) || null;
     if (p.parentElement !== doc.body)
@@ -3855,8 +3855,10 @@ function createSetupElement() {
               'i.e. when mouse pointer moves outside the page'),
           ]),
           $new([
-            $newCheck('Wait for complete image*', 'waitLoad',
+            $newCheck('Show complete image*', 'waitLoad',
               '...or immediately show a partial image while still loading'),
+            $newCheck('Shadow only when complete*', 'uiShadowOnLoad',
+              '...to avoid showing the semi-transparent background while still loading from a slow site'),
             $new('div.flex', {style: 'align-items:center'}, [
               $newCheck('Info: show for', 'uiInfo', 'Hotkey: "i" (or hold "Shift") in the popup'),
               $new('input#uiInfoHide', {min: 1, step: 'any', type: 'number'}),
@@ -4022,7 +4024,7 @@ ${App.popupStyleBase = `
   ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ''}
   ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ''}
 }
-#\mpiv-popup.\mpiv-show[loaded] {
+#\mpiv-popup.\mpiv-show${cfg.uiShadowOnLoad ? '[loaded]' : ''} {
   background-color: ${Util.color('Background')};
   ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
 }
