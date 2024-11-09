@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.5
+// @version     1.4.6
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1493,8 +1493,12 @@ const Ruler = {
 */
   init() {
     const errors = new Map();
+    const src = cfg.hosts || [];
+    const uniq = src.filter((r, i, arr) => !i || !Util.deepEqual(r, arr[i - 1]));
+    if (uniq.length < src.length)
+      GM.setValue('cfg', cfg);
     /** @type mpiv.HostRule[] */
-    const rules = Ruler.rules = (cfg.hosts || []).map(Ruler.parse, errors).filter(Boolean);
+    const rules = Ruler.rules = uniq.map(Ruler.parse, errors).filter(Boolean);
     const hasGMAE = typeof GM_addElement === 'function';
     const canEval = nonce || (nonce = ($('script[nonce]') || {}).nonce || '') || hasGMAE;
     const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
@@ -2998,9 +3002,10 @@ async function setup({rule} = {}) {
   });
   if (!elSetup)
     build();
-  init(await Config.load({save: true}));
-  if (elSetup.parentElement !== doc.body)
+  if (elSetup.parentElement !== doc.body) {
+    init(await Config.load({save: true}));
     doc.body.append(elSetup);
+  }
   if (rule)
     installRule(rule);
 
@@ -3253,6 +3258,10 @@ async function setup({rule} = {}) {
     blankRuleElement =
       setup.blankRuleElement =
         setup.blankRuleElement || rules.firstElementChild.cloneNode();
+    if (blankRuleElement.nextElementSibling) {
+      rules.textContent = '';
+      rules.appendChild(blankRuleElement.cloneNode());
+    }
     for (const rule of uiCfg.hosts || []) {
       const el = blankRuleElement.cloneNode();
       el.value = typeof rule === 'string' ? rule : Ruler.format(rule);
