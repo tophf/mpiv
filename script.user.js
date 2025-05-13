@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.6
+// @version     1.4.7
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -2418,7 +2418,9 @@ const RuleMatcher = {
       if (r) {
         m = h ? r.exec(h) : url && r.exec(url);
       } else {
-        m = ['']; m[0] = m.input = h || url || ''; m.index = 0;
+        m = [''];
+        m[0] = m.input = h || url || rule.g && location.href || '';
+        m.index = 0;
       }
       if (!m)
         continue;
