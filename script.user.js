@@ -1144,7 +1144,7 @@ const Events = {
     const cx = ai.cx = e.clientX;
     const cy = ai.cy = e.clientY;
     const r = ai.rect || (ai.rect = Calc.rect());
-    ai.rectHovered =
+    ai.rectHovered = !r ? false :
       cx > r.left - 2 && cx < r.right + 2 &&
       cy > r.top - 2 && cy < r.bottom + 2;
   },
