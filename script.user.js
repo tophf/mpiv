@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.7
+// @version     1.4.8
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -88,6 +88,7 @@ const SETTLE_TIME = 50;
 // used to detect JS code in host rules
 const RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 const RX_EVAL_BLOCKED = /'Trusted(Script| Type)'|unsafe-eval/;
+const RX_IMAGE_URL = /https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i;
 const RX_MEDIA_URL = /^(?!data:)[^?#]+?\.(avif|bmp|jpe?g?|gif|mp4|png|svgz?|web[mp])($|[?#])/i;
 const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 const ZOOM_MAX = 16;
@@ -2650,15 +2651,14 @@ const Req = {
 
   findImageUrl(n, url) {
     if (!n) return;
-    let html;
+    let tmp;
     const path =
-      n.getAttribute('data-src') || // lazy loaded src, whereas current `src` is an empty 1x1 pixel
+      // prefer data-* over `src` which is often a small thumbnail or empty pixel
+      Object.values(n.dataset).some(v => (tmp = v.match(RX_IMAGE_URL)[0])) && tmp ||
       n.getAttribute('src') ||
-      n.getAttribute('data-m4v') ||
       n.getAttribute('href') ||
       n.getAttribute('content') ||
-      (html = n.outerHTML).includes('http') &&
-      html.match(/https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i)[0];
+      (tmp = n.outerHTML).includes('http') && tmp.match(RX_IMAGE_URL)[0];
     return !!path && Util.rel2abs(Util.decodeHtmlEntities(path),
       $prop('base[href]', 'href', n.ownerDocument) || url);
   },
