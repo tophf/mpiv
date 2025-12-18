@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.9
+// @version     1.4.10
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1636,7 +1636,7 @@ const Ruler = {
         }`,
       }); break;
 
-      case 'google': if (/[&?]sclient=img(&|$)/.test(location.search)) rules.push({
+      case 'google': if (/[&?](sclient=img|udm=2)(&|$)/.test(location.search)) rules.push({
         e: '[data-docid] img',
         s: (m, el) => {
           const {docid} = (el = el.closest('[data-docid]')).dataset;
@@ -1644,7 +1644,7 @@ const Ruler = {
           if ((el = el.__jscontroller) && (el = el.pending) && (el = el.value))
             for (let a in el)
               if (({}).toString.call(a = el[a]) === '[object Object]')
-                for (let b in a)
+                for (const b in a)
                   if (Array.isArray(m = a[b]) && m.includes(docid) && (m = m[1])
                   && Array.isArray(m = m[b]) && m[1] === docid && Array.isArray(m = m[3]))
                     return m[0];
