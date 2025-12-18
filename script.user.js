@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.8
+// @version     1.4.9
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1636,23 +1636,18 @@ const Ruler = {
         }`,
       }); break;
 
-      case 'google': if (/[&?]tbm=isch(&|$)/.test(location.search)) rules.push({
-        e: 'a[href*="imgres?imgurl="] img',
-        s: (m, node) => new URLSearchParams(node.closest('a').search).get('imgurl'),
-        follow: true,
-      }, {
-        e: '[data-tbnid] a:not([href])',
-        s: (m, a) => {
-          const a2 = $('a[jsaction*="mousedown"]', a.closest('[data-tbnid]')) || a;
-          new MutationObserver((_, mo) => {
-            mo.disconnect();
-            App.isEnabled = true;
-            a.alt = a2.innerText;
-            const {left, top} = a.getBoundingClientRect();
-            Events.onMouseOver({target: $('img', a), clientX: left, clientY: top});
-          }).observe(a, {attributes: true, attributeFilter: ['href']});
-          a2.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));
-          a2.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));
+      case 'google': if (/[&?]sclient=img(&|$)/.test(location.search)) rules.push({
+        e: '[data-docid] img',
+        s: (m, el) => {
+          const {docid} = (el = el.closest('[data-docid]')).dataset;
+          if (isFF) el = el.wrappedJSObject || el;
+          if ((el = el.__jscontroller) && (el = el.pending) && (el = el.value))
+            for (let a in el)
+              if (({}).toString.call(a = el[a]) === '[object Object]')
+                for (let b in a)
+                  if (Array.isArray(m = a[b]) && m.includes(docid) && (m = m[1])
+                  && Array.isArray(m = m[b]) && m[1] === docid && Array.isArray(m = m[3]))
+                    return m[0];
         },
       }); break;
 
