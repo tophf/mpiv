@@ -25,7 +25,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.10
+// @version     1.4.11
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1636,17 +1636,21 @@ const Ruler = {
         }`,
       }); break;
 
-      case 'google': if (/[&?](sclient=img|udm=2)(&|$)/.test(location.search)) rules.push({
-        e: '[data-docid] img',
-        s: (m, el) => {
-          const {docid} = (el = el.closest('[data-docid]')).dataset;
+      case 'google': if (location.pathname === '/search') rules.push({
+        e: /[&?](sclient=img|udm=2)(&|$)/.test(location.search)
+          ? '[data-docid] img'
+          : '[jsdata][id] img',
+        s: (m, el, rule) => {
+          el = el.closest(rule.e.split(' ')[0]);
+          const id = el.dataset.docid || el.id;
           if (isFF) el = el.wrappedJSObject || el;
           if ((el = el.__jscontroller) && (el = el.pending) && (el = el.value))
             for (let a in el)
               if (({}).toString.call(a = el[a]) === '[object Object]')
                 for (const b in a)
-                  if (Array.isArray(m = a[b]) && m.includes(docid) && (m = m[1])
-                  && Array.isArray(m = m[b]) && m[1] === docid && Array.isArray(m = m[3]))
+                  if (Array.isArray(m = a[b]) && m.includes(id)
+                  && (m[1] === id || (m = m[1]) && Array.isArray(m = m[b]) && m[1] === id)
+                  && Array.isArray(m = m[3]))
                     return m[0];
         },
       }); break;
