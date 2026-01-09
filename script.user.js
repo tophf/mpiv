@@ -7,6 +7,7 @@
 // @run-at      document-start
 //
 // @grant       GM_addElement
+// @grant       GM_addStyle
 // @grant       GM_download
 // @grant       GM_getValue
 // @grant       GM_getValues
@@ -25,7 +26,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.11
+// @version     1.4.12
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -58,7 +59,7 @@
 'use strict';
 
 //#region Globals
-
+/*global GM_addElement, GM_addStyle */
 /** @type mpiv.Config */
 let cfg;
 /** @type mpiv.AppInfo */
@@ -1524,7 +1525,7 @@ const Ruler = {
       let result, wnd;
       if (canEval) {
         const GMAE = hasGMAE
-          ? GM_addElement // eslint-disable-line no-undef
+          ? GM_addElement
           : (tag, {textContent: txt}) => document.head.appendChild(
             Object.assign(document.createElement(tag), {
               textContent: trustedScript ? trustedScript(txt) : txt,
@@ -2811,15 +2812,16 @@ const UrlMatcher = (() => {
 
 const Util = {
 
+  styles: {__proto__: null},
   addStyle(name, css) {
-    const id = `${PREFIX}style:${name}`;
-    const el = doc.getElementById(id) ||
-               css && $new('style', {id});
+    const el = Util.styles[name] || css && (
+      Util.styles[name] = typeof GM_addStyle === 'function'
+        ? GM_addStyle(css)
+        : doc.head.appendChild($new('style', css))
+    );
     if (!el) return;
     if (el.textContent !== css)
       el.textContent = css;
-    if (el.parentElement !== doc.head)
-      doc.head.appendChild(el);
     return el;
   },
 
