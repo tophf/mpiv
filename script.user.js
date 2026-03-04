@@ -26,7 +26,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.12
+// @version     1.4.13
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -145,7 +145,7 @@ const App = {
     ai.force = Events.ctrl;
     ai.gNum = 0;
     ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
-    Util.suppressTooltip();
+    if (auto) Util.suppressTooltip();
     Calc.updateViewSize();
     Events.ctrl = false;
     Events.toggle(true);
