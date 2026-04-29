@@ -1393,12 +1393,12 @@ const Popup = {
     if (x == null) {
       x = vw > w
         ? (vw - w) / 2 + view.x
-        : (vw - w) * clamp(5 / 3 * ((cx - view.x) / vw - .2), 0, 1);
+        : (vw - w) * clamp(5 / 3 * ((cx - view.x) / vw - .2), -1, 1);
     }
     if (y == null) {
       y = vh > h
         ? (vh - h) / 2 + view.y
-        : (vh - h) * clamp(5 / 3 * ((cy - view.y) / vh - .2), 0, 1);
+        : (vh - h) * clamp(5 / 3 * ((cy - view.y) / vh - .2), -1, 1);
     }
     const diff = isSwapped ? (w0 - h0) / 2 : 0;
     x += extras.o - diff;
