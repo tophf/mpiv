@@ -1102,9 +1102,11 @@ const Events = {
       (cfg.start === 'auto' && ai.rule.manual)
     )) {
       // right-clicked on an image while the context menu is shown for something else
-      if (!ai.node && !Events.hoverData)
-        Events.onMouseOver(e);
-      Events.onMouseOverThrottled(true);
+      if (!ai.node) {
+        if (!Events.hoverData)
+          Events.onMouseOver(e);
+        Events.onMouseOverThrottled(true);
+      }
       if (ai.node) {
         ai.force = true;
         App.start();
