@@ -100,6 +100,7 @@ const FN_ARGS = {
   q: ['text', 'doc', 'node', 'rule'],
   g: ['text', 'doc', 'url', 'm', 'rule', 'node', 'cb'],
 };
+let timerProgress;
 let trustedHTML, trustedScript;
 //#endregion
 //#region GM4 polyfill
@@ -171,15 +172,15 @@ const App = {
 
   checkProgress({start} = {}) {
     const p = ai.popup;
-    if (!p)
+    if (!p || ai.nwidth)
       return;
     const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
     const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
     if (h)
       return App.canCommit(w, h);
     if (start) {
-      clearInterval(ai.timerProgress);
-      ai.timerProgress = setInterval(App.checkProgress, 150);
+      clearInterval(timerProgress);
+      timerProgress = setInterval(App.checkProgress, 150);
     }
   },
 
@@ -389,7 +390,7 @@ const App = {
   stopTimers(bar) {
     for (const timer of ['timer', 'timerStatus', bar && 'timerBar'])
       clearTimeout(ai[timer]);
-    clearInterval(ai.timerProgress);
+    clearInterval(timerProgress);
   },
 
   toggleZoom({keepScale} = {}) {
