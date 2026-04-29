@@ -1417,6 +1417,7 @@ const Popup = {
       this.setAttribute('loaded', '');
       ai.popupLoaded = true;
       Status.set('-loading');
+      App.checkProgress();
       let i = ai.gItem;
       if (i) i.url = this.src;
       if ((i = ai.gItemNext))
