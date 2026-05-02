@@ -26,7 +26,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.15
+// @version     1.4.16
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -172,7 +172,7 @@ const App = {
 
   checkProgress({start} = {}) {
     const p = ai.popup;
-    if (!p || ai.nwidth)
+    if (!p || ai.committed)
       return;
     const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
     const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
@@ -206,6 +206,7 @@ const App = {
       App.handleError({type: 'error'});
     } else {
       App.commit();
+      ai.committed = true;
     }
     return true;
   },
@@ -278,6 +279,7 @@ const App = {
     if (ai.urls && ai.urls.length) {
       ai.url = ai.urls.shift();
       if (ai.url) {
+        ai.committed = false;
         App.stopTimers();
         App.startSingle();
       } else {

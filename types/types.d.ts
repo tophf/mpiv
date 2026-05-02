@@ -123,6 +123,7 @@ declare namespace mpiv {
     /** buffering start time, ms */
     bufStart: number
     caption: string
+    committed: boolean
     /** video controls are shown */
     controlled: boolean
     /** clientX of the last mouse event */
