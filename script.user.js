@@ -26,7 +26,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.16
+// @version     1.4.17
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -1201,6 +1201,7 @@ const Gallery = {
       ai.url = item.url;
     }
     ai.gItemNext = ai.gItems[Gallery.nextIndex(dir || 1)];
+    ai.committed = false;
     App.startSingle();
     Bar.updateName();
     if (dir) Bar.show(0);
