@@ -26,7 +26,7 @@
 // @grant       GM.setValue
 // @grant       GM.xmlHttpRequest
 //
-// @version     1.4.17
+// @version     1.4.18
 // @author      tophf
 //
 // @original-version 2017.9.29
@@ -774,7 +774,7 @@ const CspSniffer = {
   init() {
     this.busy = new Promise(resolve => {
       const xhr = new XMLHttpRequest();
-      xhr.open('get', location);
+      xhr.open('GET', location);
       xhr.timeout = Math.max(2000, (performance.timing.responseEnd - performance.timeOrigin) * 2);
       xhr.onreadystatechange = () => {
         if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
@@ -2599,7 +2599,7 @@ const Req = {
         url,
         name,
         headers: {Referer: url},
-        method: 'get', // polyfilling GM_download
+        method: 'GET', // polyfilling GM_download
         responseType: 'blob', // polyfilling GM_download
         overrideMimeType: 'application/octet-stream', // polyfilling GM_download
         onerror: e => {
