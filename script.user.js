@@ -1574,13 +1574,27 @@ const Instagram = {
     return true;
   },
 
-  embedSource(text, doc) {
-    const media = $many(['.EmbeddedMedia video', '.EmbeddedMediaImage'], doc);
-    return media && Instagram.source(media);
+  embedSource(text, doc, node, rule) {
+    const url = rule && rule._postUrl || node && node.src || '';
+    const code = (Instagram.embedUrl(url).match(/\/p\/([\w-]+)/) || [])[1];
+    const data = Instagram.mediaData(text, doc, code);
+    const video = Instagram.videoSource(data);
+    if (video) return video;
+    const player = $many(['.EmbeddedMedia video', '.EmbedFrame video'], doc);
+    const src = player && Instagram.source(player) ||
+      $prop('meta[property="og:video:secure_url"]', 'content', doc) ||
+      $prop('meta[property="og:video"]', 'content', doc);
+    if (/^https?:\/\//i.test(src || '')) return src;
+    if (player || Instagram.isVideoData(data))
+      throw 'Instagram did not provide a playable video for this post.';
+    const img = $('.EmbeddedMediaImage', doc);
+    return img && Instagram.source(img) || data && data.display_url || undefined;
   },
 
   preview(m, node, rule) {
     rule.follow = false;
+    rule.q = null;
+    rule._postUrl = null;
     rule._img = null;
     let media = node.matches('img, video') && node;
     const link = node.closest(Instagram.links);
@@ -1603,6 +1617,16 @@ const Instagram = {
     }
     rule._img = media;
     const src = media && Instagram.source(media);
+    // Reel covers and MediaSource players need the embed's actual video URL.
+    if (isVideo(media) && !src || link && /\/reels?\//.test(link.pathname || link.href)) {
+      const article = node.closest('article');
+      const post = link || article && $(Instagram.links, article);
+      const path = (post ? post.href : location.href).match(/\/(?:p|tv|reels?)\/([\w-]+)/);
+      if (path) {
+        rule.q = Instagram.embedSource;
+        return (rule._postUrl = `https://www.instagram.com/p/${path[1]}/embed/captioned/`);
+      }
+    }
     if (src) return src;
     if (link) {
       rule.follow = true;
@@ -1616,8 +1640,7 @@ const Instagram = {
     if (isVideo(media)) {
       // MediaSource blob URLs cannot be played in a second video element.
       return [media.currentSrc, media.src, ...arrayFrom($$('source', media), el => el.src)]
-        .find(url => valid(url) && Util.isVideoUrlExt(url)) ||
-        (valid(media.poster) && media.poster);
+        .find(url => valid(url) && Util.isVideoUrlExt(url));
     }
     const sources = (media.srcset || '').split(',').map(candidate => {
       const [url, size] = candidate.trim().split(/\s+/);
@@ -1635,11 +1658,22 @@ const Instagram = {
         ? item : best, null);
   },
 
-  gallery(text, doc, url, m) {
-    const code = m[2];
+  isVideoData: data => data && (data.is_video || data.media_type === 2 ||
+    data.__typename === 'GraphVideo' || data.__typename === 'XDTGraphVideo'),
+
+  videoSource: data => data && (
+    /^https?:\/\//i.test(data.video_url || '') && data.video_url ||
+    (Instagram.best(data.video_versions) || {}).url),
+
+  mediaData(text, doc, code) {
+    if (!code) return;
     const roots = [tryJSON(text), ...arrayFrom($$('script[type="application/json"]', doc),
       el => tryJSON(el.textContent))];
-    let media;
+    // Embed bootstrapping stores JSON inside a JSON string in executable scripts.
+    // Decode only that value, without evaluating any page code.
+    const rx = /"contextJSON"\s*:\s*("(?:\\.|[^"\\])*")/g;
+    for (let match; (match = rx.exec(text || ''));)
+      roots.push(tryJSON(tryJSON(match[1])));
     // JSON response envelopes change; identify the requested post rather than
     // accidentally picking a recommended post included in the same document.
     const queue = roots.filter(Boolean);
@@ -1649,17 +1683,20 @@ const Instagram = {
       if ((value.shortcode === code || value.code === code) &&
           (value.display_url || value.video_url || value.video_versions || value.image_versions2 ||
            value.carousel_media || value.edge_sidecar_to_children)) {
-        media = value;
-        break;
+        return value;
       }
       for (const child of Object.values(value))
         if (child && typeof child === 'object') queue.push(child);
     }
+  },
+
+  gallery(text, doc, url, m) {
+    const media = Instagram.mediaData(text, doc, m[2]);
     const children = media && (media.carousel_media ||
       pick(media, 'edge_sidecar_to_children.edges', edges => edges.map(e => e.node)) || [media]);
     const items = (children || []).filter(Boolean).map(item => ({
-      url: item.video_url || (Instagram.best(item.video_versions) || {}).url ||
-        item.display_url || (Instagram.best(pick(item, 'image_versions2.candidates')) || {}).url,
+      url: Instagram.videoSource(item) || !Instagram.isVideoData(item) && (
+        item.display_url || (Instagram.best(pick(item, 'image_versions2.candidates')) || {}).url),
       desc: pick(item, 'caption.text') ||
         pick(item, 'edge_media_to_caption.edges.0.node.text') || '',
     })).filter(item => /^https?:\/\//i.test(item.url || ''));
@@ -1667,6 +1704,8 @@ const Instagram = {
       pick(media, 'edge_media_to_caption.edges.0.node.text') ||
       $prop('meta[property="og:description"]', 'content', doc) || '';
     if (!items.length) {
+      if (Instagram.isVideoData(media))
+        throw 'Instagram did not provide a playable video for this post.';
       const el = $many([
         'meta[property="og:video:secure_url"]',
         'meta[property="og:video"]',
@@ -2190,7 +2229,7 @@ const Ruler = {
       {
         u: ['||instagr.am/', '||instagram.com/'],
         r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
-        s: m => `https://www.instagram.com/${m[1]}/`,
+        s: m => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
         g: Instagram.gallery,
       },
       {
