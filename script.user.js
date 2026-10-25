@@ -1490,6 +1490,109 @@ const PopupVideo = {
   },
 };
 
+const Instagram = {
+  links: 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]',
+
+  preview(m, node, rule) {
+    rule.follow = false;
+    rule._img = null;
+    let media = node.matches('img, video') && node;
+    const link = node.closest(Instagram.links);
+    if (!media && link)
+      media = $many(['video', 'img'], link);
+    // Instagram puts transparent siblings over media. Stay within the media's
+    // bounds so hovering captions, comments, or neighboring posts does not activate it.
+    if (!media && node.tagName === 'DIV') {
+      const rect = node.getBoundingClientRect();
+      const x = (rect.left + rect.right) / 2;
+      const y = (rect.top + rect.bottom) / 2;
+      for (let parent = node, i = 0; parent && i < 4; parent = parent.parentElement, i++) {
+        media = [...$$('video', parent), ...$$('img', parent)].find(el => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 &&
+            x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+        });
+        if (media || parent.matches('article, main, [role="dialog"]')) break;
+      }
+    }
+    rule._img = media;
+    const src = media && Instagram.source(media);
+    if (src) return src;
+    if (link) {
+      rule.follow = true;
+      return link.href;
+    }
+    return false;
+  },
+
+  source(media) {
+    const valid = url => /^https?:\/\//i.test(url || '');
+    if (isVideo(media)) {
+      // MediaSource blob URLs cannot be played in a second video element.
+      return [media.currentSrc, media.src, ...arrayFrom($$('source', media), el => el.src)]
+        .find(url => valid(url) && Util.isVideoUrlExt(url)) ||
+        (valid(media.poster) && media.poster);
+    }
+    const sources = (media.srcset || '').split(',').map(candidate => {
+      const [url, size] = candidate.trim().split(/\s+/);
+      return {url, size: parseFloat(size) || 1};
+    }).filter(item => valid(item.url));
+    sources.sort((a, b) => b.size - a.size);
+    return sources.length ? sources[0].url :
+      [media.currentSrc, media.src].find(valid);
+  },
+
+  best(versions) {
+    return (isArray(versions) ? versions : [])
+      .filter(item => item && /^https?:\/\//i.test(item.url))
+      .reduce((best, item) => !best || item.width * item.height > best.width * best.height
+        ? item : best, null);
+  },
+
+  gallery(text, doc, url, m) {
+    const code = m[2];
+    const roots = [tryJSON(text), ...arrayFrom($$('script[type="application/json"]', doc),
+      el => tryJSON(el.textContent))];
+    let media;
+    // JSON response envelopes change; identify the requested post rather than
+    // accidentally picking a recommended post included in the same document.
+    const queue = roots.filter(Boolean);
+    for (let i = 0; i < queue.length && i < 10000; i++) {
+      const value = queue[i];
+      if (!value || typeof value !== 'object') continue;
+      if ((value.shortcode === code || value.code === code) &&
+          (value.display_url || value.video_url || value.video_versions || value.image_versions2 ||
+           value.carousel_media || value.edge_sidecar_to_children)) {
+        media = value;
+        break;
+      }
+      for (const child of Object.values(value))
+        if (child && typeof child === 'object') queue.push(child);
+    }
+    const children = media && (media.carousel_media ||
+      pick(media, 'edge_sidecar_to_children.edges', edges => edges.map(e => e.node)) || [media]);
+    const items = (children || []).filter(Boolean).map(item => ({
+      url: item.video_url || (Instagram.best(item.video_versions) || {}).url ||
+        item.display_url || (Instagram.best(pick(item, 'image_versions2.candidates')) || {}).url,
+      desc: pick(item, 'caption.text') ||
+        pick(item, 'edge_media_to_caption.edges.0.node.text') || '',
+    })).filter(item => /^https?:\/\//i.test(item.url || ''));
+    items.title = pick(media, 'caption.text') ||
+      pick(media, 'edge_media_to_caption.edges.0.node.text') ||
+      $prop('meta[property="og:description"]', 'content', doc) || '';
+    if (!items.length) {
+      const el = $many([
+        'meta[property="og:video:secure_url"]',
+        'meta[property="og:video"]',
+        'meta[property="og:image"]',
+      ], doc);
+      const src = el && el.content;
+      if (/^https?:\/\//i.test(src || '')) items.push({url: src});
+    }
+    return items;
+  },
+};
+
 const Ruler = {
 /*
  'u' works only with URLs so it's ignored if 'html' is true
@@ -1663,52 +1766,9 @@ const Ruler = {
       }); break;
 
       case 'instagram': rules.push({
-        e: 'a[href*="/p/"],' +
-          'article [role="button"][tabindex="0"],' +
-          'article [role="button"][tabindex="0"] div',
-        s: (m, node, rule) => {
-          let data, a, n, img, src;
-          if (location.pathname.startsWith('/p/') || location.pathname.startsWith('/tv/')) {
-            img = $('img[srcset], video', node.parentNode);
-            if (img && (isVideo(img) || parseFloat(img.sizes) > 900))
-              src = (img.srcset || img.currentSrc).split(',').pop().split(' ')[0];
-          }
-          if (!src && (n = node.closest('a[href*="/p/"], article'))) {
-            a = n.tagName === 'A' ? n : $('a[href*="/p/"]', n);
-          }
-          const numPics = a && pick(data, 'edge_sidecar_to_children.edges.length') ||
-            a && pick(data, 'carousel_media_count');
-          Ruler.toggle(rule, 'q', data && data.is_video && !data.video_url);
-          Ruler.toggle(rule, 'g', a && (numPics > 1 || /<\w+[^>]+carousel/i.test(a.innerHTML)));
-          rule.follow = !data && !rule.g;
-          rule._data = data;
-          rule._img = img;
-          return (
-            !a && !src ? false :
-              !data || rule.q || rule.g ? `${src || a.href}${rule.g ? '?__a=1&__d=dis' : ''}` :
-                data.video_url || data.display_url);
-        },
-        c: (html, doc, node, rule) =>
-          rule._getCaption(rule._data) || (rule._img || 0).alt || '',
-        follow: true,
-        _q: 'meta[property="og:video"]',
-        _g(text, doc, url, m, rule) {
-          const json = tryJSON(text);
-          const media =
-            pick(json, 'graphql.shortcode_media') ||
-            pick(json, 'items.0');
-          const items =
-            pick(media, 'edge_sidecar_to_children.edges', res => res.map(e => ({
-              url: e.node.video_url || e.node.display_url,
-            }))) ||
-            pick(media, 'carousel_media', res => res.map(e => ({
-              url: pick(e, 'video_versions.0.url') || pick(e, 'image_versions2.candidates.0.url'),
-            })));
-          items.title = rule._getCaption(media) || '';
-          return items;
-        },
-        _getCaption: data => pick(data, 'caption.text') ||
-          pick(data, 'edge_media_to_caption.edges.0.node.text'),
+        e: 'img, video, main div, article div, [role="dialog"] div, ' + Instagram.links,
+        s: Instagram.preview,
+        c: (html, doc, node, rule) => (rule._img || {}).alt || '',
       }); break;
 
       case 'reddit': rules.push({
@@ -2036,28 +2096,10 @@ const Ruler = {
         },
       },
       {
-        u: [
-          '||instagr.am/p/',
-          '||instagram.com/p/',
-          '||instagram.com/tv/',
-        ],
-        s: m => m.input.substr(0, m.input.lastIndexOf('/')).replace('/liked_by', '') +
-        '/?__a=1&__d=dis',
-        q: m => (m = tryJSON(m)) && (
-          m = pick(m, 'graphql.shortcode_media') || pick(m, 'items.0') || 0
-        ) && (
-          m.video_url ||
-          m.display_url ||
-          pick(m, 'video_versions.0.url') ||
-          pick(m, 'carousel_media.0.image_versions2.candidates.0.url') ||
-          pick(m, 'image_versions2.candidates.0.url')
-        ),
-        rect: 'div.PhotoGridMediaItem',
-        c: m => (m = tryJSON(m)) && (
-          pick(m, 'items.0.caption.text') ||
-          pick(m, 'graphql.shortcode_media.edge_media_to_caption.edges.0.node.text') ||
-          ''
-        ),
+        u: ['||instagr.am/', '||instagram.com/'],
+        r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
+        s: m => `https://www.instagram.com/${m[1]}/`,
+        g: Instagram.gallery,
       },
       {
         u: [

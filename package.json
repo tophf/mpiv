@@ -1,6 +1,9 @@
 {
   "name": "mpiv",
   "main": "script.user.js",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs"
+  },
   "dependencies": {
     "globals": "^17.11.0",
     "@violentmonkey/types": "^0.3.4"

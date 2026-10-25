@@ -36,6 +36,10 @@ Action | Trigger
 
 ### Technical notes
 
+* Instagram: hover photos, profile/grid thumbnails, and loaded post or Reel media to preview the largest source provided by the page. Transparent hover overlays are supported. Videos need a direct MP4/WebM source; streaming-only videos fall back to their poster when available. Loaded carousel slides can be previewed individually. Links to posts, Reels, and legacy TV posts use embedded post data (including carousel galleries) or Open Graph metadata when Instagram supplies it. Login-required or unavailable posts may not expose this metadata; the script does not bypass Instagram's access restrictions.
+
+* Run the Instagram regression checks with `npm test` (or `node --test tests/*.test.cjs`).
+
 * Ancient browsers aren't supported anymore because the code is using the modern JS syntax.
 
 * Most rules were updated/enhanced, some added, some dead hostings removed.
