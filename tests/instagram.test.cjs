@@ -96,7 +96,7 @@ test('currentSrc fallback and placeholder rejection', () => {
   assert.equal(Instagram.source(element('img', {src: 'data:image/gif;base64,AA'})), undefined);
 });
 
-test('direct videos and source children work; MediaSource falls back to the poster', () => {
+test('direct videos and source children work; MediaSource does not masquerade as a photo', () => {
   const {Instagram} = setup();
   assert.equal(Instagram.source(element('video', {src: 'https://cdn.example/reel.mp4'})),
     'https://cdn.example/reel.mp4');
@@ -105,7 +105,7 @@ test('direct videos and source children work; MediaSource falls back to the post
   ])), 'https://cdn.example/reel.webm');
   assert.equal(Instagram.source(element('video', {
     currentSrc: 'blob:https://www.instagram.com/stream', poster: 'https://cdn.example/poster.jpg',
-  })), 'https://cdn.example/poster.jpg');
+  })), undefined);
 });
 
 test('overlay resolves its sibling image but a caption below it does not', () => {
@@ -121,14 +121,20 @@ test('overlay resolves its sibling image but a caption below it does not', () =>
   assert.equal(rule._img, undefined);
 });
 
-test('local Reel thumbnails avoid a remote request; empty links follow the post rule', () => {
+test('Reel covers resolve the playable embed, and rule state resets on the next photo', () => {
   const {Instagram} = setup();
   const rule = {};
   const link = element('a', {href: 'https://www.instagram.com/reel/ABC/'}, [
     element('img', {src: 'https://cdn.example/reel.jpg'}),
   ]);
-  assert.equal(Instagram.preview(null, link, rule), 'https://cdn.example/reel.jpg');
+  assert.equal(Instagram.preview(null, link, rule), 'https://www.instagram.com/p/ABC/embed/captioned/');
   assert.equal(rule.follow, false);
+  assert.equal(rule.q, Instagram.embedSource);
+  const photo = element('img', {src: 'https://cdn.example/photo.jpg'});
+  assert.equal(Instagram.preview(null, photo, rule), photo.src);
+  assert.equal(rule.q, null);
+  assert.equal(rule._postUrl, null);
+  link.href = 'https://www.instagram.com/p/ABC/';
   link.children = [];
   assert.equal(Instagram.preview(null, link, rule), link.href);
   assert.equal(rule.follow, true);
@@ -140,7 +146,7 @@ test('post/TV/Reel URLs normalize without a trailing slash, including username p
     const url = 'https://www.instagram.com/' + path;
     const info = RuleMatcher.adaptiveFind(element('a', {href: url}));
     assert.ok(info.gallery, path);
-    assert.equal(info.url, 'https://www.instagram.com/' + path.match(/(p|tv|reels?)\/ABC/)[0] + '/');
+    assert.equal(info.url, 'https://www.instagram.com/p/ABC/embed/captioned/');
   }
   assert.ok(RuleMatcher.adaptiveFind(element('a', {href: 'https://instagr.am/p/ABC'})).gallery);
   assert.equal(RuleMatcher.adaptiveFind(element('a', {href: 'https://evilinstagram.com/p/ABC'})), undefined);
@@ -240,6 +246,70 @@ test('embed extraction selects the full-size post, not the profile picture', () 
   ]);
   assert.equal(Instagram.embedSource('', doc), 'https://cdn.example/full.jpg?sig=abc');
   assert.equal(Instagram.embedSource('', element('html')), undefined);
+});
+
+function videoEmbed(data) {
+  const context = {context: {type: 'GraphVideo', shortcode: 'Deo2oFMIa9j'},
+    gql_data: {shortcode_media: {shortcode: 'Deo2oFMIa9j', is_video: true,
+      display_url: 'https://cdn.example/poster.jpg', ...data}}};
+  return '<script>requireLazy([], function() { bootstrap(' + JSON.stringify({require: [
+    ['PolarisEmbedSimple', 'init', [], [{contextJSON: JSON.stringify(context)}]],
+  ]}) + '); });</script>';
+}
+
+test('video embed JSON supplies the movie even when the HTML contains only its first frame', () => {
+  const {Instagram} = setup();
+  const url = 'https://cdn.example/movie.mp4?sig=abc&token=a%2Fb';
+  const html = videoEmbed({video_url: url});
+  const doc = element('html', {}, [
+    element('img', {className: 'EmbeddedMediaImage', src: 'https://cdn.example/poster.jpg'}),
+  ]);
+  const frame = element('iframe', {
+    src: 'https://s9e.github.io/iframe/2/instagram.min.html#Deo2oFMIa9j',
+  });
+  assert.equal(Instagram.embedSource(html, doc, frame), url);
+  assert.equal(Instagram.gallery(html, doc, '', ['', '', 'Deo2oFMIa9j'])[0].url, url);
+  assert.equal(Instagram.mediaData(html, doc, 'ANOTHER'), undefined);
+});
+
+test('video variants use the largest playable source and preserve signed URLs', () => {
+  const {Instagram} = setup();
+  const html = videoEmbed({video_versions: [
+    {url: 'https://cdn.example/small.mp4', width: 360, height: 640},
+    {url: 'https://cdn.example/full.mp4?sig=x%2By', width: 1080, height: 1920},
+  ]});
+  assert.equal(Instagram.embedSource(html, element('html'), {
+    src: 'https://www.instagram.com/p/Deo2oFMIa9j/embed/captioned/',
+  }), 'https://cdn.example/full.mp4?sig=x%2By');
+});
+
+test('a video without a playable URL reports an error instead of showing its poster', () => {
+  const {Instagram} = setup();
+  const html = videoEmbed({});
+  const doc = element('html', {}, [
+    element('img', {className: 'EmbeddedMediaImage', src: 'https://cdn.example/poster.jpg'}),
+  ]);
+  assert.throws(() => Instagram.embedSource(html, doc, {
+    src: 'https://www.instagram.com/p/Deo2oFMIa9j/embed/captioned/',
+  }), /did not provide a playable video/);
+  assert.throws(() => Instagram.gallery(html, doc, '', ['', '', 'Deo2oFMIa9j']),
+    /did not provide a playable video/);
+});
+
+test('a MediaSource player in the feed requests video from its own post embed', () => {
+  const {Instagram} = setup();
+  const player = element('video', {
+    currentSrc: 'blob:https://www.instagram.com/stream', poster: 'https://cdn.example/poster.jpg',
+  });
+  element('article', {}, [
+    player, element('a', {href: 'https://www.instagram.com/p/Deo2oFMIa9j/'}),
+  ]);
+  const rule = {};
+  assert.equal(Instagram.preview(null, player, rule),
+    'https://www.instagram.com/p/Deo2oFMIa9j/embed/captioned/');
+  assert.equal(rule.q, Instagram.embedSource);
+  assert.equal(rule.q(videoEmbed({video_url: 'https://cdn.example/movie.mp4'}),
+    element('html'), player, rule), 'https://cdn.example/movie.mp4');
 });
 
 function message(source, action = 'mouseover', origin = 'https://s9e.github.io') {
