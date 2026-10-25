@@ -293,6 +293,7 @@ const App = {
 
   /** @param {MessageEvent} e */
   onMessage(e) {
+    if (Instagram.onEmbedMessage(e)) return;
     if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
       e.stopImmediatePropagation();
       for (const el of doc.getElementsByTagName('iframe')) {
@@ -847,6 +848,7 @@ const Events = {
   ignoreKeyHeld: false,
 
   onMouseOver(e) {
+    if (Instagram.relayEmbedEvent(e)) return;
     let node = e.target;
     Events.ignoreKeyHeld = e.shiftKey;
     if (!App.isEnabled ||
@@ -1493,6 +1495,90 @@ const PopupVideo = {
 const Instagram = {
   links: 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]',
 
+  embedUrl(src) {
+    let url, code;
+    try { url = new URL(src); } catch (e) { return ''; }
+    if (!/^https?:$/.test(url.protocol)) return '';
+    if (url.hostname === 's9e.github.io' &&
+        /^\/iframe\/(?:\d+\/)?instagram(?:\.min)?\.html$/.test(url.pathname)) {
+      code = url.hash.slice(1).split('#')[0];
+    } else if (/(^|\.)instagram\.com$/.test(url.hostname)) {
+      code = (url.pathname.match(/^\/(?:p|tv|reels?)\/([\w-]+)\/embed(?:\/|$)/) || [])[1];
+    }
+    return code && /^[\w-]+$/.test(code)
+      ? `https://www.instagram.com/p/${code}/embed/captioned/` : '';
+  },
+
+  initEmbed() {
+    if (window === top || !Instagram.embedUrl(location.href)) return;
+    if (hostname === 's9e.github.io') return; // Only relay messages from its Instagram child.
+    Instagram.inEmbed = true;
+    for (const type of ['mousemove', 'mouseout', 'mousedown'])
+      addEventListener(type, Instagram.relayEmbedEvent, {capture: true, passive: true});
+  },
+
+  relayEmbedEvent(e) {
+    if (!Instagram.inEmbed) return false;
+    const media = e.target.closest && e.target.closest('.EmbeddedMedia, .EmbedFrame');
+    if (e.type === 'mouseout' && media && media.contains(e.relatedTarget)) return true;
+    const hovered = !!media && e.type !== 'mouseout';
+    if (hovered || Instagram.embedHovered) {
+      parent.postMessage({
+        type: `${PREFIX}instagram-embed`,
+        action: hovered ? e.type : 'mouseout',
+        clientX: e.clientX, clientY: e.clientY,
+        width: innerWidth, height: innerHeight,
+        shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, button: e.button,
+      }, '*');
+    }
+    Instagram.embedHovered = hovered;
+    return true; // The forum displays the popup outside the nested iframe.
+  },
+
+  onEmbedMessage(e) {
+    const data = e.data;
+    if (!data || data.type !== `${PREFIX}instagram-embed`) return false;
+    if (!e.source || !['mouseover', 'mousemove', 'mouseout', 'mousedown'].includes(data.action) ||
+        ![data.clientX, data.clientY, data.width, data.height].every(Number.isFinite) ||
+        data.width <= 0 || data.height <= 0) return true;
+    // Trust only an actual, supported child frame; never take a media URL from a message.
+    const frame = arrayFrom($$('iframe')).find(el => el.contentWindow === e.source);
+    if (!frame || !Instagram.embedUrl(frame.src) || new URL(frame.src).origin !== e.origin)
+      return true;
+    const r = frame.getBoundingClientRect();
+    const clientX = r.left + clamp(data.clientX / data.width, 0, 1) * r.width;
+    const clientY = r.top + clamp(data.clientY / data.height, 0, 1) * r.height;
+    if (window !== top && hostname === 's9e.github.io' &&
+        Instagram.embedUrl(location.href) === Instagram.embedUrl(frame.src)) {
+      parent.postMessage(Object.assign({}, data, {
+        clientX, clientY, width: innerWidth, height: innerHeight,
+      }), '*');
+      return true;
+    }
+    const event = {
+      target: frame, clientX, clientY, button: data.button,
+      shiftKey: !!data.shiftKey, ctrlKey: !!data.ctrlKey,
+    };
+    if (data.action === 'mouseover') {
+      Events.ctrl = event.ctrlKey;
+      Events.onMouseOver(event);
+    } else if (data.action === 'mousemove') {
+      if (ai.node === frame) Events.onMouseMove(event);
+    } else {
+      if (Events.hoverData && Events.hoverData.node === frame)
+        Events.onMouseOutThrottled.call(frame);
+      if (ai.node === frame && !event.shiftKey &&
+          (data.action === 'mousedown' || !ai.zoomed && App.canClose()))
+        App.deactivate();
+    }
+    return true;
+  },
+
+  embedSource(text, doc) {
+    const media = $many(['.EmbeddedMedia video', '.EmbeddedMediaImage'], doc);
+    return media && Instagram.source(media);
+  },
+
   preview(m, node, rule) {
     rule.follow = false;
     rule._img = null;
@@ -1806,6 +1892,12 @@ const Ruler = {
     }
 
     rules.push(
+      {
+        e: 'iframe',
+        s: (m, node) => Instagram.embedUrl(node.src) || false,
+        q: Instagram.embedSource,
+        c: (text, doc) => $prop('.EmbeddedMediaImage', 'alt', doc),
+      },
       {
         r: /[/?=](https?%3A%2F%2F[^&]+)/i,
         s: '$1',
@@ -4298,6 +4390,7 @@ const $dataset = ({dataset: d}, key, val) =>
     App.isEnabled = cfg.imgtab || !App.isImageTab;
   }
   if (Menu) Menu.register();
+  Instagram.initEmbed();
   addEventListener('mouseover', Events.onMouseOver, true);
   addEventListener('contextmenu', Events.onContext, true);
   addEventListener('keydown', Events.onKeyDown, true);

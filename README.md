@@ -38,6 +38,8 @@ Action | Trigger
 
 * Instagram: hover photos, profile/grid thumbnails, and loaded post or Reel media to preview the largest source provided by the page. Transparent hover overlays are supported. Videos need a direct MP4/WebM source; streaming-only videos fall back to their poster when available. Loaded carousel slides can be previewed individually. Links to posts, Reels, and legacy TV posts use embedded post data (including carousel galleries) or Open Graph metadata when Instagram supplies it. Login-required or unavailable posts may not expose this metadata; the script does not bypass Instagram's access restrictions.
 
+* Instagram embeds: direct Instagram iframes and s9e embeds (such as those used by phpBB forums) relay media hover events to the containing page, so the preview can extend beyond the iframe. The preview uses the largest image or direct video exposed by the embed. Keep the userscript enabled in all frames, including `s9e.github.io` and `instagram.com`, and reload the forum after updating it.
+
 * Run the Instagram regression checks with `npm test` (or `node --test tests/*.test.cjs`).
 
 * Ancient browsers aren't supported anymore because the code is using the modern JS syntax.

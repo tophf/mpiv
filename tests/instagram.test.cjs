@@ -17,6 +17,11 @@ function element(tag, props = {}, children = []) {
     matches(selector) {
       return selector.split(',').some(part => {
         part = part.trim();
+        if (part.startsWith('.') && part.includes(' ')) {
+          const [parent, tag] = part.split(' ');
+          return this.matches(tag) && !!this.parentElement?.closest(parent);
+        }
+        if (part.startsWith('.')) return (this.className || '').split(' ').includes(part.slice(1));
         if (/^[a-z]+$/i.test(part)) return this.tagName === part.toUpperCase();
         if (part.startsWith('a[href*='))
           return this.tagName === 'A' && this.href.includes(part.match(/"([^"]+)"/)[1]);
@@ -30,6 +35,9 @@ function element(tag, props = {}, children = []) {
     closest(selector) {
       return this.matches(selector) ? this : this.parentElement?.closest(selector) || null;
     },
+    contains(node) {
+      return node === this || this.children.some(child => child.contains(node));
+    },
     querySelectorAll(selector) {
       return this.children.flatMap(child => [
         ...(child.matches(selector) ? [child] : []), ...child.querySelectorAll(selector),
@@ -41,12 +49,14 @@ function element(tag, props = {}, children = []) {
   return el;
 }
 
-function setup(hostname = 'www.instagram.com') {
+function setup(hostname = 'www.instagram.com', path = '/', globals = {}) {
+  const pageWindow = {};
   const context = vm.createContext({
     console, URL, URLSearchParams, performance,
+    window: pageWindow, top: pageWindow, PREFIX: 'mpiv-',
     doc: element('html'), cfg: {hosts: [], xhr: true}, ai: {rule: {}}, nonce: '',
     hostname, dotDomain: '.' + hostname,
-    location: new URL('https://' + hostname + '/'), isSecureContext: true,
+    location: new URL('https://' + hostname + path), isSecureContext: true,
     arrayFrom: Array.from, isArray: Array.isArray, SYM_U: Symbol('u'),
     RX_MEDIA_URL: /\.(?:jpg|png|mp4|webm)(?:[?#]|$)/i,
     Util: {
@@ -55,6 +65,7 @@ function setup(hostname = 'www.instagram.com') {
       rel2abs: url => new URL(url, 'https://' + hostname + '/').href,
     },
     Gallery: {makeParser: fn => fn},
+    ...globals,
   });
   vm.runInContext([
     section('const Instagram = {', 'const Req = {'),
@@ -199,4 +210,117 @@ test('login pages and malformed/empty responses yield an empty gallery without t
     const items = Instagram.gallery(text, element('html'), '', ['', '', 'ABC']);
     assert.equal(items.length, 0);
   }
+});
+
+const s9eSrc = 'https://s9e.github.io/iframe/2/instagram.min.html#DeehMyFiD_7';
+const embedSrc = 'https://www.instagram.com/p/DeehMyFiD_7/embed/captioned/';
+
+test('forum iframe resolves the supplied s9e URL to Instagram embed media', () => {
+  const {Instagram, RuleMatcher} = setup('forum.example');
+  for (const src of [s9eSrc, embedSrc + '?cr=1&wp=540']) {
+    const info = RuleMatcher.adaptiveFind(element('iframe', {src}));
+    assert.equal(info.url, embedSrc);
+    assert.equal(info.rule.q, Instagram.embedSource);
+  }
+  assert.equal(RuleMatcher.adaptiveFind(element('iframe', {src: 'https://example.org/other'})), undefined);
+  assert.equal(Instagram.embedUrl('https://s9e.github.io/iframe/2/instagram.min.html#bad/code'), '');
+  assert.equal(Instagram.embedUrl('https://evilinstagram.com/p/ABC/embed/'), '');
+  assert.equal(Instagram.embedUrl('https://s9e.github.io/iframe/2/youtube.min.html#ABC'), '');
+});
+
+test('embed extraction selects the full-size post, not the profile picture', () => {
+  const {Instagram} = setup();
+  const doc = element('html', {}, [
+    element('img', {src: 'https://cdn.example/avatar.jpg'}),
+    element('a', {className: 'EmbeddedMedia'}, [element('img', {
+      className: 'EmbeddedMediaImage', alt: 'Instagram post',
+      src: 'https://cdn.example/post.jpg',
+      srcset: 'https://cdn.example/full.jpg?sig=abc 3072w,https://cdn.example/small.jpg 640w',
+    })]),
+  ]);
+  assert.equal(Instagram.embedSource('', doc), 'https://cdn.example/full.jpg?sig=abc');
+  assert.equal(Instagram.embedSource('', element('html')), undefined);
+});
+
+function message(source, action = 'mouseover', origin = 'https://s9e.github.io') {
+  return {source, origin, data: {
+    type: 'mpiv-instagram-embed', action, clientX: 20, clientY: 30,
+    width: 540, height: 725, shiftKey: false, ctrlKey: false,
+  }};
+}
+
+test('forum receives hover only from its real embed and translates coordinates', () => {
+  const child = {};
+  const frame = element('iframe', {src: s9eSrc, contentWindow: child,
+    rect: {...rect, left: 100, top: 200, width: 540, height: 725}});
+  const hovers = [];
+  const {Instagram} = setup('forum.example', '/', {
+    doc: element('html', {}, [frame]), Events: {onMouseOver: e => hovers.push(e)},
+  });
+  Instagram.onEmbedMessage(message(child));
+  assert.equal(hovers.length, 1);
+  assert.equal(hovers[0].target, frame);
+  assert.equal(hovers[0].clientX, 120);
+  assert.equal(hovers[0].clientY, 230);
+  Instagram.onEmbedMessage(message({}));
+  Instagram.onEmbedMessage(message(child, 'mouseover', 'https://evil.example'));
+  const bad = message(child);
+  bad.data.width = 0;
+  Instagram.onEmbedMessage(bad);
+  assert.equal(hovers.length, 1);
+});
+
+test('s9e relays the nested Instagram hover to the forum', () => {
+  const child = {};
+  const frame = element('iframe', {src: embedSrc, contentWindow: child,
+    rect: {...rect, width: 540, height: 725}});
+  const messages = [];
+  const {Instagram} = setup('s9e.github.io', '/iframe/2/instagram.min.html#DeehMyFiD_7', {
+    window: {}, top: {}, innerWidth: 540, innerHeight: 725,
+    doc: element('html', {}, [frame]),
+    parent: {postMessage: data => messages.push(data)},
+  });
+  Instagram.onEmbedMessage(message(child, 'mouseover', 'https://www.instagram.com'));
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].clientX, 20);
+  assert.equal(messages[0].clientY, 30);
+  assert.equal(messages[0].action, 'mouseover');
+});
+
+test('embed sends media hover/leave while ignoring profile and caption areas', () => {
+  const messages = [];
+  const {Instagram} = setup('www.instagram.com', '/p/DeehMyFiD_7/embed/captioned/', {
+    window: {}, top: {}, innerWidth: 540, innerHeight: 725,
+    addEventListener() {}, parent: {postMessage: data => messages.push(data)},
+  });
+  Instagram.initEmbed();
+  const img = element('img');
+  const media = element('a', {className: 'EmbeddedMedia'}, [img]);
+  const caption = element('div');
+  const hover = target => ({type: 'mouseover', target, clientX: 10, clientY: 20});
+  Instagram.relayEmbedEvent(hover(caption));
+  assert.equal(messages.length, 0);
+  Instagram.relayEmbedEvent(hover(img));
+  Instagram.relayEmbedEvent({type: 'mouseout', target: img, relatedTarget: media});
+  assert.equal(messages.length, 1);
+  Instagram.relayEmbedEvent({type: 'mouseout', target: media, relatedTarget: caption});
+  assert.equal(messages[1].action, 'mouseout');
+});
+
+test('embed exit cancels pending hover and active preview; Shift preserves it', () => {
+  const child = {};
+  const frame = element('iframe', {src: s9eSrc, contentWindow: child});
+  let cancelled = 0, closed = 0;
+  const {Instagram} = setup('forum.example', '/', {
+    doc: element('html', {}, [frame]), ai: {node: frame},
+    Events: {hoverData: {node: frame}, onMouseOutThrottled() { cancelled++; }},
+    App: {canClose: () => true, deactivate() { closed++; }},
+  });
+  Instagram.onEmbedMessage(message(child, 'mouseout'));
+  assert.equal(cancelled, 1);
+  assert.equal(closed, 1);
+  const shift = message(child, 'mouseout');
+  shift.data.shiftKey = true;
+  Instagram.onEmbedMessage(shift);
+  assert.equal(closed, 1);
 });
