@@ -4,11 +4,8 @@ import * as Util from './util.js';
 import * as App from './app.js';
 
 export let busy;
-
 /** @type {?Object<string,string[]>} */
 export let csp = null;
-
-export const selfUrl = location.origin + '/';
 
 // will be null when done
 export let init = function () {
@@ -75,5 +72,5 @@ export function _srcMatches(src) {
   return src instanceof RegExp ? src.test(this) :
     src === '*' ||
     src && this.startsWith(src) && (src.endsWith('/') || this[src.length] === '/') ||
-    src === "'self'" && this.startsWith(selfUrl);
+    src === "'self'" && this.startsWith(location.origin + '/');
 }

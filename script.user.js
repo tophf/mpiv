@@ -1996,7 +1996,6 @@ function toggle(rule, prop, condition) {
 // src/csp.js
 var busy;
 var csp = null;
-var selfUrl = location.origin + "/";
 var init2 = function() {
   busy = new Promise((resolve) => {
     const xhr = new XMLHttpRequest();
@@ -2051,7 +2050,7 @@ function _parse(cspValue) {
   return src;
 }
 function _srcMatches(src) {
-  return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(selfUrl);
+  return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(location.origin + "/");
 }
 
 // src/popup-video.js
@@ -2244,6 +2243,7 @@ var ctrl = false;
 var hoverData = null;
 var hoverTimer = 0;
 var ignoreKeyHeld = false;
+var setCtrl = (val) => ctrl = val;
 function onMouseOver(e) {
   if (relayEmbedEvent(e)) return;
   let node = e.target;
@@ -2538,7 +2538,6 @@ function zoomInOut(dir) {
   move();
   updateDetails();
 }
-var setCtrl = (val) => ctrl = val;
 
 // src/styles.js
 function createGlobalStyle() {
@@ -2683,9 +2682,14 @@ var isEnabled = true;
 var isImageTab = false;
 var globalStyle = "";
 var popupStyleBase = "";
-var tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
 var NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {
 });
+var setGlobalStyle = (val) => globalStyle = val;
+var setNOP = (val) => NOP = val;
+var setIsImageTab = (val) => isImageTab = val;
+var setIsEnabled = (val) => isEnabled = val;
+var setPopupStyleBase = (val) => popupStyleBase = val;
+var tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
 function activate(info2, event) {
   const { match, node, rule, url } = info2;
   const auto = cfg.start === "auto";
@@ -2942,11 +2946,6 @@ function updateStyles() {
   addStyle("global", (globalStyle || createGlobalStyle()) + getCss(cfg));
   addStyle("rule", ai.rule.css || "");
 }
-var setGlobalStyle = (val) => globalStyle = val;
-var setNOP = (val) => NOP = val;
-var setIsImageTab = (val) => isImageTab = val;
-var setIsEnabled = (val) => isEnabled = val;
-var setPopupStyleBase = (val) => popupStyleBase = val;
 
 // src/config.js
 function create3({ data: c, save }) {
@@ -4035,8 +4034,8 @@ async function setupRuleInstaller(e) {
 }
 
 // src/menu.js
-var enabled = window === top && !!registerMenuCommand;
 var curAltName = "";
+var enabled = window === top && !!registerMenuCommand;
 var unreg = unregisterMenuCommand;
 var makeAltName = () => unreg ? `MPIV: auto-start is ${cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start";
 function register() {

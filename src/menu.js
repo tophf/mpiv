@@ -2,9 +2,9 @@ import {cfg} from './state.js';
 import * as GM from './gm.js';
 import {setup} from './setup.js';
 
-export const enabled = window === top && !!GM.registerMenuCommand;
-
 export let curAltName = '';
+
+export const enabled = window === top && !!GM.registerMenuCommand;
 
 export const unreg = GM.unregisterMenuCommand;
 

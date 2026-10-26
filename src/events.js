@@ -15,12 +15,11 @@ import * as Util from './util.js';
 import * as Calc from './calc.js';
 
 export let ctrl = false;
-
 export let hoverData = null;
-
 export let hoverTimer = 0;
-
 export let ignoreKeyHeld = false;
+
+export const setCtrl = val => (ctrl = val);
 
 export function onMouseOver(e) {
   if (Instagram.relayEmbedEvent(e)) return;
@@ -354,5 +353,3 @@ export function zoomInOut(dir) {
   Popup.move();
   Bar.updateDetails();
 }
-
-export const setCtrl = val => (ctrl = val);

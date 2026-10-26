@@ -17,17 +17,17 @@ import * as Gallery from './gallery.js';
 import {createGlobalStyle} from './styles.js';
 
 export let isEnabled = true;
-
 export let isImageTab = false;
-
 export let globalStyle = '';
-
 export let popupStyleBase = '';
-
-export const tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
-
 export let NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) &&
   (() => {});
+export const setGlobalStyle = val => (globalStyle = val);
+export const setNOP = val => (NOP = val);
+export const setIsImageTab = val => (isImageTab = val);
+export const setIsEnabled = val => (isEnabled = val);
+export const setPopupStyleBase = val => (popupStyleBase = val);
+export const tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
 
 export function activate(info, event) {
   const {match, node, rule, url} = info;
@@ -313,13 +313,3 @@ export function updateStyles() {
   Util.addStyle('global', (globalStyle || createGlobalStyle()) + Config.getCss(cfg));
   Util.addStyle('rule', ai.rule.css || '');
 }
-
-export const setGlobalStyle = val => (globalStyle = val);
-
-export const setNOP = val => (NOP = val);
-
-export const setIsImageTab = val => (isImageTab = val);
-
-export const setIsEnabled = val => (isEnabled = val);
-
-export const setPopupStyleBase = val => (popupStyleBase = val);
