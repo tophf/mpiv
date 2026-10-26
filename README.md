@@ -39,12 +39,12 @@ Action | Trigger
 Install Node.js 22 or newer, then run:
 
 ```sh
-npm ci
-npm run hooks:install
+pnpm ci
+pnpm run hooks:install
 ```
 
 Edit the ES modules in `src/`. `src/index.js` starts the application, and
-`src/metadata.js` contains the userscript header and version. Run `npm run build`
+`src/metadata.js` contains the userscript header and version. Run `pnpm run build`
 to bundle them with esbuild into `script.user.js`. Commit that generated file so
 the existing installation links keep working. It is a standalone userscript;
 users do not need Node.js or a module loader.
@@ -70,7 +70,7 @@ loaded with `Config.load()`; `Config.getCss(config)` formats their CSS.
 Some application modules depend on one another; access those imports inside
 functions and keep application startup in `index.js`.
 
-Run `npm run dev` (or `npm run watch`) while editing to rebuild automatically when
+Run `pnpm run dev` (or `pnpm run watch`) while editing to rebuild automatically when
 source modules or userscript metadata change. Build errors leave the previous
 successful bundle intact; saving a fix resumes rebuilding. Stop watching with
 Ctrl+C. Reload your userscript manager's local development copy to try the result.
@@ -83,11 +83,11 @@ The installer preserves existing hooks: if one is already configured, add
 `node scripts/pre-commit.mjs` to it. Hook installation is local to each clone.
 
 ```sh
-npm run build        # regenerate the installable userscript
-npm run dev          # rebuild on source and metadata changes
-npm run lint         # lint the source modules
-npm test             # regression, startup, and hook checks
-npm run build:check  # verify the committed bundle matches the source
+pnpm run build        # regenerate the installable userscript
+pnpm run dev          # rebuild on source and metadata changes
+pnpm run lint         # lint the source modules
+pnpm test             # regression, startup, and hook checks
+pnpm run build:check  # verify the committed bundle matches the source
 ```
 
 CI runs lint, tests, and the bundle freshness check. Tests exercise the source
@@ -99,7 +99,7 @@ modules and the generated userscript, including modern and legacy userscript API
 
 * Instagram embeds: direct Instagram iframes and s9e embeds (such as those used by phpBB forums) relay media hover events to the containing page, so the preview can extend beyond the iframe. Video URLs are extracted from Instagram's embedded JSON even when the HTML shows only a thumbnail; photos use the largest available image. Keep the userscript enabled in all frames, including `s9e.github.io` and `instagram.com`, and reload the forum after updating it.
 
-* After installing development dependencies, run the regression checks with `npm test`.
+* After installing development dependencies, run the regression checks with `pnpm test`.
 
 * Ancient browsers aren't supported anymore because the code is using the modern JS syntax.
 

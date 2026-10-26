@@ -4,23 +4,23 @@
   "type": "module",
   "private": true,
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:check": "node scripts/build.mjs --check",
     "dev": "node scripts/build.mjs --watch",
-    "watch": "npm run dev",
+    "watch": "pnpm run dev",
     "prepare": "node scripts/install-hooks.mjs",
-    "lint": "eslint src",
+    "lint": "eslint --cache src",
     "test": "node --test tests/*.test.cjs"
   },
-  "dependencies": {
-    "@violentmonkey/types": "^0.3.4",
-    "globals": "^17.11.0"
-  },
   "devDependencies": {
-    "esbuild": "0.28.2",
-    "eslint": "9.39.5"
-  }
+    "@violentmonkey/types": "^0.3.4",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.11.0",
+    "npm-run-all2": "^9.0.3"
+  },
+  "packageManager": "pnpm@12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61"
 }

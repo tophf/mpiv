@@ -56,7 +56,7 @@
 // @icon        https://raw.githubusercontent.com/tophf/mpiv/master/icon.png
 // ==/UserScript==
 
-// Generated from src/ by npm run build. Do not edit directly.
+// Generated from src/ by pnpm run build. Do not edit directly.
 'use strict';
 
 // src/state.js

@@ -17,7 +17,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
     target: 'es2018',
     charset: 'utf8',
     legalComments: 'inline',
-    banner: {js: "// Generated from src/ by npm run build. Do not edit directly.\n'use strict';"},
+    banner: {js: "// Generated from src/ by pnpm run build. Do not edit directly.\n'use strict';"},
     write: false,
     plugins: [{
       name: 'userscript-output',
@@ -35,7 +35,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
           const destination = new URL('../script.user.js', import.meta.url);
           if (check) {
             const current = (await readFile(destination, 'utf8')).replace(/\r\n/g, '\n');
-            if (current !== output) throw new Error('script.user.js is stale. Run npm run build and commit it.');
+            if (current !== output) throw new Error('script.user.js is stale. Run pnpm run build and commit it.');
           } else {
             await writeFile(destination, output);
             if (watch) console.log('Built script.user.js; watching for changes.');

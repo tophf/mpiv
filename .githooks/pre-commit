@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
-npm run build
+pnpm run build
 git add -- script.user.js
