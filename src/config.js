@@ -1,59 +1,54 @@
+import {cfg} from './state.js';
 import {tryJSON} from './helpers.js';
-import {GM} from './gm.js';
-import {state} from './state.js';
-import {App} from './app.js';
+import * as GM from './gm.js';
+import * as App from './app.js';
 import {isArray, PREFIX} from './constants.js';
 
-class Config {
-
-  constructor({data: c, save}) {
-    if (typeof c === 'string')
-      c = tryJSON(c);
-    if (typeof c !== 'object' || !c)
-      c = {};
-    const {DEFAULTS} = Config;
-    c.fit = ['all', 'large', 'no', ''].includes(c.fit) ? c.fit :
-      !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? 'large' :
-        '';
-    if (c.version !== DEFAULTS.version) {
-      if (typeof c.hosts === 'string')
-        c.hosts = c.hosts.split('\n')
-          .map(s => tryJSON(s) || s)
-          .filter(Boolean);
-      if (c.close === true || c.close === false)
-        c.zoomOut = c.close ? 'auto' : 'stay';
-      for (const key in DEFAULTS)
-        if (typeof c[key] !== typeof DEFAULTS[key])
-          c[key] = DEFAULTS[key];
-      if (c.version === 3 && c.scales[0] === 0)
-        c.scales[0] = '0!';
-      for (const key in c)
-        if (!(key in DEFAULTS))
-          delete c[key];
-      c.version = DEFAULTS.version;
-      if (save)
-        GM.setValue('cfg', c);
-    }
-    if (Object.keys(state.cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && state.cfg[k] !== c[k]))
-      App.globalStyle = '';
-    if (!isArray(c.scales))
-      c.scales = [];
-    c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
-    Object.assign(this, DEFAULTS, c);
+export function create({data: c, save}) {
+  if (typeof c === 'string')
+    c = tryJSON(c);
+  if (typeof c !== 'object' || !c)
+    c = {};
+  c.fit = ['all', 'large', 'no', ''].includes(c.fit) ? c.fit :
+    !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? 'large' :
+      '';
+  if (c.version !== DEFAULTS.version) {
+    if (typeof c.hosts === 'string')
+      c.hosts = c.hosts.split('\n')
+        .map(s => tryJSON(s) || s)
+        .filter(Boolean);
+    if (c.close === true || c.close === false)
+      c.zoomOut = c.close ? 'auto' : 'stay';
+    for (const key in DEFAULTS)
+      if (typeof c[key] !== typeof DEFAULTS[key])
+        c[key] = DEFAULTS[key];
+    if (c.version === 3 && c.scales[0] === 0)
+      c.scales[0] = '0!';
+    for (const key in c)
+      if (!(key in DEFAULTS))
+        delete c[key];
+    c.version = DEFAULTS.version;
+    if (save)
+      GM.setValue('cfg', c);
   }
-
-  static async load(opts) {
-    opts.data = await GM.getValue('cfg');
-    return new Config(opts);
-  }
-
-  _getCss() {
-    const {css} = this;
-    return css.includes('{') ? css : `#${PREFIX}-popup {${css}}`;
-  }
+  if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
+    App.setGlobalStyle('');
+  if (!isArray(c.scales))
+    c.scales = [];
+  c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  return Object.assign({}, DEFAULTS, c);
 }
 
-Config.DEFAULTS = /** @type mpiv.Config */ {
+export async function load(opts) {
+  opts.data = await GM.getValue('cfg');
+  return create(opts);
+}
+
+export function getCss({css}) {
+  return css.includes('{') ? css : `#${PREFIX}-popup {${css}}`;
+}
+
+export const DEFAULTS = /** @type mpiv.Config */ {
   __proto__: null,
   center: false,
   css: '',
@@ -109,8 +104,4 @@ Config.DEFAULTS = /** @type mpiv.Config */ {
   zoom: 'context',
   zoomOut: 'auto',
   zoomStep: 133,
-};
-
-export {
-  Config,
 };

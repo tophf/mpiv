@@ -1,16 +1,16 @@
+import {cfg, setElSetup, elSetup, setCfg} from './state.js';
 import {
   isFunction, $new, clamp, eventModifiers, $css, dropEvent, $propUp, $$, $remove,
 } from './helpers.js';
 import {doc, PREFIX, hostname} from './constants.js';
-import {state} from './state.js';
-import {Config} from './config.js';
+import * as Config from './config.js';
 import {createSetupElement, CSS_SETUP_X, CSS_SETUP_MAX_Y} from './setup-view.js';
-import {GM} from './gm.js';
-import {Util} from './util.js';
-import {App} from './app.js';
-import {Ruler} from './rules.js';
-import {Menu} from './menu.js';
-import {Req} from './request.js';
+import * as GM from './gm.js';
+import * as Util from './util.js';
+import * as App from './app.js';
+import * as Ruler from './rules.js';
+import * as Menu from './menu.js';
+import * as Req from './request.js';
 
 async function setup({rule} = {}) {
   if (!isFunction(doc.body.attachShadow)) {
@@ -20,7 +20,7 @@ async function setup({rule} = {}) {
   }
   const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
   let uiCfg;
-  let root = (state.elSetup || 0).shadowRoot;
+  let root = (elSetup || 0).shadowRoot;
   let {blankRuleElement} = setup;
   let mover, moveX = 0, moveY = 0, moveBaseX = 0, moveBaseY = 0;
   /** @type {{[id:string]: HTMLElement}} */
@@ -29,18 +29,18 @@ async function setup({rule} = {}) {
       return root.getElementById(id);
     },
   });
-  if (!state.elSetup)
+  if (!elSetup)
     build();
-  if (state.elSetup.parentElement !== doc.body) {
+  if (elSetup.parentElement !== doc.body) {
     init(await Config.load({save: true}));
-    doc.body.append(state.elSetup);
+    doc.body.append(elSetup);
   }
   if (rule)
     installRule(rule);
 
   function build() {
-    state.elSetup = $new('div', {contentEditable: true});
-    root = state.elSetup.attachShadow({mode: 'open'});
+    setElSetup($new('div', {contentEditable: true}));
+    root = elSetup.attachShadow({mode: 'open'});
     root.append(...createSetupElement());
     initEvents();
   }
@@ -51,7 +51,7 @@ async function setup({rule} = {}) {
     renderVolatiles();
     renderRules();
     requestAnimationFrame(() => {
-      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, state.elSetup.clientHeight / 4) + 'px';
+      UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elSetup.clientHeight / 4) + 'px';
     });
   }
 
@@ -82,7 +82,7 @@ async function setup({rule} = {}) {
       dropEvent(e);
       const s = prompt('Paste settings:');
       if (s)
-        init(new Config({data: s}));
+        init(Config.create({data: s}));
     };
     UI._install.onclick = setupRuleInstaller;
     const /** @type {HTMLTextAreaElement} */ cssApp = UI._cssApp;
@@ -111,7 +111,7 @@ async function setup({rule} = {}) {
     }
     function onMove({x, y}) {
       x = moveBaseX = clamp(x - moveX,
-        -innerWidth + CSS_SETUP_X * 4, state.elSetup.clientWidth - CSS_SETUP_X);
+        -innerWidth + CSS_SETUP_X * 4, elSetup.clientWidth - CSS_SETUP_X);
       y = moveBaseY = clamp(y - moveY, 0, innerHeight - CSS_SETUP_X * 3);
       $css(mover, {transform: `translate(${x}px, ${y}px)`});
       UI._ul.style.maxHeight = `calc(100vh - ${CSS_SETUP_MAX_Y + y - CSS_SETUP_X}px)`;
@@ -181,14 +181,14 @@ async function setup({rule} = {}) {
   function closeSetup(event) {
     const isApply = this.id === '_apply';
     if (event && (this.id === '_ok' || isApply)) {
-      state.cfg = uiCfg = collectConfig({save: true, clone: isApply});
+      setCfg(uiCfg = collectConfig({save: true, clone: isApply}));
       Ruler.init();
       Menu.reRegisterAlt();
       if (isApply)
         return renderVolatiles();
     }
-    $remove(state.elSetup);
-    state.elSetup = null;
+    $remove(elSetup);
+    setElSetup(null);
   }
 
   function collectConfig({save, clone} = {}) {
@@ -210,7 +210,7 @@ async function setup({rule} = {}) {
     });
     if (clone)
       data = JSON.parse(Util.stringify(data));
-    return new Config({data, save});
+    return Config.create({data, save});
   }
 
   function collectRules() {
@@ -312,7 +312,7 @@ async function setup({rule} = {}) {
 
   function renderVolatiles() {
     UI.scales.value = uiCfg.scales.join(' ').trim() || Config.DEFAULTS.scales.join(' ');
-    UI._css.textContent = state.cfg._getCss();
+    UI._css.textContent = Config.getCss(cfg);
   }
 
   function renderAll() {

@@ -1,40 +1,43 @@
-import {GM} from './gm.js';
-import {state} from './state.js';
+import {cfg} from './state.js';
+import * as GM from './gm.js';
 import {setup} from './setup.js';
 
-const Menu = window === top && GM.registerMenuCommand && {
-  curAltName: '',
-  unreg: GM.unregisterMenuCommand,
-  makeAltName: () => Menu.unreg
-    ? `MPIV: auto-start is ${state.cfg.start === 'auto' ? 'ON' : 'OFF'}`
-    : 'MPIV: toggle auto-start',
-  register() {
-    GM.registerMenuCommand('MPIV: configure', setup);
-    Menu.registerAlt();
-  },
-  registerAlt() {
-    if (state.cfg.startAltShown) {
-      Menu.curAltName = Menu.makeAltName();
-      GM.registerMenuCommand(Menu.curAltName, Menu.onAltToggled);
-    }
-  },
-  reRegisterAlt() {
-    const old = Menu.curAltName;
-    if (old && Menu.unreg) Menu.unreg(old);
-    if (!old || Menu.unreg) Menu.registerAlt();
-  },
-  onAltToggled() {
-    const wasAuto = state.cfg.start === 'auto';
-    if (wasAuto) {
-      state.cfg.start = state.cfg.startAlt || (state.cfg.startAlt = 'context');
-    } else {
-      state.cfg.startAlt = state.cfg.start;
-      state.cfg.start = 'auto';
-    }
-    Menu.reRegisterAlt();
-  },
-};
+export const enabled = window === top && !!GM.registerMenuCommand;
 
-export {
-  Menu,
-};
+export let curAltName = '';
+
+export const unreg = GM.unregisterMenuCommand;
+
+export const makeAltName = () => unreg
+  ? `MPIV: auto-start is ${cfg.start === 'auto' ? 'ON' : 'OFF'}`
+  : 'MPIV: toggle auto-start';
+
+export function register() {
+  if (!enabled) return;
+  GM.registerMenuCommand('MPIV: configure', setup);
+  registerAlt();
+}
+
+export function registerAlt() {
+  if (cfg.startAltShown) {
+    curAltName = makeAltName();
+    GM.registerMenuCommand(curAltName, onAltToggled);
+  }
+}
+
+export function reRegisterAlt() {
+  const old = curAltName;
+  if (old && unreg) unreg(old);
+  if (!old || unreg) registerAlt();
+}
+
+export function onAltToggled() {
+  const wasAuto = cfg.start === 'auto';
+  if (wasAuto) {
+    cfg.start = cfg.startAlt || (cfg.startAlt = 'context');
+  } else {
+    cfg.startAlt = cfg.start;
+    cfg.start = 'auto';
+  }
+  reRegisterAlt();
+}

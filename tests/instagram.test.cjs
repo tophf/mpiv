@@ -1,26 +1,50 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const {buildSync} = require('esbuild');
+const {build} = require('esbuild');
 const path = require('node:path');
-const {test} = require('node:test');
+const {before, test} = require('node:test');
 const vm = require('node:vm');
 
-const source = buildSync({
-  absWorkingDir: path.resolve(__dirname, '..'),
-  stdin: {
-    contents: `
-      export * as Instagram from './src/instagram.js';
-      export {Ruler} from './src/rules.js';
-      export {RuleMatcher} from './src/rule-matcher.js';
-      export {state} from './src/state.js';
-      export {App} from './src/app.js';
-      export {Events} from './src/events.js';
-    `,
-    resolveDir: path.resolve(__dirname, '..'),
-  },
-  bundle: true, format: 'iife', globalName: 'api', write: false,
-}).outputFiles[0].text;
+let source;
+before(async () => {
+  source = (await build({
+    absWorkingDir: path.resolve(__dirname, '..'),
+    stdin: {
+      contents: `
+        export * as Instagram from './src/instagram.js';
+        export * as Ruler from './src/rules.js';
+        export * as RuleMatcher from './src/rule-matcher.js';
+        export * as State from './src/state.js';
+      `,
+      resolveDir: path.resolve(__dirname, '..'),
+    },
+    bundle: true, format: 'iife', globalName: 'api', write: false,
+    plugins: [{
+      name: 'embed-event-spies',
+      setup(builder) {
+        builder.onResolve({filter: /^\.\/(app|events)\.js$/}, args => ({
+          path: args.path, namespace: 'test-spies',
+        }));
+        builder.onLoad({filter: /.*/, namespace: 'test-spies'}, args => {
+          const app = args.path === './app.js';
+          const module = path.resolve(__dirname, '../src', args.path).replace(/\\/g, '/');
+          const name = app ? 'App' : 'Events';
+          const functions = app ? ['canClose', 'deactivate'] :
+            ['onMouseOver', 'onMouseMove', 'onMouseOutThrottled'];
+          return {contents: `
+            import * as actual from ${JSON.stringify(module)};
+            export * from ${JSON.stringify(module)};
+            ${app ? '' : 'export const hoverData = globalThis.Events?.hoverData || actual.hoverData;'}
+            ${functions.map(fn => `export function ${fn}(...args) {
+              return (globalThis.${name}?.${fn} || actual.${fn}).apply(this, args);
+            }`).join('\n')}
+          `, resolveDir: path.resolve(__dirname, '..')};
+        });
+      },
+    }],
+  })).outputFiles[0].text;
+});
 const rect = {left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300};
 
 // Small DOM doubles keep the extraction tests runnable without a browser or dependencies.
@@ -75,10 +99,9 @@ function setup(hostname = 'www.instagram.com', path = '/', globals = {}) {
     ...globals,
   });
   vm.runInContext(source, context);
-  Object.assign(context.api.state, {cfg: {hosts: [], xhr: true}, ai: {rule: {}}, nonce: ''});
-  if (globals.ai) context.api.state.ai = globals.ai;
-  if (globals.App) Object.assign(context.api.App, globals.App);
-  if (globals.Events) Object.assign(context.api.Events, globals.Events);
+  context.api.State.setCfg({hosts: [], xhr: true});
+  context.api.State.setAi(globals.ai || {rule: {}});
+  context.api.State.setNonce('');
   context.api.Ruler.init();
   return context.api;
 }

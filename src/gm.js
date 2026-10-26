@@ -15,4 +15,12 @@ if (!api.setClipboard)
 if (!api.xmlHttpRequest)
   api.xmlHttpRequest = GM_xmlhttpRequest;
 
-export {api as GM};
+export const info = api.info;
+export const getValue = api.getValue.bind(api);
+export const setValue = api.setValue.bind(api);
+export const openInTab = api.openInTab.bind(api);
+export const setClipboard = api.setClipboard.bind(api);
+export const xmlHttpRequest = api.xmlHttpRequest.bind(api);
+export const registerMenuCommand = api.registerMenuCommand && api.registerMenuCommand.bind(api);
+export const unregisterMenuCommand =
+  api.unregisterMenuCommand && api.unregisterMenuCommand.bind(api);

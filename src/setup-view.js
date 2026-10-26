@@ -1,4 +1,4 @@
-import {GM} from './gm.js';
+import * as GM from './gm.js';
 import {$new} from './helpers.js';
 import {PREFIX} from './constants.js';
 

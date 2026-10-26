@@ -1,9 +1,9 @@
+import {ai} from './state.js';
 import {hostname, PREFIX, arrayFrom, isArray} from './constants.js';
 import {$$, clamp, $many, $prop, $, isVideo, tryJSON, pick} from './helpers.js';
-import {Events} from './events.js';
-import {state} from './state.js';
-import {App} from './app.js';
-import {Util} from './util.js';
+import * as Events from './events.js';
+import * as App from './app.js';
+import * as Util from './util.js';
 
 let inEmbed = false;
 let embedHovered = false;
@@ -75,15 +75,15 @@ function onEmbedMessage(e) {
     shiftKey: !!data.shiftKey, ctrlKey: !!data.ctrlKey,
   };
   if (data.action === 'mouseover') {
-    Events.ctrl = event.ctrlKey;
+    Events.setCtrl(event.ctrlKey);
     Events.onMouseOver(event);
   } else if (data.action === 'mousemove') {
-    if (state.ai.node === frame) Events.onMouseMove(event);
+    if (ai.node === frame) Events.onMouseMove(event);
   } else {
     if (Events.hoverData && Events.hoverData.node === frame)
       Events.onMouseOutThrottled.call(frame);
-    if (state.ai.node === frame && !event.shiftKey &&
-        (data.action === 'mousedown' || !state.ai.zoomed && App.canClose()))
+    if (ai.node === frame && !event.shiftKey &&
+        (data.action === 'mousedown' || !ai.zoomed && App.canClose()))
       App.deactivate();
   }
   return true;

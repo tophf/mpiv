@@ -61,10 +61,19 @@ The main source boundaries are:
 | `config.js`, `menu.js`, `setup.js`, `setup-view.js`, `styles.js` | Preferences, configuration UI, and styling |
 | `helpers.js`, `util.js` | DOM helpers and application utilities |
 
-Modules import their dependencies explicitly. Shared values such as the active
-preview and configuration stay on `state`, so replacing them is visible to all
-consumers. Some application modules depend on one another; access those imports
-inside functions and keep application startup in `main.js`.
+Modules export individual functions and variables. Shared values such as `ai`
+(the active preview) and `cfg` (configuration) are live `let` exports from
+`state.js`. Read these imports directly and use setters such as `setAi()` and
+`setCfg()` when replacing them. The setters return the assigned value and preserve
+expression behavior. Configuration objects are created with `Config.create()` or
+loaded with `Config.load()`; `Config.getCss(config)` formats their CSS.
+Some application modules depend on one another; access those imports inside
+functions and keep application startup in `main.js`.
+
+Run `npm run dev` (or `npm run watch`) while editing to rebuild automatically when
+source modules or userscript metadata change. Build errors leave the previous
+successful bundle intact; saving a fix resumes rebuilding. Stop watching with
+Ctrl+C. Reload your userscript manager's local development copy to try the result.
 
 The optional local pre-commit hook rebuilds and stages `script.user.js`. Stage all
 build inputs before committing; the hook refuses unstaged or untracked changes
@@ -75,6 +84,7 @@ The installer preserves existing hooks: if one is already configured, add
 
 ```sh
 npm run build        # regenerate the installable userscript
+npm run dev          # rebuild on source and metadata changes
 npm run lint         # lint the source modules
 npm test             # regression, startup, and hook checks
 npm run build:check  # verify the committed bundle matches the source

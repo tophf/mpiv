@@ -1,14 +1,14 @@
-import {state} from './state.js';
-import {Config} from './config.js';
+import {cfg, setCfg, setTrustedScript, trustedScript, setTrustedHTML, trustedHTML} from './state.js';
+import * as Config from './config.js';
 import {doc, hostname} from './constants.js';
-import {App} from './app.js';
-import {Menu} from './menu.js';
+import * as App from './app.js';
+import * as Menu from './menu.js';
 import * as Instagram from './instagram.js';
-import {Events} from './events.js';
+import * as Events from './events.js';
 import {setupClickedRule} from './setup.js';
 
 (async () => {
-  state.cfg = await Config.load({save: true});
+  setCfg(await Config.load({save: true}));
   if (!doc.body) {
     await new Promise(resolve =>
       new MutationObserver((_, mo) => doc.body && (mo.disconnect(), resolve()))
@@ -16,10 +16,10 @@ import {setupClickedRule} from './setup.js';
   }
   const el = doc.body.firstElementChild;
   if (el) {
-    App.isImageTab = el === doc.body.lastElementChild && el.matches('img, video');
-    App.isEnabled = state.cfg.imgtab || !App.isImageTab;
+    App.setIsImageTab(el === doc.body.lastElementChild && el.matches('img, video'));
+    App.setIsEnabled(cfg.imgtab || !App.isImageTab);
   }
-  if (Menu) Menu.register();
+  Menu.register();
   Instagram.initEmbed();
   addEventListener('mouseover', Events.onMouseOver, true);
   addEventListener('contextmenu', Events.onContext, true);
@@ -38,8 +38,8 @@ if (window.trustedTypes) {
   TT[CP] = function ovr(name, opts) {
     let fn;
     const p = createPolicy.call(TT, name, opts);
-    if ((state.trustedHTML || opts[fn = 'createHTML'] && (state.trustedHTML = p[fn].bind(p))) &&
-        (state.trustedScript || opts[fn = 'createScript'] && (state.trustedScript = p[fn].bind(p))) &&
+    if ((trustedHTML || opts[fn = 'createHTML'] && setTrustedHTML(p[fn].bind(p))) &&
+        (trustedScript || opts[fn = 'createScript'] && setTrustedScript(p[fn].bind(p))) &&
         TT[CP] === ovr)
       delete TT[CP];
     return p;

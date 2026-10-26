@@ -60,18 +60,20 @@
 'use strict';
 (() => {
   // src/state.js
-  var state = {
-    /** @type {mpiv.Config} */
-    cfg: void 0,
-    /** @type {mpiv.AppInfo} */
-    ai: { rule: {} },
-    /** @type {Element} */
-    elSetup: void 0,
-    nonce: void 0,
-    timerProgress: void 0,
-    trustedHTML: void 0,
-    trustedScript: void 0
-  };
+  var cfg;
+  var ai = { rule: {} };
+  var elSetup;
+  var nonce;
+  var timerProgress;
+  var trustedHTML;
+  var trustedScript;
+  var setCfg = (val) => cfg = val;
+  var setAi = (val) => ai = val;
+  var setElSetup = (val) => elSetup = val;
+  var setNonce = (val) => nonce = val;
+  var setTimerProgress = (val) => timerProgress = val;
+  var setTrustedHTML = (val) => trustedHTML = val;
+  var setTrustedScript = (val) => trustedScript = val;
 
   // src/constants.js
   var doc = document;
@@ -201,144 +203,149 @@
     api.setClipboard = GM_setClipboard;
   if (!api.xmlHttpRequest)
     api.xmlHttpRequest = GM_xmlhttpRequest;
+  var info = api.info;
+  var getValue = api.getValue.bind(api);
+  var setValue = api.setValue.bind(api);
+  var openInTab = api.openInTab.bind(api);
+  var setClipboard = api.setClipboard.bind(api);
+  var xmlHttpRequest = api.xmlHttpRequest.bind(api);
+  var registerMenuCommand = api.registerMenuCommand && api.registerMenuCommand.bind(api);
+  var unregisterMenuCommand = api.unregisterMenuCommand && api.unregisterMenuCommand.bind(api);
 
   // src/util.js
-  var Util = {
-    styles: { __proto__: null },
-    addStyle(name, css) {
-      const el = Util.styles[name] || css && (Util.styles[name] = typeof GM_addStyle === "function" ? GM_addStyle(css) : doc.head.appendChild($new("style", css)));
-      if (!el) return;
-      if (el.textContent !== css)
-        el.textContent = css;
-      return el;
-    },
-    color(color, opacity = state.cfg[`ui${color}Opacity`]) {
-      return (color.startsWith("#") ? color : state.cfg[`ui${color}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
-    },
-    decodeHtmlEntities(s) {
-      return s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-    },
-    // decode only if the main part of the URL is encoded to preserve the encoded parameters
-    decodeUrl(url) {
-      if (!url || typeof url !== "string") return url;
-      const iPct = url.indexOf("%");
-      const iColon = url.indexOf(":");
-      return iPct >= 0 && (iPct < iColon || iColon < 0) ? decodeURIComponent(url) : url;
-    },
-    deepEqual(a, b) {
-      if (!a || !b || typeof a !== "object" || typeof a !== typeof b)
-        return a === b;
-      if (isArray(a)) {
-        return isArray(b) && a.length === b.length && a.every((v, i) => Util.deepEqual(v, b[i]));
-      }
-      const keys = Object.keys(a);
-      return keys.length === Object.keys(b).length && keys.every((k) => Util.deepEqual(a[k], b[k]));
-    },
-    extractFileExt: (url) => (url = RX_MEDIA_URL.exec(url)) && url[1],
-    forceLayout(node) {
-      node.clientHeight;
-    },
-    formatError(e, rule) {
-      const arr = isArray(e);
-      const msg = arr ? e[0] : e.message;
-      const { url: u, imageUrl: iu } = state.ai;
-      e = msg ? e : e.readyState && "Request failed." || e.type === "error" && `File can't be displayed.${$('div[bgactive*="flashblock"]', doc) ? " Check Flashblock settings." : ""}` || e;
-      let fmt;
-      const res = [
-        fmt = "%c%s%c",
-        "font-weight:bold",
-        arr ? msg : e,
-        "font-weight:normal",
-        (fmt += "\nNode: %o", state.ai.node),
-        (fmt += "\nRule: %o", rule),
-        u && (fmt += "\nURL: %s", u),
-        iu && iu !== u && (fmt += "\nFile: %s", iu),
-        ...arr ? (fmt += e[1], e.slice(2)) : [],
-        e.stack
-      ].filter(Boolean);
-      res[0] = fmt;
-      res.message = msg || e;
-      return res;
-    },
-    getReactChildren(el, path) {
-      if (isFF) el = el.wrappedJSObject || el;
-      for (const k of Object.keys(el))
-        if (typeof k === "string" && k.startsWith("__reactProps"))
-          return (el = el[k].children) && (path ? pick(el, path) : el);
-    },
-    isVideoUrl: (url) => url.startsWith("data:video") || Util.isVideoUrlExt(url),
-    isVideoUrlExt: (url) => (url = Util.extractFileExt(url)) && /^(webm|mp4)$/i.test(url),
-    newFunction(...args) {
-      try {
-        return App.NOP || (state.trustedScript ? window.eval(state.trustedScript(`(function anonymous(${args.slice(0, -1).join(",")}){${args.slice(-1)[0]}})`)) : new Function(...args));
-      } catch (e) {
-        if (!RX_EVAL_BLOCKED.test(e.message))
-          throw e;
-        App.NOP = () => {
-        };
-        return App.NOP;
-      }
-    },
-    rel2abs(rel, abs = location.href) {
-      try {
-        return /^(data:|blob:|[-\w]+:\/\/)/.test(rel) ? rel : new URL(rel, abs).href;
-      } catch (e) {
-        return rel;
-      }
-    },
-    stringify(...args) {
-      const p = Array.prototype;
-      const { toJSON } = p;
-      if (toJSON) p.toJSON = null;
-      const res = JSON.stringify(...args);
-      if (toJSON) p.toJSON = toJSON;
-      return res;
-    },
-    suppressTooltip() {
-      for (const node of [
-        state.ai.node.parentNode,
-        state.ai.node,
-        state.ai.node.firstElementChild
-      ]) {
-        const t = (node || 0).title;
-        if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
-          state.ai.tooltip = { node, text: t };
-          node.title = "";
-          break;
-        }
-      }
-    },
-    tabFixUrl() {
-      const { tabfix = App.tabfix } = state.ai.rule;
-      return tabfix && state.ai.popup.tagName === "IMG" && !state.ai.xhr && flattenHtml(`data:text/html;charset=utf8,
-      <style>
-        body {
-          margin: 0;
-          padding: 0;
-          background: #222;
-        }
-        .fit {
-          overflow: hidden
-        }
-        .fit > img {
-          max-width: 100vw;
-          max-height: 100vh;
-        }
-        body > img {
-          margin: auto;
-          position: absolute;
-          left: 0;
-          right: 0;
-          top: 0;
-          bottom: 0;
-        }
-      </style>
-      <body class=fit>
-        <img onclick="document.body.classList.toggle('fit')" src="${state.ai.popup.src}">
-      </body>
-    `).replace(/\x20?([:>])\x20/g, "$1").replace(/#/g, "%23");
+  var styles = { __proto__: null };
+  function addStyle(name, css) {
+    const el = styles[name] || css && (styles[name] = typeof GM_addStyle === "function" ? GM_addStyle(css) : doc.head.appendChild($new("style", css)));
+    if (!el) return;
+    if (el.textContent !== css)
+      el.textContent = css;
+    return el;
+  }
+  function color(colorValue, opacity = cfg[`ui${colorValue}Opacity`]) {
+    return (colorValue.startsWith("#") ? colorValue : cfg[`ui${colorValue}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
+  }
+  function decodeHtmlEntities(s) {
+    return s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  }
+  function decodeUrl(url) {
+    if (!url || typeof url !== "string") return url;
+    const iPct = url.indexOf("%");
+    const iColon = url.indexOf(":");
+    return iPct >= 0 && (iPct < iColon || iColon < 0) ? decodeURIComponent(url) : url;
+  }
+  function deepEqual(a, b) {
+    if (!a || !b || typeof a !== "object" || typeof a !== typeof b)
+      return a === b;
+    if (isArray(a)) {
+      return isArray(b) && a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
     }
-  };
+    const keys = Object.keys(a);
+    return keys.length === Object.keys(b).length && keys.every((k) => deepEqual(a[k], b[k]));
+  }
+  var extractFileExt = (url) => (url = RX_MEDIA_URL.exec(url)) && url[1];
+  function forceLayout(node) {
+    node.clientHeight;
+  }
+  function formatError(e, rule) {
+    const arr = isArray(e);
+    const msg = arr ? e[0] : e.message;
+    const { url: u, imageUrl: iu } = ai;
+    e = msg ? e : e.readyState && "Request failed." || e.type === "error" && `File can't be displayed.${$('div[bgactive*="flashblock"]', doc) ? " Check Flashblock settings." : ""}` || e;
+    let fmt;
+    const res = [
+      fmt = "%c%s%c",
+      "font-weight:bold",
+      arr ? msg : e,
+      "font-weight:normal",
+      (fmt += "\nNode: %o", ai.node),
+      (fmt += "\nRule: %o", rule),
+      u && (fmt += "\nURL: %s", u),
+      iu && iu !== u && (fmt += "\nFile: %s", iu),
+      ...arr ? (fmt += e[1], e.slice(2)) : [],
+      e.stack
+    ].filter(Boolean);
+    res[0] = fmt;
+    res.message = msg || e;
+    return res;
+  }
+  function getReactChildren(el, path) {
+    if (isFF) el = el.wrappedJSObject || el;
+    for (const k of Object.keys(el))
+      if (typeof k === "string" && k.startsWith("__reactProps"))
+        return (el = el[k].children) && (path ? pick(el, path) : el);
+  }
+  var isVideoUrl = (url) => url.startsWith("data:video") || isVideoUrlExt(url);
+  var isVideoUrlExt = (url) => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
+  function newFunction(...args) {
+    try {
+      return NOP || (trustedScript ? window.eval(trustedScript(`(function anonymous(${args.slice(0, -1).join(",")}){${args.slice(-1)[0]}})`)) : new Function(...args));
+    } catch (e) {
+      if (!RX_EVAL_BLOCKED.test(e.message))
+        throw e;
+      setNOP(() => {
+      });
+      return NOP;
+    }
+  }
+  function rel2abs(rel, abs = location.href) {
+    try {
+      return /^(data:|blob:|[-\w]+:\/\/)/.test(rel) ? rel : new URL(rel, abs).href;
+    } catch (e) {
+      return rel;
+    }
+  }
+  function stringify(...args) {
+    const p = Array.prototype;
+    const { toJSON } = p;
+    if (toJSON) p.toJSON = null;
+    const res = JSON.stringify(...args);
+    if (toJSON) p.toJSON = toJSON;
+    return res;
+  }
+  function suppressTooltip() {
+    for (const node of [
+      ai.node.parentNode,
+      ai.node,
+      ai.node.firstElementChild
+    ]) {
+      const t = (node || 0).title;
+      if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
+        ai.tooltip = { node, text: t };
+        node.title = "";
+        break;
+      }
+    }
+  }
+  function tabFixUrl() {
+    const { tabfix: tabfix2 = tabfix } = ai.rule;
+    return tabfix2 && ai.popup.tagName === "IMG" && !ai.xhr && flattenHtml(`data:text/html;charset=utf8,
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #222;
+      }
+      .fit {
+        overflow: hidden
+      }
+      .fit > img {
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+      body > img {
+        margin: auto;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+      }
+    </style>
+    <body class=fit>
+      <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
+    </body>
+  `).replace(/\x20?([:>])\x20/g, "$1").replace(/#/g, "%23");
+  }
 
   // src/instagram.js
   var inEmbed = false;
@@ -415,15 +422,15 @@
       ctrlKey: !!data.ctrlKey
     };
     if (data.action === "mouseover") {
-      Events.ctrl = event.ctrlKey;
-      Events.onMouseOver(event);
+      setCtrl(event.ctrlKey);
+      onMouseOver(event);
     } else if (data.action === "mousemove") {
-      if (state.ai.node === frame) Events.onMouseMove(event);
+      if (ai.node === frame) onMouseMove(event);
     } else {
-      if (Events.hoverData && Events.hoverData.node === frame)
-        Events.onMouseOutThrottled.call(frame);
-      if (state.ai.node === frame && !event.shiftKey && (data.action === "mousedown" || !state.ai.zoomed && App.canClose()))
-        App.deactivate();
+      if (hoverData && hoverData.node === frame)
+        onMouseOutThrottled.call(frame);
+      if (ai.node === frame && !event.shiftKey && (data.action === "mousedown" || !ai.zoomed && canClose()))
+        deactivate();
     }
     return true;
   }
@@ -451,9 +458,9 @@
     if (!media && link)
       media = $many(["video", "img"], link);
     if (!media && node.tagName === "DIV") {
-      const rect = node.getBoundingClientRect();
-      const x = (rect.left + rect.right) / 2;
-      const y = (rect.top + rect.bottom) / 2;
+      const rect2 = node.getBoundingClientRect();
+      const x = (rect2.left + rect2.right) / 2;
+      const y = (rect2.top + rect2.bottom) / 2;
       for (let parent2 = node, i = 0; parent2 && i < 4; parent2 = parent2.parentElement, i++) {
         media = [...$$("video", parent2), ...$$("img", parent2)].find((el) => {
           const r = el.getBoundingClientRect();
@@ -483,7 +490,7 @@
   function source(media) {
     const valid = (url) => /^https?:\/\//i.test(url || "");
     if (isVideo(media)) {
-      return [media.currentSrc, media.src, ...arrayFrom($$("source", media), (el) => el.src)].find((url) => valid(url) && Util.isVideoUrlExt(url));
+      return [media.currentSrc, media.src, ...arrayFrom($$("source", media), (el) => el.src)].find((url) => valid(url) && isVideoUrlExt(url));
     }
     const sources = (media.srcset || "").split(",").map((candidate) => {
       const [url, size] = candidate.trim().split(/\s+/);
@@ -540,2042 +547,2002 @@
   }
 
   // src/calc.js
-  var Calc = {
-    aspectRatio(w, h) {
-      for (let rat = w / h, a, b = 0; ; ) {
-        b++;
-        a = Math.round(w * b / h);
-        if (a > 10 && b > 10 || a > 100 || b > 100)
-          return rat.toFixed(2);
-        if (Math.abs(a / b - rat) < 0.01)
-          return `${a}:${b}`;
-      }
-    },
-    frameSize(elFrame, wnd) {
-      if (!elFrame) return;
-      const r = elFrame.getBoundingClientRect();
-      const w = Math.min(r.right, wnd.innerWidth) - Math.max(r.left, 0);
-      const h = Math.min(r.bottom, wnd.innerHeight) - Math.max(r.top, 0);
-      const x = r.left < 0 ? -r.left : 0;
-      const y = r.top < 0 ? -r.top : 0;
-      return [w, h, x, y];
-    },
-    generateScales(fit) {
-      let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
-      const zoomStep = state.cfg.zoomStep / 100;
-      const arr = [scale];
-      if (fit !== 1) {
-        const diff = goal / scale;
-        const steps = Math.log(diff) / Math.log(zoomStep) | 0;
-        const step = steps && Math.pow(diff, 1 / steps);
-        for (let i = steps; --i > 0; )
-          arr.push(scale *= step);
-        arr.push(scale = goal);
-      }
-      while ((scale *= zoomStep) <= ZOOM_MAX)
-        arr.push(scale);
-      return arr;
-    },
-    measurePopup() {
-      let { popup: p, nwidth: nw, nheight: nh } = state.ai;
-      p.setAttribute("style", "display:inline !important;" + App.popupStyleBase);
-      if (p.clientWidth > nw) {
-        const w = clamp(p.clientWidth, nw, innerWidth / 2) | 0;
-        nh = state.ai.nheight = w / nw * nh | 0;
-        nw = state.ai.nwidth = w;
-        p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
-      } else
-        p.style.cssText = "";
-      p.classList.add(`${PREFIX}show`);
-      const s = getComputedStyle(p);
-      const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
-      const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
-      const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
-      const outw = o2 + sumProps(s.marginLeft, s.marginRight);
-      const outh = o2 + sumProps(s.marginTop, s.marginBottom);
-      state.ai.extras = {
-        inw,
-        inh,
-        outw,
-        outh,
-        o: o2 / 2,
-        w: inw + outw,
-        h: inh + outh
-      };
-      const fit = Math.min(
-        (state.ai.view.w - state.ai.extras.w) / state.ai.nwidth,
-        (state.ai.view.h - state.ai.extras.h) / state.ai.nheight
-      ) || 1;
-      const isCustom = !state.cfg.fit && state.cfg.scales.length;
-      let cutoff = Math.min(1, fit);
-      let scaleZoom = state.cfg.fit === "all" && fit || state.cfg.fit === "no" && 1 || cutoff;
-      if (isCustom) {
-        const dst = [];
-        for (const scale of state.cfg.scales) {
-          const val = parseFloat(scale) || fit;
-          dst.push(val);
-          if (isCustom && typeof scale === "string") {
-            if (scale.includes("!")) cutoff = val;
-            if (scale.includes("*")) scaleZoom = val;
-          }
-        }
-        state.ai.scales = dst.sort(compareNumbers).filter(Calc.scaleBiggerThan, cutoff);
-      } else {
-        state.ai.scales = Calc.generateScales(fit);
-      }
-      state.ai.scale = state.cfg.zoom === "auto" ? scaleZoom : Math.min(1, fit);
-      state.ai.scaleFit = fit;
-      state.ai.scaleZoom = scaleZoom;
-    },
-    rect() {
-      const { node, rule } = state.ai;
-      let n = rule.rect && node.closest(rule.rect);
-      if (n) return n.getBoundingClientRect();
-      const nested = (n = node).firstElementChild ? document.elementsFromPoint(state.ai.cx, state.ai.cy) : [];
-      let maxArea = 0;
-      let maxBounds;
-      let i = 0;
-      do {
-        const bounds = n.getBoundingClientRect();
-        const area = bounds.width * bounds.height;
-        if (area > maxArea) {
-          maxArea = area;
-          maxBounds = bounds;
-        }
-      } while ((n = nested[i++]) && node.contains(n));
-      return maxBounds;
-    },
-    scaleBiggerThan(scale, i, arr) {
-      return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > 0.01);
-    },
-    scaleIndex(dir) {
-      const i = state.ai.scales.indexOf(state.ai.scale);
-      if (i >= 0) return i + dir;
-      for (let len = state.ai.scales.length, i2 = dir > 0 ? 0 : len - 1; i2 >= 0 && i2 < len; i2 += dir) {
-        if (Math.sign(state.ai.scales[i2] - state.ai.scale) === dir)
-          return i2;
-      }
-      return -1;
-    },
-    scaleForFirstZoom(keepScale) {
-      const z = state.ai.scaleZoom;
-      return keepScale || z !== state.ai.scale ? z : state.ai.scales.find((x) => x > z);
-    },
-    updateViewSize() {
-      const view = doc.compatMode === "BackCompat" ? doc.body : doc.documentElement;
-      state.ai.view = { w: view.clientWidth, h: view.clientHeight, x: 0, y: 0 };
-      if (window === top) return;
-      const [w, h] = Calc.frameSize(frameElement, parent) || [];
-      if (w && h) {
-        state.ai.view = { w, h, x: 0, y: 0 };
-      } else {
-        addEventListener("message", App.onMessageChild, true);
-        parent.postMessage(MSG.getViewSize, "*");
-      }
+  function aspectRatio(w, h) {
+    for (let rat = w / h, a, b = 0; ; ) {
+      b++;
+      a = Math.round(w * b / h);
+      if (a > 10 && b > 10 || a > 100 || b > 100)
+        return rat.toFixed(2);
+      if (Math.abs(a / b - rat) < 0.01)
+        return `${a}:${b}`;
     }
-  };
+  }
+  function frameSize(elFrame, wnd) {
+    if (!elFrame) return;
+    const r = elFrame.getBoundingClientRect();
+    const w = Math.min(r.right, wnd.innerWidth) - Math.max(r.left, 0);
+    const h = Math.min(r.bottom, wnd.innerHeight) - Math.max(r.top, 0);
+    const x = r.left < 0 ? -r.left : 0;
+    const y = r.top < 0 ? -r.top : 0;
+    return [w, h, x, y];
+  }
+  function generateScales(fit) {
+    let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
+    const zoomStep = cfg.zoomStep / 100;
+    const arr = [scale];
+    if (fit !== 1) {
+      const diff = goal / scale;
+      const steps = Math.log(diff) / Math.log(zoomStep) | 0;
+      const step = steps && Math.pow(diff, 1 / steps);
+      for (let i = steps; --i > 0; )
+        arr.push(scale *= step);
+      arr.push(scale = goal);
+    }
+    while ((scale *= zoomStep) <= ZOOM_MAX)
+      arr.push(scale);
+    return arr;
+  }
+  function measurePopup() {
+    let { popup: p, nwidth: nw, nheight: nh } = ai;
+    p.setAttribute("style", "display:inline !important;" + popupStyleBase);
+    if (p.clientWidth > nw) {
+      const w = clamp(p.clientWidth, nw, innerWidth / 2) | 0;
+      nh = ai.nheight = w / nw * nh | 0;
+      nw = ai.nwidth = w;
+      p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
+    } else
+      p.style.cssText = "";
+    p.classList.add(`${PREFIX}show`);
+    const s = getComputedStyle(p);
+    const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
+    const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
+    const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
+    const outw = o2 + sumProps(s.marginLeft, s.marginRight);
+    const outh = o2 + sumProps(s.marginTop, s.marginBottom);
+    ai.extras = {
+      inw,
+      inh,
+      outw,
+      outh,
+      o: o2 / 2,
+      w: inw + outw,
+      h: inh + outh
+    };
+    const fit = Math.min(
+      (ai.view.w - ai.extras.w) / ai.nwidth,
+      (ai.view.h - ai.extras.h) / ai.nheight
+    ) || 1;
+    const isCustom = !cfg.fit && cfg.scales.length;
+    let cutoff = Math.min(1, fit);
+    let scaleZoom = cfg.fit === "all" && fit || cfg.fit === "no" && 1 || cutoff;
+    if (isCustom) {
+      const dst = [];
+      for (const scale of cfg.scales) {
+        const val = parseFloat(scale) || fit;
+        dst.push(val);
+        if (isCustom && typeof scale === "string") {
+          if (scale.includes("!")) cutoff = val;
+          if (scale.includes("*")) scaleZoom = val;
+        }
+      }
+      ai.scales = dst.sort(compareNumbers).filter(scaleBiggerThan, cutoff);
+    } else {
+      ai.scales = generateScales(fit);
+    }
+    ai.scale = cfg.zoom === "auto" ? scaleZoom : Math.min(1, fit);
+    ai.scaleFit = fit;
+    ai.scaleZoom = scaleZoom;
+  }
+  function rect() {
+    const { node, rule } = ai;
+    let n = rule.rect && node.closest(rule.rect);
+    if (n) return n.getBoundingClientRect();
+    const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [];
+    let maxArea = 0;
+    let maxBounds;
+    let i = 0;
+    do {
+      const bounds = n.getBoundingClientRect();
+      const area = bounds.width * bounds.height;
+      if (area > maxArea) {
+        maxArea = area;
+        maxBounds = bounds;
+      }
+    } while ((n = nested[i++]) && node.contains(n));
+    return maxBounds;
+  }
+  function scaleBiggerThan(scale, i, arr) {
+    return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > 0.01);
+  }
+  function scaleIndex(dir) {
+    const i = ai.scales.indexOf(ai.scale);
+    if (i >= 0) return i + dir;
+    for (let len = ai.scales.length, i2 = dir > 0 ? 0 : len - 1; i2 >= 0 && i2 < len; i2 += dir) {
+      if (Math.sign(ai.scales[i2] - ai.scale) === dir)
+        return i2;
+    }
+    return -1;
+  }
+  function scaleForFirstZoom(keepScale) {
+    const z = ai.scaleZoom;
+    return keepScale || z !== ai.scale ? z : ai.scales.find((x) => x > z);
+  }
+  function updateViewSize() {
+    const view = doc.compatMode === "BackCompat" ? doc.body : doc.documentElement;
+    ai.view = { w: view.clientWidth, h: view.clientHeight, x: 0, y: 0 };
+    if (window === top) return;
+    const [w, h] = frameSize(frameElement, parent) || [];
+    if (w && h) {
+      ai.view = { w, h, x: 0, y: 0 };
+    } else {
+      addEventListener("message", onMessageChild, true);
+      parent.postMessage(MSG.getViewSize, "*");
+    }
+  }
 
   // src/bar.js
-  var Bar = {
-    set(label, cls, prefix) {
-      let b = state.ai.bar;
-      if (typeof label !== "string") {
-        $remove(b);
-        state.ai.bar = null;
-        return;
-      }
-      const force = !b && 0;
-      if (!b) b = state.ai.bar = $new("div", { id: `${PREFIX}bar`, className: `${PREFIX}${cls}` });
-      state.ai.barText = label;
-      App.updateStyles();
-      Bar.updateDetails();
-      Bar.setText(state.cfg.uiInfoCaption || cls === "error" || cls === "xhr" ? label : "");
-      $dataset(b, "prefix", prefix);
-      setTimeout(Bar.show, 0, force);
-      if (!b.parentNode) {
-        doc.body.appendChild(b);
-        Util.forceLayout(b);
-      }
-    },
-    setText(text) {
-      if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(text)) {
-        state.ai.bar.innerHTML = state.trustedHTML ? state.trustedHTML(text) : text;
-      } else {
-        state.ai.bar.textContent = text;
-      }
-    },
-    show(force) {
-      const b = state.ai.bar;
-      if (!force && (!state.cfg.uiInfo || force !== 0 && state.cfg.uiInfoOnce) || state.ai.barShown)
-        return;
-      clearTimeout(state.ai.timerBar);
-      b.classList.add(PREFIX + "show");
-      $dataset(b, "force", force === 2 ? "" : null);
-      state.ai.timerBar = !force && setTimeout(Bar.hide, state.cfg.uiInfoHide * 1e3);
-      state.ai.barShown = true;
-    },
-    hide(force) {
-      const b = state.ai.bar;
-      if (!b || !force && (!state.cfg.uiInfo || b.dataset.force) || !state.ai.barShown)
-        return;
-      $dataset(b, "force", force === 2 ? "" : null);
-      b.classList.remove(PREFIX + "show");
-      state.ai.barShown = false;
-    },
-    updateName() {
-      const { gItems: gi, gIndex: i, gNum: n } = state.ai;
-      if (gi) {
-        const item = gi[i];
-        const noDesc = !gi.some((_) => _.desc);
-        const c = [
-          gi.title && (!i || noDesc) && !`${item.desc || ""}`.includes(gi.title) && gi.title || "",
-          item.desc
-        ].filter(Boolean).join(" - ");
-        Bar.set(c.trim() || " ", "gallery", n > 1 ? `${i + 1}/${n}` : null);
-      } else if ("caption" in state.ai) {
-        Bar.set(state.ai.caption, "caption");
-      } else if (state.ai.tooltip) {
-        Bar.set(state.ai.tooltip.text, "tooltip");
-      } else {
-        Bar.set(" ", "info");
-      }
-    },
-    updateDetails() {
-      if (!state.ai.bar) return;
-      const r = state.ai.rotate;
-      const zoom = state.ai.nwidth && `${Math.round(state.ai.scale * 100)}%${state.ai.flipX || state.ai.flipY ? `, ${state.ai.flipX ? "⇆" : ""}${state.ai.flipY ? "⇅" : ""}` : ""}${r ? ", " + (r > 180 ? r - 360 : r) + "°" : ""}, ${state.ai.nwidth} x ${state.ai.nheight} px, ${Math.round(100 * (state.ai.nwidth * state.ai.nheight / 1e6)) / 100} MP, ${Calc.aspectRatio(state.ai.nwidth, state.ai.nheight)}`.replace(/\x20/g, " ");
-      if (state.ai.bar.dataset.zoom !== zoom || !state.ai.nwidth) {
-        $dataset(state.ai.bar, "zoom", zoom || null);
-        Bar.show();
-      }
+  function set(label, cls, prefix) {
+    let b = ai.bar;
+    if (typeof label !== "string") {
+      $remove(b);
+      ai.bar = null;
+      return;
     }
-  };
+    const force = !b && 0;
+    if (!b) b = ai.bar = $new("div", { id: `${PREFIX}bar`, className: `${PREFIX}${cls}` });
+    ai.barText = label;
+    updateStyles();
+    updateDetails();
+    setText(cfg.uiInfoCaption || cls === "error" || cls === "xhr" ? label : "");
+    $dataset(b, "prefix", prefix);
+    setTimeout(show, 0, force);
+    if (!b.parentNode) {
+      doc.body.appendChild(b);
+      forceLayout(b);
+    }
+  }
+  function setText(text) {
+    if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(text)) {
+      ai.bar.innerHTML = trustedHTML ? trustedHTML(text) : text;
+    } else {
+      ai.bar.textContent = text;
+    }
+  }
+  function show(force) {
+    const b = ai.bar;
+    if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || ai.barShown)
+      return;
+    clearTimeout(ai.timerBar);
+    b.classList.add(PREFIX + "show");
+    $dataset(b, "force", force === 2 ? "" : null);
+    ai.timerBar = !force && setTimeout(hide, cfg.uiInfoHide * 1e3);
+    ai.barShown = true;
+  }
+  function hide(force) {
+    const b = ai.bar;
+    if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !ai.barShown)
+      return;
+    $dataset(b, "force", force === 2 ? "" : null);
+    b.classList.remove(PREFIX + "show");
+    ai.barShown = false;
+  }
+  function updateName() {
+    const { gItems: gi, gIndex: i, gNum: n } = ai;
+    if (gi) {
+      const item = gi[i];
+      const noDesc = !gi.some((_) => _.desc);
+      const c = [
+        gi.title && (!i || noDesc) && !`${item.desc || ""}`.includes(gi.title) && gi.title || "",
+        item.desc
+      ].filter(Boolean).join(" - ");
+      set(c.trim() || " ", "gallery", n > 1 ? `${i + 1}/${n}` : null);
+    } else if ("caption" in ai) {
+      set(ai.caption, "caption");
+    } else if (ai.tooltip) {
+      set(ai.tooltip.text, "tooltip");
+    } else {
+      set(" ", "info");
+    }
+  }
+  function updateDetails() {
+    if (!ai.bar) return;
+    const r = ai.rotate;
+    const zoom = ai.nwidth && `${Math.round(ai.scale * 100)}%${ai.flipX || ai.flipY ? `, ${ai.flipX ? "⇆" : ""}${ai.flipY ? "⇅" : ""}` : ""}${r ? ", " + (r > 180 ? r - 360 : r) + "°" : ""}, ${ai.nwidth} x ${ai.nheight} px, ${Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100} MP, ${aspectRatio(ai.nwidth, ai.nheight)}`.replace(/\x20/g, " ");
+    if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
+      $dataset(ai.bar, "zoom", zoom || null);
+      show();
+    }
+  }
 
   // src/gallery.js
-  var Gallery = {
-    makeParser(g) {
-      return isFunction(g) ? g : Gallery.defaultParser;
-    },
-    findIndex(gUrl) {
-      return Math.max(
-        0,
-        state.ai.gItems.findIndex(({ url }) => isArray(url) ? url.includes(gUrl) : url === gUrl)
-      );
-    },
-    next(dir) {
-      if (dir) state.ai.gIndex = Gallery.nextIndex(dir);
-      const item = state.ai.gItem = state.ai.gItems[state.ai.gIndex];
-      if (isArray(item.url)) {
-        state.ai.urls = item.url.slice(1);
-        state.ai.url = item.url[0];
-      } else {
-        state.ai.urls = null;
-        state.ai.url = item.url;
-      }
-      state.ai.gItemNext = state.ai.gItems[Gallery.nextIndex(dir || 1)];
-      state.ai.committed = false;
-      App.startSingle();
-      Bar.updateName();
-      if (dir) Bar.show(0);
-    },
-    nextIndex(dir) {
-      return (state.ai.gIndex + dir + state.ai.gNum) % state.ai.gNum;
-    },
-    defaultParser(text, doc2, docUrl, m, rule) {
-      const { g } = rule;
-      const gi = g.index;
-      const qEntry = g.entry;
-      const qCaption = ensureArray(g.caption);
-      const qImage = g.image || "img";
-      const qTitle = g.title;
-      const fix = (typeof g.fix === "string" ? Util.newFunction("s", "isURL", g.fix) : g.fix) || ((s) => s.trim());
-      const elems = [...$$(qEntry || qImage, doc2)];
-      const items = elems.map(processEntry).filter(Boolean);
-      items.title = processTitle();
-      items.index = RX_HAS_CODE.test(gi) ? Util.newFunction("items", "node", gi)(items, state.ai.node) : typeof gi === "string" ? Req.findImageUrl(tryCatch($, gi, doc2), docUrl) : gi == null ? Math.max(0, elems.indexOf(state.ai.node)) : gi;
-      return items;
-      function processEntry(entry) {
-        const item = {};
-        try {
-          const img = qEntry ? $(qImage, entry) : entry;
-          item.url = fix(Req.findImageUrl(img, docUrl), true);
-          item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(" - ");
-        } catch (e) {
-        }
-        return item.url && item;
-      }
-      function processCaption(sel) {
-        const el = !sel ? this : $(sel, this) || $orSelf(sel, this.previousElementSibling) || $orSelf(sel, this.nextElementSibling);
-        return el && fix(Ruler.runCHandler.default(el) || el.textContent);
-      }
-      function processTitle() {
-        const el = $(qTitle, doc2);
-        return el && fix(el.getAttribute("content") || el.textContent) || "";
-      }
-      function $orSelf(selector, el) {
-        if (el && !el.matches(qEntry))
-          return el.matches(selector) ? el : $(selector, el);
-      }
+  function makeParser(g) {
+    return isFunction(g) ? g : defaultParser;
+  }
+  function findIndex(gUrl) {
+    return Math.max(
+      0,
+      ai.gItems.findIndex(({ url }) => isArray(url) ? url.includes(gUrl) : url === gUrl)
+    );
+  }
+  function next(dir) {
+    if (dir) ai.gIndex = nextIndex(dir);
+    const item = ai.gItem = ai.gItems[ai.gIndex];
+    if (isArray(item.url)) {
+      ai.urls = item.url.slice(1);
+      ai.url = item.url[0];
+    } else {
+      ai.urls = null;
+      ai.url = item.url;
     }
-  };
+    ai.gItemNext = ai.gItems[nextIndex(dir || 1)];
+    ai.committed = false;
+    startSingle();
+    updateName();
+    if (dir) show(0);
+  }
+  function nextIndex(dir) {
+    return (ai.gIndex + dir + ai.gNum) % ai.gNum;
+  }
+  function defaultParser(text, doc2, docUrl, m, rule) {
+    const { g } = rule;
+    const gi = g.index;
+    const qEntry = g.entry;
+    const qCaption = ensureArray(g.caption);
+    const qImage = g.image || "img";
+    const qTitle = g.title;
+    const fix = (typeof g.fix === "string" ? newFunction("s", "isURL", g.fix) : g.fix) || ((s) => s.trim());
+    const elems = [...$$(qEntry || qImage, doc2)];
+    const items = elems.map(processEntry).filter(Boolean);
+    items.title = processTitle();
+    items.index = RX_HAS_CODE.test(gi) ? newFunction("items", "node", gi)(items, ai.node) : typeof gi === "string" ? findImageUrl(tryCatch($, gi, doc2), docUrl) : gi == null ? Math.max(0, elems.indexOf(ai.node)) : gi;
+    return items;
+    function processEntry(entry) {
+      const item = {};
+      try {
+        const img = qEntry ? $(qImage, entry) : entry;
+        item.url = fix(findImageUrl(img, docUrl), true);
+        item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(" - ");
+      } catch (e) {
+      }
+      return item.url && item;
+    }
+    function processCaption(sel) {
+      const el = !sel ? this : $(sel, this) || $orSelf(sel, this.previousElementSibling) || $orSelf(sel, this.nextElementSibling);
+      return el && fix(runCHandler.default(el) || el.textContent);
+    }
+    function processTitle() {
+      const el = $(qTitle, doc2);
+      return el && fix(el.getAttribute("content") || el.textContent) || "";
+    }
+    function $orSelf(selector, el) {
+      if (el && !el.matches(qEntry))
+        return el.matches(selector) ? el : $(selector, el);
+    }
+  }
 
   // src/rule-matcher.js
-  var RuleMatcher = {
-    /** @returns {Object} */
-    adaptiveFind(node, opts) {
-      const tn = node.tagName;
-      const src = node.currentSrc || node.src || "";
-      const isPic = tn === "IMG" || tn === "VIDEO" && Util.isVideoUrlExt(src);
-      let a, info, url;
-      if (tn !== "A") {
-        url = isPic && !src.startsWith("data:") && Util.rel2abs(src);
-        info = RuleMatcher.find(url, node, opts);
-      }
-      if (!info && (a = node.closest("A"))) {
-        const ds = a.dataset;
-        url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || "";
-        url = url.includes("//t.co/") ? "https://" + a.textContent : url;
-        url = !url.startsWith("data:") && url;
-        info = RuleMatcher.find(url, a, opts);
-      }
-      if (!info && isPic)
-        info = { node, rule: {}, url: src };
-      return info;
-    },
-    /** @returns ?mpiv.RuleMatchInfo */
-    find(url, node, { noHtml, rules, skipRules } = {}) {
-      let tn, isPic, html, h;
-      for (const rule of rules || Ruler.rules) {
-        let e, m;
-        if (skipRules && skipRules.includes(rule) || rule.u && (!url || !Ruler.runU(rule, url)) || !rules && (e = rule.e) && !(m = typeof e === "string" ? node.matches(e) : Ruler.runE(rule, e, node)))
-          continue;
-        if (m && m.url)
-          return m;
-        const { r, s } = rule;
-        let hasS = s != null;
-        h = !(noHtml && rule === state.ai.rule) && (r || hasS) && rule.html && (html || (html = node.outerHTML));
-        if (r) {
-          m = h ? r.exec(h) : url && r.exec(url);
-        } else {
-          m = [""];
-          m[0] = m.input = h || url || rule.g && location.href || "";
-          m.index = 0;
-        }
-        if (!m)
-          continue;
-        if (s === "")
-          return {};
-        if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === "IMG" || tn === "VIDEO"))
-          continue;
-        hasS &= s !== "gallery";
-        const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
-        if (urls)
-          return RuleMatcher.makeInfo(hasS, rule, m, node, skipRules, urls);
-      }
-    },
-    /** @returns ?mpiv.RuleMatchInfo */
-    makeInfo(hasS, rule, match, node, skipRules, urls) {
-      let info;
-      let url = `${urls[0]}`;
-      const follow = url && hasS && !rule.q && RuleMatcher.isFollowableUrl(url, rule);
-      if (url)
-        url = Util.rel2abs(url);
-      else
-        info = {};
-      if (follow)
-        info = RuleMatcher.find(url, node, { skipRules: [...skipRules || [], rule] });
-      if (!info && (!follow || RX_MEDIA_URL.test(url))) {
-        const xhr = state.cfg.xhr && rule.xhr;
-        info = {
-          match,
-          node,
-          rule,
-          url,
-          urls: urls.length > 1 ? urls.slice(1) : null,
-          gallery: rule.g && Gallery.makeParser(rule.g),
-          post: isFunction(rule.post) ? rule.post(match) : rule.post,
-          xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol)
-        };
-      }
-      return info;
-    },
-    isFollowableUrl(url, rule) {
-      const f = rule.follow;
-      return isFunction(f) ? f(url) : f;
+  function adaptiveFind(node, opts) {
+    const tn = node.tagName;
+    const src = node.currentSrc || node.src || "";
+    const isPic = tn === "IMG" || tn === "VIDEO" && isVideoUrlExt(src);
+    let a, info2, url;
+    if (tn !== "A") {
+      url = isPic && !src.startsWith("data:") && rel2abs(src);
+      info2 = find(url, node, opts);
     }
-  };
+    if (!info2 && (a = node.closest("A"))) {
+      const ds = a.dataset;
+      url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || "";
+      url = url.includes("//t.co/") ? "https://" + a.textContent : url;
+      url = !url.startsWith("data:") && url;
+      info2 = find(url, a, opts);
+    }
+    if (!info2 && isPic)
+      info2 = { node, rule: {}, url: src };
+    return info2;
+  }
+  function find(url, node, { noHtml, rules: rules2, skipRules } = {}) {
+    let tn, isPic, html, h;
+    for (const rule of rules2 || rules) {
+      let e, m;
+      if (skipRules && skipRules.includes(rule) || rule.u && (!url || !runU(rule, url)) || !rules2 && (e = rule.e) && !(m = typeof e === "string" ? node.matches(e) : runE(rule, e, node)))
+        continue;
+      if (m && m.url)
+        return m;
+      const { r, s } = rule;
+      let hasS = s != null;
+      h = !(noHtml && rule === ai.rule) && (r || hasS) && rule.html && (html || (html = node.outerHTML));
+      if (r) {
+        m = h ? r.exec(h) : url && r.exec(url);
+      } else {
+        m = [""];
+        m[0] = m.input = h || url || rule.g && location.href || "";
+        m.index = 0;
+      }
+      if (!m)
+        continue;
+      if (s === "")
+        return {};
+      if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === "IMG" || tn === "VIDEO"))
+        continue;
+      hasS &= s !== "gallery";
+      const urls = hasS ? runS(node, rule, m) : [m.input];
+      if (urls)
+        return makeInfo(hasS, rule, m, node, skipRules, urls);
+    }
+  }
+  function makeInfo(hasS, rule, match, node, skipRules, urls) {
+    let info2;
+    let url = `${urls[0]}`;
+    const follow = url && hasS && !rule.q && isFollowableUrl(url, rule);
+    if (url)
+      url = rel2abs(url);
+    else
+      info2 = {};
+    if (follow)
+      info2 = find(url, node, { skipRules: [...skipRules || [], rule] });
+    if (!info2 && (!follow || RX_MEDIA_URL.test(url))) {
+      const xhr = cfg.xhr && rule.xhr;
+      info2 = {
+        match,
+        node,
+        rule,
+        url,
+        urls: urls.length > 1 ? urls.slice(1) : null,
+        gallery: rule.g && makeParser(rule.g),
+        post: isFunction(rule.post) ? rule.post(match) : rule.post,
+        xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol)
+      };
+    }
+    return info2;
+  }
+  function isFollowableUrl(url, rule) {
+    const f = rule.follow;
+    return isFunction(f) ? f(url) : f;
+  }
 
   // src/status.js
-  var Status = {
-    set(status) {
-      if (!status && !state.cfg.globalStatus) {
-        if (state.ai.node) state.ai.node.removeAttribute(STATUS_ATTR);
-        return;
-      }
-      const prefix = state.cfg.globalStatus ? PREFIX : "";
-      const action = status && /^[+-]/.test(status) && status[0];
-      const name = status && `${prefix}${action ? status.slice(1) : status}`;
-      const el = state.cfg.globalStatus ? doc.documentElement : name === "edge" ? state.ai.popup : state.ai.node;
-      if (!el) return;
-      const attr = state.cfg.globalStatus ? "class" : STATUS_ATTR;
-      const oldValue = (el.getAttribute(attr) || "").trim();
-      const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
-      switch (action) {
-        case "-":
-          cls.delete(name);
-          break;
-        case false:
-          for (const c of cls)
-            if (c.startsWith(prefix) && c !== name)
-              cls.delete(c);
-        // fallthrough to +
-        case "+":
-          if (name)
-            cls.add(name);
-          break;
-      }
-      const newValue = [...cls].join(" ");
-      if (newValue !== oldValue)
-        el.setAttribute(attr, newValue);
-    },
-    loading(force) {
-      if (!force) {
-        clearTimeout(state.ai.timerStatus);
-        state.ai.timerStatus = setTimeout(Status.loading, SETTLE_TIME, true);
-      } else if (!state.ai.popupLoaded) {
-        Status.set("+loading");
-      }
+  function set2(status) {
+    if (!status && !cfg.globalStatus) {
+      if (ai.node) ai.node.removeAttribute(STATUS_ATTR);
+      return;
     }
-  };
+    const prefix = cfg.globalStatus ? PREFIX : "";
+    const action = status && /^[+-]/.test(status) && status[0];
+    const name = status && `${prefix}${action ? status.slice(1) : status}`;
+    const el = cfg.globalStatus ? doc.documentElement : name === "edge" ? ai.popup : ai.node;
+    if (!el) return;
+    const attr = cfg.globalStatus ? "class" : STATUS_ATTR;
+    const oldValue = (el.getAttribute(attr) || "").trim();
+    const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
+    switch (action) {
+      case "-":
+        cls.delete(name);
+        break;
+      case false:
+        for (const c of cls)
+          if (c.startsWith(prefix) && c !== name)
+            cls.delete(c);
+      // fallthrough to +
+      case "+":
+        if (name)
+          cls.add(name);
+        break;
+    }
+    const newValue = [...cls].join(" ");
+    if (newValue !== oldValue)
+      el.setAttribute(attr, newValue);
+  }
+  function loading(force) {
+    if (!force) {
+      clearTimeout(ai.timerStatus);
+      ai.timerStatus = setTimeout(loading, SETTLE_TIME, true);
+    } else if (!ai.popupLoaded) {
+      set2("+loading");
+    }
+  }
 
   // src/request.js
-  var Req = {
-    gmXhr(url, opts = {}) {
-      if (state.ai.req)
-        tryCatch(state.ai.req.abort);
-      return new Promise((resolve, reject) => {
-        const { anonymous } = state.ai.rule || {};
-        state.ai.req = api.xmlHttpRequest(Object.assign({
-          url,
-          anonymous,
-          withCredentials: !anonymous,
-          method: "GET",
-          timeout: 3e4
-        }, opts, {
-          onload: done,
-          onerror: done,
-          ontimeout() {
-            state.ai.req = null;
-            reject(`Timeout fetching ${url}`);
-          }
-        }));
-        function done(r) {
-          state.ai.req = null;
-          if (r.status < 400 && !r.error)
-            resolve(r);
-          else
-            reject(`Server error ${r.status} ${r.error}
-URL: ${url}`);
-        }
-      });
-    },
-    async getDoc(url) {
-      if (!url) {
-        return {
-          doc,
-          finalUrl: location.href,
-          responseText: doc.documentElement.outerHTML
-        };
-      }
-      const r = await (!state.ai.post ? Req.gmXhr(url) : Req.gmXhr(url, {
-        method: "POST",
-        data: state.ai.post,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Referer": url
+  function gmXhr(url, opts = {}) {
+    if (ai.req)
+      tryCatch(ai.req.abort);
+    return new Promise((resolve, reject) => {
+      const { anonymous } = ai.rule || {};
+      ai.req = xmlHttpRequest(Object.assign({
+        url,
+        anonymous,
+        withCredentials: !anonymous,
+        method: "GET",
+        timeout: 3e4
+      }, opts, {
+        onload: done,
+        onerror: done,
+        ontimeout() {
+          ai.req = null;
+          reject(`Timeout fetching ${url}`);
         }
       }));
-      r.doc = $parseHtml(r.responseText);
-      return r;
-    },
-    async getImage(url, pageUrl, xhr = state.ai.xhr) {
-      state.ai.bufBar = false;
-      state.ai.bufStart = now();
-      const response = await Req.gmXhr(url, {
-        responseType: "blob",
-        headers: {
-          Accept: "image/png,image/*;q=0.8,*/*;q=0.5",
-          Referer: pageUrl || (isFunction(xhr) ? xhr() : url)
-        },
-        onprogress: Req.getImageProgress
-      });
-      Bar.set(false);
-      const type = Req.guessMimeType(response);
-      let b = response.response;
-      if (!b) throw "Empty response";
-      if (b.type !== type)
-        b = b.slice(0, b.size, type);
-      const res = xhr === "blob" ? state.ai.blobUrl = URL.createObjectURL(b) : await Req.blobToDataUrl(b);
-      return [res, type.startsWith("video")];
-    },
-    getImageProgress(e) {
-      if (!state.ai.bufBar && now() - state.ai.bufStart > 3e3 && e.loaded / e.total < 0.5)
-        state.ai.bufBar = true;
-      if (state.ai.bufBar) {
-        const pct = e.loaded / e.total * 100 | 0;
-        const size = e.total / 1024 | 0;
-        Bar.set(`${pct}% of ${size} kiB`, "xhr");
+      function done(r) {
+        ai.req = null;
+        if (r.status < 400 && !r.error)
+          resolve(r);
+        else
+          reject(`Server error ${r.status} ${r.error}
+URL: ${url}`);
       }
-    },
-    async findRedirect() {
-      try {
-        const { finalUrl } = await Req.gmXhr(state.ai.url, {
-          method: "HEAD",
-          headers: {
-            "Referer": location.href.split("#", 1)[0]
-          }
-        });
-        const info = RuleMatcher.find(finalUrl, state.ai.node, { noHtml: true });
-        if (!info || !info.url)
-          throw `Couldn't follow redirection target: ${finalUrl}`;
-        Object.assign(state.ai, info);
-        App.startSingle();
-      } catch (e) {
-        App.handleError(e);
-      }
-    },
-    async saveFile() {
-      const url = state.ai.popup.src || state.ai.popup.currentSrc;
-      let name = Req.getFileName(state.ai.imageUrl || url);
-      if (!name.includes("."))
-        name += ".jpg";
-      if (url.startsWith("blob:") || url.startsWith("data:")) {
-        $new("a", { href: url, download: name }).dispatchEvent(new MouseEvent("click"));
-      } else {
-        Status.set("+loading");
-        const onload = () => Status.set("-loading");
-        const gmDL = typeof GM_download === "function";
-        (gmDL ? GM_download : api.xmlHttpRequest)({
-          url,
-          name,
-          headers: { Referer: url },
-          method: "GET",
-          // polyfilling GM_download
-          responseType: "blob",
-          // polyfilling GM_download
-          overrideMimeType: "application/octet-stream",
-          // polyfilling GM_download
-          onerror: (e) => {
-            Bar.set(`Could not download ${name}: ${e.error || e.message || e}.`, "error");
-            onload();
-          },
-          onprogress: Req.getImageProgress,
-          onload({ response }) {
-            onload();
-            if (!gmDL) {
-              const a = Object.assign(document.createElement("a"), {
-                href: URL.createObjectURL(response),
-                download: name
-              });
-              a.dispatchEvent(new MouseEvent("click"));
-              setTimeout(URL.revokeObjectURL, 1e4, a.href);
-            }
-          }
-        });
-      }
-    },
-    getFileName(url) {
-      return decodeURIComponent(url).split(/[#?&]/, 1)[0].split("/").pop();
-    },
-    blobToDataUrl(blob) {
-      return new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
-        fr.onerror = reject;
-        fr.readAsDataURL(blob);
-      });
-    },
-    guessMimeType({ responseHeaders, finalUrl }) {
-      if (/Content-Type:\s*(\S+)/i.test(responseHeaders) && !RegExp.$1.includes("text/plain"))
-        return RegExp.$1;
-      const ext = Util.extractFileExt(finalUrl) || "jpg";
-      switch (ext.toLowerCase()) {
-        case "bmp":
-          return "image/bmp";
-        case "gif":
-          return "image/gif";
-        case "jpe":
-          return "image/jpeg";
-        case "jpeg":
-          return "image/jpeg";
-        case "jpg":
-          return "image/jpeg";
-        case "mp4":
-          return "video/mp4";
-        case "png":
-          return "image/png";
-        case "svg":
-          return "image/svg+xml";
-        case "tif":
-          return "image/tiff";
-        case "tiff":
-          return "image/tiff";
-        case "webm":
-          return "video/webm";
-        default:
-          return "application/octet-stream";
-      }
-    },
-    findImageUrl(n, url) {
-      if (!n) return;
-      let tmp;
-      const path = (
-        // prefer data-* over `src` which is often a small thumbnail or empty pixel
-        Object.values(n.dataset).some((v) => tmp = v.match(RX_IMAGE_URL)[0]) && tmp || n.getAttribute("src") || n.getAttribute("href") || n.getAttribute("content") || (tmp = n.outerHTML).includes("http") && tmp.match(RX_IMAGE_URL)[0]
-      );
-      return !!path && Util.rel2abs(
-        Util.decodeHtmlEntities(path),
-        $prop("base[href]", "href", n.ownerDocument) || url
-      );
+    });
+  }
+  async function getDoc(url) {
+    if (!url) {
+      return {
+        doc,
+        finalUrl: location.href,
+        responseText: doc.documentElement.outerHTML
+      };
     }
-  };
+    const r = await (!ai.post ? gmXhr(url) : gmXhr(url, {
+      method: "POST",
+      data: ai.post,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Referer": url
+      }
+    }));
+    r.doc = $parseHtml(r.responseText);
+    return r;
+  }
+  async function getImage(url, pageUrl, xhr = ai.xhr) {
+    ai.bufBar = false;
+    ai.bufStart = now();
+    const response = await gmXhr(url, {
+      responseType: "blob",
+      headers: {
+        Accept: "image/png,image/*;q=0.8,*/*;q=0.5",
+        Referer: pageUrl || (isFunction(xhr) ? xhr() : url)
+      },
+      onprogress: getImageProgress
+    });
+    set(false);
+    const type = guessMimeType(response);
+    let b = response.response;
+    if (!b) throw "Empty response";
+    if (b.type !== type)
+      b = b.slice(0, b.size, type);
+    const res = xhr === "blob" ? ai.blobUrl = URL.createObjectURL(b) : await blobToDataUrl(b);
+    return [res, type.startsWith("video")];
+  }
+  function getImageProgress(e) {
+    if (!ai.bufBar && now() - ai.bufStart > 3e3 && e.loaded / e.total < 0.5)
+      ai.bufBar = true;
+    if (ai.bufBar) {
+      const pct = e.loaded / e.total * 100 | 0;
+      const size = e.total / 1024 | 0;
+      set(`${pct}% of ${size} kiB`, "xhr");
+    }
+  }
+  async function findRedirect() {
+    try {
+      const { finalUrl } = await gmXhr(ai.url, {
+        method: "HEAD",
+        headers: {
+          "Referer": location.href.split("#", 1)[0]
+        }
+      });
+      const info2 = find(finalUrl, ai.node, { noHtml: true });
+      if (!info2 || !info2.url)
+        throw `Couldn't follow redirection target: ${finalUrl}`;
+      Object.assign(ai, info2);
+      startSingle();
+    } catch (e) {
+      handleError(e);
+    }
+  }
+  async function saveFile() {
+    const url = ai.popup.src || ai.popup.currentSrc;
+    let name = getFileName(ai.imageUrl || url);
+    if (!name.includes("."))
+      name += ".jpg";
+    if (url.startsWith("blob:") || url.startsWith("data:")) {
+      $new("a", { href: url, download: name }).dispatchEvent(new MouseEvent("click"));
+    } else {
+      set2("+loading");
+      const onload = () => set2("-loading");
+      const gmDL = typeof GM_download === "function";
+      (gmDL ? GM_download : xmlHttpRequest)({
+        url,
+        name,
+        headers: { Referer: url },
+        method: "GET",
+        // polyfilling GM_download
+        responseType: "blob",
+        // polyfilling GM_download
+        overrideMimeType: "application/octet-stream",
+        // polyfilling GM_download
+        onerror: (e) => {
+          set(`Could not download ${name}: ${e.error || e.message || e}.`, "error");
+          onload();
+        },
+        onprogress: getImageProgress,
+        onload({ response }) {
+          onload();
+          if (!gmDL) {
+            const a = Object.assign(document.createElement("a"), {
+              href: URL.createObjectURL(response),
+              download: name
+            });
+            a.dispatchEvent(new MouseEvent("click"));
+            setTimeout(URL.revokeObjectURL, 1e4, a.href);
+          }
+        }
+      });
+    }
+  }
+  function getFileName(url) {
+    return decodeURIComponent(url).split(/[#?&]/, 1)[0].split("/").pop();
+  }
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(fr.result);
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+  }
+  function guessMimeType({ responseHeaders, finalUrl }) {
+    if (/Content-Type:\s*(\S+)/i.test(responseHeaders) && !RegExp.$1.includes("text/plain"))
+      return RegExp.$1;
+    const ext = extractFileExt(finalUrl) || "jpg";
+    switch (ext.toLowerCase()) {
+      case "bmp":
+        return "image/bmp";
+      case "gif":
+        return "image/gif";
+      case "jpe":
+        return "image/jpeg";
+      case "jpeg":
+        return "image/jpeg";
+      case "jpg":
+        return "image/jpeg";
+      case "mp4":
+        return "video/mp4";
+      case "png":
+        return "image/png";
+      case "svg":
+        return "image/svg+xml";
+      case "tif":
+        return "image/tiff";
+      case "tiff":
+        return "image/tiff";
+      case "webm":
+        return "video/webm";
+      default:
+        return "application/octet-stream";
+    }
+  }
+  function findImageUrl(n, url) {
+    if (!n) return;
+    let tmp;
+    const path = (
+      // prefer data-* over `src` which is often a small thumbnail or empty pixel
+      Object.values(n.dataset).some((v) => tmp = v.match(RX_IMAGE_URL)[0]) && tmp || n.getAttribute("src") || n.getAttribute("href") || n.getAttribute("content") || (tmp = n.outerHTML).includes("http") && tmp.match(RX_IMAGE_URL)[0]
+    );
+    return !!path && rel2abs(
+      decodeHtmlEntities(path),
+      $prop("base[href]", "href", n.ownerDocument) || url
+    );
+  }
 
   // src/url-matcher.js
-  var UrlMatcher = (() => {
-    const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
-    const RX_SEP = /[^\w%._-]/y;
-    const RXS_SEP = RX_SEP.source;
-    return (match) => {
-      const results = [];
-      for (const s of ensureArray(match)) {
-        const pinDomain = s.startsWith("||");
-        const pinStart = !pinDomain && s.startsWith("|");
-        const endSep = s.endsWith("^");
-        let fn;
-        let needle = s.slice(pinDomain * 2 + pinStart, -endSep || void 0);
-        if (needle.includes("^")) {
-          let plain = "";
-          for (const part of needle.split("^"))
-            if (part.length > plain.length)
-              plain = part;
-          const rx = new RegExp(
-            (pinStart ? "^" : "") + (pinDomain ? "^(([^/:]+:)?//)?([^./]*\\.)*?" : "") + needle.replace(RX_ESCAPE, "\\$&").replace(/\\\^/g, RXS_SEP) + (endSep ? `(?:${RXS_SEP}|$)` : ""),
-            "i"
-          );
-          needle = [plain, rx];
-          fn = regexp;
-        } else if (pinStart) {
-          fn = endSep ? equals : starts;
-        } else if (pinDomain) {
-          const slashPos = needle.indexOf("/");
-          const domain = slashPos > 0 ? needle.slice(0, slashPos) : needle;
-          needle = [needle, domain, slashPos > 0, endSep];
-          fn = startsDomainPrescreen;
-        } else if (endSep) {
-          fn = ends;
-        } else {
-          fn = has;
-        }
-        results.push({ fn, data: needle });
+  var RX_ESCAPE = /[.+*?(){}[\]^$|]/g;
+  var RX_SEP = /[^\w%._-]/y;
+  var RXS_SEP = RX_SEP.source;
+  function UrlMatcher(match) {
+    const results = [];
+    for (const s of ensureArray(match)) {
+      const pinDomain = s.startsWith("||");
+      const pinStart = !pinDomain && s.startsWith("|");
+      const endSep = s.endsWith("^");
+      let fn;
+      let needle = s.slice(pinDomain * 2 + pinStart, -endSep || void 0);
+      if (needle.includes("^")) {
+        let plain = "";
+        for (const part of needle.split("^"))
+          if (part.length > plain.length)
+            plain = part;
+        const rx = new RegExp(
+          (pinStart ? "^" : "") + (pinDomain ? "^(([^/:]+:)?//)?([^./]*\\.)*?" : "") + needle.replace(RX_ESCAPE, "\\$&").replace(/\\\^/g, RXS_SEP) + (endSep ? `(?:${RXS_SEP}|$)` : ""),
+          "i"
+        );
+        needle = [plain, rx];
+        fn = regexp;
+      } else if (pinStart) {
+        fn = endSep ? equals : starts;
+      } else if (pinDomain) {
+        const slashPos = needle.indexOf("/");
+        const domain = slashPos > 0 ? needle.slice(0, slashPos) : needle;
+        needle = [needle, domain, slashPos > 0, endSep];
+        fn = startsDomainPrescreen;
+      } else if (endSep) {
+        fn = ends;
+      } else {
+        fn = has;
       }
-      return results.length > 1 ? { fn: checkArray, data: results } : results[0];
-    };
-    function checkArray(s) {
-      return this.some(checkArrayItem, s);
+      results.push({ fn, data: needle });
     }
-    function checkArrayItem(item) {
-      return item.fn.call(item.data, this);
-    }
-    function ends(s) {
-      return s.endsWith(this) || s.length > this.length && s.indexOf(this, s.length - this.length - 1) >= 0 && endsWithSep(s);
-    }
-    function endsWithSep(s, pos = s.length - 1) {
-      RX_SEP.lastIndex = pos;
-      return RX_SEP.test(s);
-    }
-    function equals(s) {
-      return s.startsWith(this) && (s.length === this.length || s.length === this.length + 1 && endsWithSep(s));
-    }
-    function has(s) {
-      return s.includes(this);
-    }
-    function regexp(s) {
-      return s.includes(this[0]) && this[1].test(s);
-    }
-    function starts(s) {
-      return s.startsWith(this);
-    }
-    function startsDomainPrescreen(url) {
-      return url.includes(this[0]) && startsDomain.call(this, url);
-    }
-    function startsDomain(url) {
-      let hostStart = url.indexOf("//");
-      if (hostStart && url[hostStart - 1] !== ":")
+    return results.length > 1 ? { fn: checkArray, data: results } : results[0];
+  }
+  function checkArray(s) {
+    return this.some(checkArrayItem, s);
+  }
+  function checkArrayItem(item) {
+    return item.fn.call(item.data, this);
+  }
+  function ends(s) {
+    return s.endsWith(this) || s.length > this.length && s.indexOf(this, s.length - this.length - 1) >= 0 && endsWithSep(s);
+  }
+  function endsWithSep(s, pos = s.length - 1) {
+    RX_SEP.lastIndex = pos;
+    return RX_SEP.test(s);
+  }
+  function equals(s) {
+    return s.startsWith(this) && (s.length === this.length || s.length === this.length + 1 && endsWithSep(s));
+  }
+  function has(s) {
+    return s.includes(this);
+  }
+  function regexp(s) {
+    return s.includes(this[0]) && this[1].test(s);
+  }
+  function starts(s) {
+    return s.startsWith(this);
+  }
+  function startsDomainPrescreen(url) {
+    return url.includes(this[0]) && startsDomain.call(this, url);
+  }
+  function startsDomain(url) {
+    let hostStart = url.indexOf("//");
+    if (hostStart && url[hostStart - 1] !== ":")
+      return;
+    hostStart = hostStart < 0 ? 0 : hostStart + 2;
+    const host = url.slice(hostStart, (url.indexOf("/", hostStart) + 1 || url.length + 1) - 1);
+    const [needle, domain, pinDomainEnd, endSep] = this;
+    let start2 = pinDomainEnd ? host.length - domain.length : 0;
+    for (; ; start2++) {
+      start2 = host.indexOf(domain, start2);
+      if (start2 < 0)
         return;
-      hostStart = hostStart < 0 ? 0 : hostStart + 2;
-      const host = url.slice(hostStart, (url.indexOf("/", hostStart) + 1 || url.length + 1) - 1);
-      const [needle, domain, pinDomainEnd, endSep] = this;
-      let start = pinDomainEnd ? host.length - domain.length : 0;
-      for (; ; start++) {
-        start = host.indexOf(domain, start);
-        if (start < 0)
-          return;
-        if (!start || host[start - 1] === ".")
-          break;
-      }
-      start += hostStart;
-      if (url.lastIndexOf(needle, start) !== start)
-        return;
-      const end = start + needle.length;
-      return !endSep || end === host.length || end === url.length || endsWithSep(url, end);
+      if (!start2 || host[start2 - 1] === ".")
+        break;
     }
-  })();
+    start2 += hostStart;
+    if (url.lastIndexOf(needle, start2) !== start2)
+      return;
+    const end = start2 + needle.length;
+    return !endSep || end === host.length || end === url.length || endsWithSep(url, end);
+  }
 
   // src/rules.js
-  var Ruler = {
-    /*
-     'u' works only with URLs so it's ignored if 'html' is true
-       ||some.domain = matches some.domain, anything.some.domain, etc.
-       |foo = url or text must start with foo
-       ^ = separator like / or ? or : but not a letter/number, not %._-
-           when used at the end like "foo^" it additionally matches when the source ends with "foo"
-     'r' is checked only if 'u' matches first
-    */
-    init() {
-      const errors = /* @__PURE__ */ new Map();
-      const src = state.cfg.hosts || [];
-      const uniq = src.filter((r, i, arr) => !i || !Util.deepEqual(r, arr[i - 1]));
-      if (uniq.length < src.length)
-        api.setValue("cfg", state.cfg);
-      const rules = Ruler.rules = uniq.map(Ruler.parse, errors).filter(Boolean);
-      const hasGMAE = typeof GM_addElement === "function";
-      const canEval = state.nonce || (state.nonce = ($("script[nonce]") || {}).nonce || "") || hasGMAE;
-      const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
-      const evalRules = [];
-      const evalCode = [`window[${JSON.stringify(evalId)}]=[`];
-      for (const [rule, err] of errors.entries()) {
-        if (!RX_EVAL_BLOCKED.test(err)) {
-          App.handleError("Invalid custom host rule:", rule);
-          continue;
-        }
-        if (canEval) {
-          evalCode.push(
-            evalRules.length ? "," : "",
-            "[",
-            rules.indexOf(rule),
-            ",{",
-            ...Object.keys(FN_ARGS).map((k) => RX_HAS_CODE.test(rule[k]) && `${k}(${FN_ARGS[k]}){${rule[k]}},`).filter(Boolean),
-            "}]"
-          );
-        }
-        evalRules.push(rule);
+  var rules;
+  function init() {
+    const errors = /* @__PURE__ */ new Map();
+    const src = cfg.hosts || [];
+    const uniq = src.filter((r, i, arr) => !i || !deepEqual(r, arr[i - 1]));
+    if (uniq.length < src.length)
+      setValue("cfg", cfg);
+    const rulesValue = rules = uniq.map(parse, errors).filter(Boolean);
+    const hasGMAE = typeof GM_addElement === "function";
+    const canEval = nonce || setNonce(($("script[nonce]") || {}).nonce || "") || hasGMAE;
+    const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
+    const evalRules = [];
+    const evalCode = [`window[${JSON.stringify(evalId)}]=[`];
+    for (const [rule, err] of errors.entries()) {
+      if (!RX_EVAL_BLOCKED.test(err)) {
+        handleError("Invalid custom host rule:", rule);
+        continue;
       }
-      if (evalRules.length) {
-        let result, wnd;
-        if (canEval) {
-          const GMAE = hasGMAE ? GM_addElement : (tag, { textContent: txt }) => document.head.appendChild(
-            Object.assign(document.createElement(tag), {
-              textContent: state.trustedScript ? state.trustedScript(txt) : txt,
-              nonce: state.nonce
-            })
-          );
-          evalCode.push("]; document.currentScript.remove();");
-          GMAE("script", { textContent: evalCode.join("") });
-          result = (wnd = unsafeWindow)[evalId] || isFF && (wnd = wnd.wrappedJSObject)[evalId];
-        }
-        if (result) {
-          for (const [index, fns] of result)
-            Object.assign(rules[index], fns);
-          delete wnd[evalId];
-        } else {
-          console.warn("Site forbids compiling JS code in these custom rules", evalRules);
-        }
-      }
-      switch (dotDomain.match(/[^.]+(?=\.com?(?:\.[^.]+)?$)|[^.]+\.[^.]+$|$/)[0]) {
-        case "4chan.org":
-          rules.push({
-            e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
-            q: ".op .fileText a",
-            css: "#post-preview{display:none}"
-          });
-          break;
-        case "amazon":
-          rules.push({
-            r: /.+?images\/I\/.+?\./,
-            s: (m) => {
-              const uh = doc.getElementById("universal-hover");
-              return uh ? "" : m[0] + "jpg";
-            },
-            css: "#zoomWindow{display:none!important;}"
-          });
-          break;
-        case "bing":
-          rules.push({
-            e: 'a[m*="murl"]',
-            r: /murl&quot;:&quot;(.+?)&quot;/,
-            s: "$1",
-            html: true
-          });
-          break;
-        case "deviantart":
-          rules.push({
-            e: 'a[href*="/art/"] img[src*="/v1/"]',
-            r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
-            s: ([, base, name, ext, tok], node) => {
-              let v = Util.getReactChildren(node.closest("a"), "props.deviation.media.types");
-              return v && (v = v.find((t) => t.t === "fullview")) && `${base}${v.c ? v.c.replace("<prettyName>", name) : `/v1/fill/w_${v.w},h_${v.h}/${name}-fullview${ext}`}${tok}`;
-            }
-          }, {
-            e: ".dev-view-deviation img",
-            s: () => [
-              $(".dev-page-download").href,
-              $(".dev-content-full").src
-            ].filter(Boolean)
-          }, {
-            e: "a[data-hook=deviation_link]",
-            q: "link[as=image]"
-          });
-          break;
-        case "discord":
-          rules.push({
-            u: "||discordapp.net/external/",
-            r: /\/https?\/(.+)/,
-            s: "//$1",
-            follow: true
-          });
-          break;
-        case "dropbox":
-          rules.push({
-            r: /(.+?&size_mode)=\d+(.*)/,
-            s: "$1=5$2"
-          });
-          break;
-        case "facebook":
-          rules.push({
-            e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
-            s: (m, el) => (m = Util.getReactChildren(el.parentNode)) && pick(m, (m[0] ? "0.props.linkProps" : "props") + ".passthroughProps.origSrc")
-          });
-          break;
-        case "flickr":
-          if (pick(unsafeWindow, "YUI_config.flickr.api.site_key")) rules.push({
-            r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
-            s: (m) => `https://www.flickr.com/services/rest/?${new URLSearchParams({
-              photo_id: m[1],
-              api_key: unsafeWindow.YUI_config.flickr.api.site_key,
-              method: "flickr.photos.getSizes",
-              format: "json",
-              nojsoncallback: 1
-            }).toString()}`,
-            q: (text) => JSON.parse(text).sizes.size.pop().source,
-            anonymous: true
-          });
-          break;
-        case "github":
-          rules.push({
-            r: new RegExp([
-              /(avatars.+?&s=)\d+/,
-              /(raw\.github)(\.com\/.+?\/img\/.+)$/,
-              /\/(github)(\.com\/.+?\/)blob\/([^/]+\/.+?\.(?:avif|webp|png|jpe?g|bmp|gif|cur|ico|svg))$/
-            ].map((rx) => rx.source).join("|")),
-            s: (m) => `https://${m[1] ? `${m[1]}460` : m[2] ? `${m[2]}usercontent${m[3]}` : $(".AppHeader-context-item > .octicon-lock") ? `${m[4]}${m[5]}raw/${m[6]}` : `raw.${m[4]}usercontent${m[5]}${m[6]}`}`
-          });
-          break;
-        case "google":
-          if (location.pathname === "/search") rules.push({
-            e: /[&?](sclient=img|udm=2)(&|$)/.test(location.search) ? "[data-docid] img" : "[jsdata][id] img",
-            s: (m, el, rule) => {
-              el = el.closest(rule.e.split(" ")[0]);
-              const id = el.dataset.docid || el.id;
-              if (isFF) el = el.wrappedJSObject || el;
-              if ((el = el.__jscontroller) && (el = el.pending) && (el = el.value)) {
-                for (let a in el)
-                  if ({}.toString.call(a = el[a]) === "[object Object]") {
-                    for (const b in a)
-                      if (Array.isArray(m = a[b]) && m.includes(id) && (m[1] === id || (m = m[1]) && Array.isArray(m = m[b]) && m[1] === id) && Array.isArray(m = m[3]))
-                        return m[0];
-                  }
-              }
-            }
-          });
-          break;
-        case "instagram":
-          rules.push({
-            e: 'img, video, main div, article div, [role="dialog"] div, ' + links,
-            s: preview,
-            c: (html, doc2, node, rule) => (rule._img || {}).alt || ""
-          });
-          break;
-        case "reddit":
-          rules.push({
-            u: "||i.reddituploads.com/"
-          }, {
-            e: '[data-url*="i.redd.it"] img[src*="thumb"]',
-            s: (m, node) => $propUp(node, "data-url")
-          }, {
-            r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
-            s: "https://i$1"
-          });
-          break;
-        case "stackoverflow":
-          rules.push({
-            e: ".post-tag, .post-tag img",
-            s: ""
-          });
-          break;
-        case "startpage":
-          rules.push({
-            r: /[&?]piurl=([^&]+)/,
-            s: "$1",
-            follow: true
-          });
-          break;
-        case "tumblr":
-          rules.push({
-            e: "div.photo_stage_img, div.photo_stage > canvas",
-            s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute("data-img-src"))[0],
-            follow: true
-          });
-          break;
-        case "twitter":
-          rules.push({
-            e: ".grid-tweet > .media-overlay",
-            s: (m, node) => node.previousElementSibling.src,
-            follow: true
-          });
-          break;
-      }
-      rules.push(
-        {
-          e: "iframe",
-          s: (m, node) => embedUrl(node.src) || false,
-          q: embedSource,
-          c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
-        },
-        {
-          r: /[/?=](https?%3A%2F%2F[^&]+)/i,
-          s: "$1",
-          follow: true,
-          onerror: "skip"
-        },
-        {
-          u: [
-            "||500px.com/photo/",
-            "||cl.ly/",
-            "||cweb-pix.com/",
-            "//ibb.co/",
-            "||imgcredit.xyz/image/"
-          ],
-          r: /\.\w+\/.+/,
-          q: 'meta[property="og:image"]'
-        },
-        {
-          u: "attachment.php",
-          r: /attachment\.php.+attachmentid/
-        },
-        {
-          u: "||abload.de/image",
-          q: "#image"
-        },
-        {
-          u: "||deviantart.com/art/",
-          s: (m, node) => /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? "" : m.input,
-          q: [
-            '#download-button[href*=".jpg"]',
-            '#download-button[href*=".jpeg"]',
-            '#download-button[href*=".gif"]',
-            '#download-button[href*=".png"]',
-            "#gmi-ResViewSizer_fullimg",
-            "img.dev-content-full"
-          ]
-        },
-        {
-          u: "||dropbox.com/s",
-          r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
-          q: (text, doc2) => $prop("img.absolute-center", "src", doc2).replace(/(size_mode)=\d+/, "$1=5") || false
-        },
-        {
-          r: /[./]ebay\.[^/]+\/itm\//,
-          q: (text) => text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/, "~~60_57")
-        },
-        {
-          u: "||i.ebayimg.com/",
-          s: (m, node) => $(".zoom_trigger_mask", node.parentNode) ? "" : m.input.replace(/~~60_\d+/, "~~60_57")
-        },
-        {
-          u: "||fastpic.",
-          s: (m, node, rule) => {
-            const a = node.closest("a");
-            const url = decodeURIComponent(Req.findImageUrl(a || node)).replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, "/$2$1").replace(
-              /^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
-              "https://fastpic.org/view$1$2.html"
-            );
-            Ruler.toggle(rule, "q", url.includes(".html"));
-            return a || url.includes(".png") ? url : [url, url.replace(/\.jpe?g/, ".png")];
-          },
-          _q: (text, doc2, n) => (n = $('input[value*="/big/"]', doc2)) && n.value || $prop('a[href*="/big/"]', "href", doc2)
-        },
-        {
-          u: "||flickr.com/photos/",
-          r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
-          s: (m) => m.input.indexOf("/sizes/") < 0 ? `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` : false,
-          q: (text, doc2) => {
-            const links2 = $$(".sizes-list a", doc2);
-            return "https://www.flickr.com" + links2[links2.length - 1].getAttribute("href");
-          },
-          follow: true
-        },
-        {
-          u: "||flickr.com/photos/",
-          r: /\/sizes\//,
-          q: "#allsizes-photo > img"
-        },
-        {
-          u: "||gfycat.com/",
-          r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
-          s: "https://$1$3",
-          q: 'meta[content$=".webm"], #webmsource, source[src$=".webm"], .actual-gif-image'
-        },
-        {
-          u: [
-            "||googleusercontent.com/proxy",
-            "||googleusercontent.com/gadgets/proxy"
-          ],
-          r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
-          s: (m) => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, "w0-h0")
-        },
-        {
-          u: [
-            "||googleusercontent.com/",
-            "||ggpht.com/"
-          ],
-          s: (m) => m.input.includes("webcache.") ? "" : m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, "/s0").replace(/([&?]sz)?=[-\w]+([&#].*)?/, "")
-        },
-        {
-          u: "||gravatar.com/",
-          r: /([a-z0-9]{32})/,
-          s: "https://gravatar.com/avatar/$1?s=200"
-        },
-        {
-          u: "//gyazo.com/",
-          r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
-          s: (m, _, rule) => Ruler.toggle(rule, "q", !m[1]) ? m.input : `https://i.${m[0]}`,
-          _q: 'link[rel="image_src"]'
-        },
-        {
-          u: "||hostingkartinok.com/show-image.php",
-          q: ".image img"
-        },
-        {
-          u: [
-            "||imagecurl.com/images/",
-            "||imagecurl.com/viewer.php"
-          ],
-          r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
-          s: "https://imagecurl.com/images/$1$2$3"
-        },
-        {
-          u: "||imagebam.com/",
-          r: /^(https:\/\/)thumbs\d+(\.imagebam\.com\/).*?([^/]+)_t\./,
-          s: "$1www$2view/$3",
-          q: "img.main-image"
-        },
-        {
-          u: "||www.imagebam.com/view/",
-          q: "img.main-image"
-        },
-        {
-          u: "||imageban.ru/thumbs",
-          r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
-          s: "$1out$2/$3/$4"
-        },
-        {
-          u: [
-            "||imageban.ru/show",
-            "||imageban.net/show",
-            "||ibn.im/"
-          ],
-          q: "#img_main"
-        },
-        {
-          u: "||imageshack.us/img",
-          r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
-          s: "https://$2/download/$1/$3$4"
-        },
-        {
-          u: "||imageshack.us/i/",
-          q: "#share-dl"
-        },
-        {
-          u: "||imageteam.org/img",
-          q: 'img[alt="image"]'
-        },
-        {
-          u: [
-            "||imagetwist.com/",
-            "||imageshimage.com/"
-          ],
-          r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
-          q: "img.pic",
-          xhr: true
-        },
-        {
-          u: "||imageupper.com/i/",
-          q: "#img",
-          xhr: true
-        },
-        {
-          u: "||imagevenue.com/",
-          q: 'a[data-toggle="full"] img'
-        },
-        {
-          u: "||imagezilla.net/show/",
-          q: "#photo",
-          xhr: true
-        },
-        {
-          u: [
-            "||images-na.ssl-images-amazon.com/images/",
-            "||media-imdb.com/images/"
-          ],
-          r: /images\/.+?\.jpg/,
-          s: "/V1\\.?_.+?\\.//g"
-        },
-        {
-          u: "||imgbox.com/",
-          r: /\.com\/([a-z0-9]+)$/i,
-          q: "#img",
-          xhr: hostname !== "imgbox.com"
-        },
-        {
-          u: "||imgclick.net/",
-          r: /\.net\/(\w+)/,
-          q: "img.pic",
-          xhr: true,
-          post: (m) => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`
-        },
-        {
-          u: ".imgcredit.xyz/",
-          r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
-          s: ["https$1$2", "https$1.png"]
-        },
-        {
-          u: [
-            "||imgflip.com/i/",
-            "||imgflip.com/gif/"
-          ],
-          r: /\/(i|gif)\/([^/?#]+)/,
-          s: (m) => `https://i.imgflip.com/${m[2]}${m[1] === "i" ? ".jpg" : ".mp4"}`
-        },
-        {
-          u: [
-            "||imgur.com/a/",
-            "||imgur.com/gallery/"
-          ],
-          s: "gallery",
-          // suppressing an unused network request for remote `document`
-          async g() {
-            let u = `https://imgur.com/ajaxalbums/getimages/${state.ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
-            let info = tryJSON((await Req.gmXhr(u)).responseText) || 0;
-            let images = (info.data || 0).images || [];
-            if (!images[0]) {
-              info = (await Req.gmXhr(state.ai.url)).responseText.match(/postDataJSON=(".*?")<|$/)[1];
-              info = tryJSON(tryJSON(info)) || 0;
-              images = info.media;
-            }
-            const items = [];
-            for (const img of images) {
-              const meta = img.metadata || img;
-              items.push({
-                url: img.url || (u = `https://i.imgur.com/${img.hash}`) && (img.ext === ".gif" && img.animated !== false ? [`${u}.webm`, `${u}.mp4`, u] : u + img.ext),
-                desc: [meta.title, meta.description].filter(Boolean).join(" - ")
-              });
-            }
-            if (items[0] && info.title && !`${items[0].desc || ""}`.includes(info.title))
-              items.title = info.title;
-            return items;
-          }
-        },
-        {
-          u: "||imgur.com/",
-          r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+\w*)/,
-          s: "gallery",
-          g: (text, doc2, url, m) => m[2].split(",").map((id) => ({
-            url: `https://i.${m[1]}${id}.jpg`
-          }))
-        },
-        {
-          u: "||imgur.com/",
-          r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.(mp4|[a-z]+))/i,
-          s: (m, node) => {
-            if (/memegen|random|register|search|signin/.test(m.input))
-              return "";
-            const a = node.closest("a");
-            if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
-              return false;
-            const id = m[3].replace(/(.{7})[hlmtbs]$/, "$1");
-            const ext = m[5] ? m[5].replace(/gifv?/, "webm") : "jpg";
-            const u = `https://i.${(m[1] || "").replace("www.", "")}imgur.com/${id}.`;
-            return ext === "webm" ? [`${u}webm`, `${u}mp4`, `${u}gif`] : u + ext;
-          }
-        },
-        {
-          u: ["||instagr.am/", "||instagram.com/"],
-          r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
-          s: (m) => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
-          g: gallery
-        },
-        {
-          u: [
-            "||livememe.com/",
-            "||lvme.me/"
-          ],
-          r: /\.\w+\/([^.]+)$/,
-          s: "http://i.lvme.me/$1.jpg"
-        },
-        {
-          u: "||lostpic.net/image",
-          q: ".image-viewer-image img"
-        },
-        {
-          u: "||makeameme.org/meme/",
-          r: /\/meme\/([^/?#]+)/,
-          s: "https://media.makeameme.org/created/$1.jpg"
-        },
-        {
-          u: "||photobucket.com/",
-          r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
-          s: "https://i$1$3",
-          xhr: !dotDomain.endsWith(".photobucket.com")
-        },
-        {
-          u: "||piccy.info/view3/",
-          r: /(.+?\/view3)\/(.*)\//,
-          s: "$1/$2/orig/",
-          q: "#mainim"
-        },
-        {
-          u: "||pimpandhost.com/image/",
-          r: /(.+?\/image\/[0-9]+)/,
-          s: "$1?size=original",
-          q: "img.original"
-        },
-        {
-          u: [
-            "||pixroute.com/",
-            "||imgspice.com/"
-          ],
-          r: /\.html$/,
-          q: "img[id]",
-          xhr: true
-        },
-        {
-          u: "||postima",
-          r: /postima?ge?\.org\/image\/\w+/,
-          q: [
-            'a[href*="dl="]',
-            "#main-image"
-          ]
-        },
-        {
-          u: [
-            "||prntscr.com/",
-            "||prnt.sc/"
-          ],
-          r: /\.\w+\/.+/,
-          q: 'meta[property="og:image"]',
-          xhr: true
-        },
-        {
-          u: "||radikal.ru/",
-          r: /\.ru\/(fp|.+?\.html)|^(.+?)t\.jpg/,
-          s: (m, node, rule) => m[2] && /radikal\.ru[\w%/]+?(\.\w+)/.test($propUp(node, "href")) ? m[2] + RegExp.$1 : Ruler.toggle(rule, "q", m[1]) ? m.input : [m[2] + ".jpg", m[2] + ".png"],
-          _q: (text) => text.match(/https?:\/\/\w+\.radikal\.ru[\w/]+\.(jpg|gif|png)/i)[0]
-        },
-        {
-          u: "||tumblr.com",
-          r: /_500\.jpg/,
-          s: ["/_500/_1280/", ""]
-        },
-        {
-          u: "||twimg.com/media/",
-          r: /.+?format=(jpe?g|png|gif)/i,
-          s: "$0&name=orig"
-        },
-        {
-          u: "||twimg.com/media/",
-          r: /.+?\.(jpe?g|png|gif)/i,
-          s: "$0:orig"
-        },
-        {
-          u: "||twimg.com/1/proxy",
-          r: /t=([^&_]+)/i,
-          s: (m) => atob(m[1]).match(/http.+/)
-        },
-        {
-          u: "||twimg.com/",
-          r: /\/profile_images/i,
-          s: "/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g"
-        },
-        {
-          u: "||pic.twitter.com/",
-          r: /\.com\/[a-z0-9]+/i,
-          q: (text) => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
-          follow: true
-        },
-        {
-          u: "||twitpic.com/",
-          r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
-          s: "https://twitpic.com/show/large/$2"
-        },
-        {
-          u: "||wiki",
-          r: /\/(?:thumb|images)\/.+\.(?:jpe?g|gif|png|svg)/i,
-          s: (m) => m.input.replace(/\/(thumb(?=\/)|\d+px[^/]+(?=$|\?))/g, "").replace("//thumb.wikimedia.org/", "//upload.wikimedia.org/").replace(/\/(scale-to-width(-[a-z]+)?\/\d+|(zoom-crop|smart)(\/(width|height)\/\d+)+)/g, "/"),
-          xhr: !hostname.includes("wiki")
-        },
-        {
-          u: "||ytimg.com/vi/",
-          r: /(.+?\/vi\/[^/]+)/,
-          s: "$1/0.jpg",
-          rect: ".video-list-item"
-        },
-        {
-          u: "/viewer.php?file=",
-          r: /(.+?)\/viewer\.php\?file=(.+)/,
-          s: "$1/images/$2",
-          xhr: true
-        },
-        {
-          u: "/thumb_",
-          r: /\/albums.+\/thumb_[^/]/,
-          s: "/thumb_//"
-        },
-        {
-          u: [
-            ".th.jp",
-            ".th.gif",
-            ".th.png"
-          ],
-          r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
-          s: "$1$2",
-          follow: true
-        },
-        {
-          r: RX_MEDIA_URL
-        }
-      );
-    },
-    format(rule, { expand } = {}) {
-      const s = Util.stringify(rule, null, " ");
-      return expand ? (
-        /* {"a": ...,
-            "b": ...,
-            "c": ...
-           } */
-        s.replace(/^{\s+/g, "{")
-      ) : (
-        /* {"a": ..., "b": ..., "c": ...} */
-        s.replace(/\n\s*/g, " ").replace(/^({)\s|\s+(})$/g, "$1$2")
-      );
-    },
-    fromElement(el) {
-      const text = el.textContent.trim();
-      if (text.startsWith("{") && text.endsWith("}") && /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
-        const rule = tryJSON(text);
-        return rule && Object.keys(rule).some((k) => /^[degqrsu]$/.test(k)) && rule;
-      }
-    },
-    isValidE2: ([k, v]) => k.trim() && typeof v === "string" && v.trim(),
-    /** @returns mpiv.HostRule | Error | false | undefined */
-    parse(rule) {
-      const isBatchOp = this instanceof Map;
-      try {
-        if (typeof rule === "string")
-          rule = JSON.parse(rule);
-        if ("d" in rule && typeof rule.d !== "string")
-          rule.d = void 0;
-        else if (isBatchOp && rule.d && !hostname.includes(rule.d))
-          return false;
-        let { e } = rule;
-        if (e != null) {
-          e = typeof e === "string" ? e.trim() : isArray(e) ? e.join(",").trim() : Object.entries(e).every(Ruler.isValidE2) && e;
-          if (!e)
-            throw new Error('Invalid syntax for "e". Examples: "e": ".image" or "e": [".image1", ".image2"] or "e": {".parent": ".image"} or "e": {".parent1": ".image1", ".parent2": ".image2"}');
-          if (isBatchOp) rule.e = e || void 0;
-        }
-        let compileTo = isBatchOp ? rule : {};
-        if (rule.r)
-          compileTo.r = new RegExp(rule.r, "i");
-        if (App.NOP)
-          compileTo = {};
-        for (const key of Object.keys(FN_ARGS)) {
-          if (RX_HAS_CODE.test(rule[key])) {
-            const fn = Util.newFunction(...FN_ARGS[key], rule[key]);
-            if (fn !== App.NOP || !isBatchOp) {
-              compileTo[key] = fn;
-            } else if (isBatchOp) {
-              this.set(rule, "unsafe-eval");
-            }
-          }
-        }
-        return rule;
-      } catch (err) {
-        if (isBatchOp) {
-          this.set(rule, err);
-          return rule;
-        } else {
-          return err;
-        }
-      }
-    },
-    runC(text, doc2 = document) {
-      const fn = Ruler.runCHandler[typeof state.ai.rule.c] || Ruler.runCHandler.default;
-      state.ai.caption = fn(text, doc2);
-    },
-    runCHandler: {
-      function: (text, doc2) => state.ai.rule.c(text || doc2.documentElement.outerHTML, doc2, state.ai.node, state.ai.rule),
-      string: (text, doc2) => {
-        const el = $many(state.ai.rule.c, doc2);
-        return !el ? "" : el.getAttribute("content") || el.getAttribute("title") || el.textContent;
-      },
-      default: (text, doc2, el = state.ai.node) => (state.ai.tooltip || 0).text || el.alt || $propUp(el, "title") || Req.getFileName(
-        el.tagName === (state.ai.popup || 0).tagName ? state.ai.url : el.src || $propUp(el, "href")
-      )
-    },
-    runQ(text, doc2, docUrl) {
-      let url;
-      if (isFunction(state.ai.rule.q)) {
-        url = state.ai.rule.q(text, doc2, state.ai.node, state.ai.rule);
-        if (isArray(url)) {
-          state.ai.urls = url.slice(1);
-          url = url[0];
-        }
-      } else {
-        const el = $many(state.ai.rule.q, doc2);
-        url = Req.findImageUrl(el, docUrl);
-      }
-      return url;
-    },
-    /** @returns {?boolean|mpiv.RuleMatchInfo} */
-    runE(rule, e, node) {
-      let p, img, res, info;
-      for (const selParent in e) {
-        if ((p = node.closest(selParent)) && (img = $(e[selParent], p))) {
-          if (img === node)
-            res = true;
-          else if (info = RuleMatcher.adaptiveFind(img, { rules: [rule] }))
-            return info;
-        }
-      }
-      return res;
-    },
-    /** @returns {?Array} if falsy then the rule should be skipped */
-    runS(node, rule, m) {
-      let urls = [], u;
-      for (const s of ensureArray(rule.s))
-        urls.push(
-          typeof s === "string" ? Util.decodeUrl(Ruler.substituteSingle(s, m)) : isFunction(s) ? s(m, node, rule) : s
+      if (canEval) {
+        evalCode.push(
+          evalRules.length ? "," : "",
+          "[",
+          rulesValue.indexOf(rule),
+          ",{",
+          ...Object.keys(FN_ARGS).map((k) => RX_HAS_CODE.test(rule[k]) && `${k}(${FN_ARGS[k]}){${rule[k]}},`).filter(Boolean),
+          "}]"
         );
-      if (rule.q && urls.length > 1) {
-        console.warn('Rule discarded: "s" array is not allowed with "q"\n%o', rule);
-        return;
       }
-      if (isArray(u = urls[0]))
-        u = [urls = u][0];
-      return u === "" ? urls : u && arrayFrom(new Set(urls), Util.decodeUrl);
-    },
-    /** @returns {boolean} */
-    runU(rule, url) {
-      const u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(rule.u));
-      return u.fn.call(u.data, url);
-    },
-    substituteSingle(s, m) {
-      if (!m || m.input == null) return s;
-      if (s.startsWith("/") && !s.startsWith("//")) {
-        const mid = s.search(/[^\\]\//) + 1;
-        const end = s.lastIndexOf("/");
-        const re = new RegExp(s.slice(1, mid), s.slice(end + 1));
-        return m.input.replace(re, s.slice(mid + 1, end));
-      }
-      if (m.length && s.includes("$")) {
-        const maxLength = Math.floor(Math.log10(m.length)) + 1;
-        s = s.replace(/\$(\d{1,3})/g, (text, num) => {
-          for (let i = maxLength; i >= 0; i--) {
-            const part = num.slice(0, i) | 0;
-            if (part < m.length)
-              return (m[part] || "") + num.slice(i);
-          }
-          return text;
-        });
-      }
-      return s;
-    },
-    toggle(rule, prop, condition) {
-      rule[prop] = condition ? rule[`_${prop}`] : null;
-      return condition;
+      evalRules.push(rule);
     }
+    if (evalRules.length) {
+      let result, wnd;
+      if (canEval) {
+        const GMAE = hasGMAE ? GM_addElement : (tag, { textContent: txt }) => document.head.appendChild(
+          Object.assign(document.createElement(tag), {
+            textContent: trustedScript ? trustedScript(txt) : txt,
+            nonce
+          })
+        );
+        evalCode.push("]; document.currentScript.remove();");
+        GMAE("script", { textContent: evalCode.join("") });
+        result = (wnd = unsafeWindow)[evalId] || isFF && (wnd = wnd.wrappedJSObject)[evalId];
+      }
+      if (result) {
+        for (const [index, fns] of result)
+          Object.assign(rulesValue[index], fns);
+        delete wnd[evalId];
+      } else {
+        console.warn("Site forbids compiling JS code in these custom rules", evalRules);
+      }
+    }
+    switch (dotDomain.match(/[^.]+(?=\.com?(?:\.[^.]+)?$)|[^.]+\.[^.]+$|$/)[0]) {
+      case "4chan.org":
+        rulesValue.push({
+          e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
+          q: ".op .fileText a",
+          css: "#post-preview{display:none}"
+        });
+        break;
+      case "amazon":
+        rulesValue.push({
+          r: /.+?images\/I\/.+?\./,
+          s: (m) => {
+            const uh = doc.getElementById("universal-hover");
+            return uh ? "" : m[0] + "jpg";
+          },
+          css: "#zoomWindow{display:none!important;}"
+        });
+        break;
+      case "bing":
+        rulesValue.push({
+          e: 'a[m*="murl"]',
+          r: /murl&quot;:&quot;(.+?)&quot;/,
+          s: "$1",
+          html: true
+        });
+        break;
+      case "deviantart":
+        rulesValue.push({
+          e: 'a[href*="/art/"] img[src*="/v1/"]',
+          r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
+          s: ([, base, name, ext, tok], node) => {
+            let v = getReactChildren(node.closest("a"), "props.deviation.media.types");
+            return v && (v = v.find((t) => t.t === "fullview")) && `${base}${v.c ? v.c.replace("<prettyName>", name) : `/v1/fill/w_${v.w},h_${v.h}/${name}-fullview${ext}`}${tok}`;
+          }
+        }, {
+          e: ".dev-view-deviation img",
+          s: () => [
+            $(".dev-page-download").href,
+            $(".dev-content-full").src
+          ].filter(Boolean)
+        }, {
+          e: "a[data-hook=deviation_link]",
+          q: "link[as=image]"
+        });
+        break;
+      case "discord":
+        rulesValue.push({
+          u: "||discordapp.net/external/",
+          r: /\/https?\/(.+)/,
+          s: "//$1",
+          follow: true
+        });
+        break;
+      case "dropbox":
+        rulesValue.push({
+          r: /(.+?&size_mode)=\d+(.*)/,
+          s: "$1=5$2"
+        });
+        break;
+      case "facebook":
+        rulesValue.push({
+          e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
+          s: (m, el) => (m = getReactChildren(el.parentNode)) && pick(m, (m[0] ? "0.props.linkProps" : "props") + ".passthroughProps.origSrc")
+        });
+        break;
+      case "flickr":
+        if (pick(unsafeWindow, "YUI_config.flickr.api.site_key")) rulesValue.push({
+          r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
+          s: (m) => `https://www.flickr.com/services/rest/?${new URLSearchParams({
+            photo_id: m[1],
+            api_key: unsafeWindow.YUI_config.flickr.api.site_key,
+            method: "flickr.photos.getSizes",
+            format: "json",
+            nojsoncallback: 1
+          }).toString()}`,
+          q: (text) => JSON.parse(text).sizes.size.pop().source,
+          anonymous: true
+        });
+        break;
+      case "github":
+        rulesValue.push({
+          r: new RegExp([
+            /(avatars.+?&s=)\d+/,
+            /(raw\.github)(\.com\/.+?\/img\/.+)$/,
+            /\/(github)(\.com\/.+?\/)blob\/([^/]+\/.+?\.(?:avif|webp|png|jpe?g|bmp|gif|cur|ico|svg))$/
+          ].map((rx) => rx.source).join("|")),
+          s: (m) => `https://${m[1] ? `${m[1]}460` : m[2] ? `${m[2]}usercontent${m[3]}` : $(".AppHeader-context-item > .octicon-lock") ? `${m[4]}${m[5]}raw/${m[6]}` : `raw.${m[4]}usercontent${m[5]}${m[6]}`}`
+        });
+        break;
+      case "google":
+        if (location.pathname === "/search") rulesValue.push({
+          e: /[&?](sclient=img|udm=2)(&|$)/.test(location.search) ? "[data-docid] img" : "[jsdata][id] img",
+          s: (m, el, rule) => {
+            el = el.closest(rule.e.split(" ")[0]);
+            const id = el.dataset.docid || el.id;
+            if (isFF) el = el.wrappedJSObject || el;
+            if ((el = el.__jscontroller) && (el = el.pending) && (el = el.value)) {
+              for (let a in el)
+                if ({}.toString.call(a = el[a]) === "[object Object]") {
+                  for (const b in a)
+                    if (Array.isArray(m = a[b]) && m.includes(id) && (m[1] === id || (m = m[1]) && Array.isArray(m = m[b]) && m[1] === id) && Array.isArray(m = m[3]))
+                      return m[0];
+                }
+            }
+          }
+        });
+        break;
+      case "instagram":
+        rulesValue.push({
+          e: 'img, video, main div, article div, [role="dialog"] div, ' + links,
+          s: preview,
+          c: (html, doc2, node, rule) => (rule._img || {}).alt || ""
+        });
+        break;
+      case "reddit":
+        rulesValue.push({
+          u: "||i.reddituploads.com/"
+        }, {
+          e: '[data-url*="i.redd.it"] img[src*="thumb"]',
+          s: (m, node) => $propUp(node, "data-url")
+        }, {
+          r: /preview(\.redd\.it\/\w+\.(jpe?g|png|gif))/,
+          s: "https://i$1"
+        });
+        break;
+      case "stackoverflow":
+        rulesValue.push({
+          e: ".post-tag, .post-tag img",
+          s: ""
+        });
+        break;
+      case "startpage":
+        rulesValue.push({
+          r: /[&?]piurl=([^&]+)/,
+          s: "$1",
+          follow: true
+        });
+        break;
+      case "tumblr":
+        rulesValue.push({
+          e: "div.photo_stage_img, div.photo_stage > canvas",
+          s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute("data-img-src"))[0],
+          follow: true
+        });
+        break;
+      case "twitter":
+        rulesValue.push({
+          e: ".grid-tweet > .media-overlay",
+          s: (m, node) => node.previousElementSibling.src,
+          follow: true
+        });
+        break;
+    }
+    rulesValue.push(
+      {
+        e: "iframe",
+        s: (m, node) => embedUrl(node.src) || false,
+        q: embedSource,
+        c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
+      },
+      {
+        r: /[/?=](https?%3A%2F%2F[^&]+)/i,
+        s: "$1",
+        follow: true,
+        onerror: "skip"
+      },
+      {
+        u: [
+          "||500px.com/photo/",
+          "||cl.ly/",
+          "||cweb-pix.com/",
+          "//ibb.co/",
+          "||imgcredit.xyz/image/"
+        ],
+        r: /\.\w+\/.+/,
+        q: 'meta[property="og:image"]'
+      },
+      {
+        u: "attachment.php",
+        r: /attachment\.php.+attachmentid/
+      },
+      {
+        u: "||abload.de/image",
+        q: "#image"
+      },
+      {
+        u: "||deviantart.com/art/",
+        s: (m, node) => /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? "" : m.input,
+        q: [
+          '#download-button[href*=".jpg"]',
+          '#download-button[href*=".jpeg"]',
+          '#download-button[href*=".gif"]',
+          '#download-button[href*=".png"]',
+          "#gmi-ResViewSizer_fullimg",
+          "img.dev-content-full"
+        ]
+      },
+      {
+        u: "||dropbox.com/s",
+        r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
+        q: (text, doc2) => $prop("img.absolute-center", "src", doc2).replace(/(size_mode)=\d+/, "$1=5") || false
+      },
+      {
+        r: /[./]ebay\.[^/]+\/itm\//,
+        q: (text) => text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/, "~~60_57")
+      },
+      {
+        u: "||i.ebayimg.com/",
+        s: (m, node) => $(".zoom_trigger_mask", node.parentNode) ? "" : m.input.replace(/~~60_\d+/, "~~60_57")
+      },
+      {
+        u: "||fastpic.",
+        s: (m, node, rule) => {
+          const a = node.closest("a");
+          const url = decodeURIComponent(findImageUrl(a || node)).replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, "/$2$1").replace(
+            /^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
+            "https://fastpic.org/view$1$2.html"
+          );
+          toggle(rule, "q", url.includes(".html"));
+          return a || url.includes(".png") ? url : [url, url.replace(/\.jpe?g/, ".png")];
+        },
+        _q: (text, doc2, n) => (n = $('input[value*="/big/"]', doc2)) && n.value || $prop('a[href*="/big/"]', "href", doc2)
+      },
+      {
+        u: "||flickr.com/photos/",
+        r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
+        s: (m) => m.input.indexOf("/sizes/") < 0 ? `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` : false,
+        q: (text, doc2) => {
+          const links2 = $$(".sizes-list a", doc2);
+          return "https://www.flickr.com" + links2[links2.length - 1].getAttribute("href");
+        },
+        follow: true
+      },
+      {
+        u: "||flickr.com/photos/",
+        r: /\/sizes\//,
+        q: "#allsizes-photo > img"
+      },
+      {
+        u: "||gfycat.com/",
+        r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
+        s: "https://$1$3",
+        q: 'meta[content$=".webm"], #webmsource, source[src$=".webm"], .actual-gif-image'
+      },
+      {
+        u: [
+          "||googleusercontent.com/proxy",
+          "||googleusercontent.com/gadgets/proxy"
+        ],
+        r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
+        s: (m) => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, "w0-h0")
+      },
+      {
+        u: [
+          "||googleusercontent.com/",
+          "||ggpht.com/"
+        ],
+        s: (m) => m.input.includes("webcache.") ? "" : m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, "/s0").replace(/([&?]sz)?=[-\w]+([&#].*)?/, "")
+      },
+      {
+        u: "||gravatar.com/",
+        r: /([a-z0-9]{32})/,
+        s: "https://gravatar.com/avatar/$1?s=200"
+      },
+      {
+        u: "//gyazo.com/",
+        r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
+        s: (m, _, rule) => toggle(rule, "q", !m[1]) ? m.input : `https://i.${m[0]}`,
+        _q: 'link[rel="image_src"]'
+      },
+      {
+        u: "||hostingkartinok.com/show-image.php",
+        q: ".image img"
+      },
+      {
+        u: [
+          "||imagecurl.com/images/",
+          "||imagecurl.com/viewer.php"
+        ],
+        r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
+        s: "https://imagecurl.com/images/$1$2$3"
+      },
+      {
+        u: "||imagebam.com/",
+        r: /^(https:\/\/)thumbs\d+(\.imagebam\.com\/).*?([^/]+)_t\./,
+        s: "$1www$2view/$3",
+        q: "img.main-image"
+      },
+      {
+        u: "||www.imagebam.com/view/",
+        q: "img.main-image"
+      },
+      {
+        u: "||imageban.ru/thumbs",
+        r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
+        s: "$1out$2/$3/$4"
+      },
+      {
+        u: [
+          "||imageban.ru/show",
+          "||imageban.net/show",
+          "||ibn.im/"
+        ],
+        q: "#img_main"
+      },
+      {
+        u: "||imageshack.us/img",
+        r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
+        s: "https://$2/download/$1/$3$4"
+      },
+      {
+        u: "||imageshack.us/i/",
+        q: "#share-dl"
+      },
+      {
+        u: "||imageteam.org/img",
+        q: 'img[alt="image"]'
+      },
+      {
+        u: [
+          "||imagetwist.com/",
+          "||imageshimage.com/"
+        ],
+        r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
+        q: "img.pic",
+        xhr: true
+      },
+      {
+        u: "||imageupper.com/i/",
+        q: "#img",
+        xhr: true
+      },
+      {
+        u: "||imagevenue.com/",
+        q: 'a[data-toggle="full"] img'
+      },
+      {
+        u: "||imagezilla.net/show/",
+        q: "#photo",
+        xhr: true
+      },
+      {
+        u: [
+          "||images-na.ssl-images-amazon.com/images/",
+          "||media-imdb.com/images/"
+        ],
+        r: /images\/.+?\.jpg/,
+        s: "/V1\\.?_.+?\\.//g"
+      },
+      {
+        u: "||imgbox.com/",
+        r: /\.com\/([a-z0-9]+)$/i,
+        q: "#img",
+        xhr: hostname !== "imgbox.com"
+      },
+      {
+        u: "||imgclick.net/",
+        r: /\.net\/(\w+)/,
+        q: "img.pic",
+        xhr: true,
+        post: (m) => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`
+      },
+      {
+        u: ".imgcredit.xyz/",
+        r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
+        s: ["https$1$2", "https$1.png"]
+      },
+      {
+        u: [
+          "||imgflip.com/i/",
+          "||imgflip.com/gif/"
+        ],
+        r: /\/(i|gif)\/([^/?#]+)/,
+        s: (m) => `https://i.imgflip.com/${m[2]}${m[1] === "i" ? ".jpg" : ".mp4"}`
+      },
+      {
+        u: [
+          "||imgur.com/a/",
+          "||imgur.com/gallery/"
+        ],
+        s: "gallery",
+        // suppressing an unused network request for remote `document`
+        async g() {
+          let u = `https://imgur.com/ajaxalbums/getimages/${ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
+          let info2 = tryJSON((await gmXhr(u)).responseText) || 0;
+          let images = (info2.data || 0).images || [];
+          if (!images[0]) {
+            info2 = (await gmXhr(ai.url)).responseText.match(/postDataJSON=(".*?")<|$/)[1];
+            info2 = tryJSON(tryJSON(info2)) || 0;
+            images = info2.media;
+          }
+          const items = [];
+          for (const img of images) {
+            const meta = img.metadata || img;
+            items.push({
+              url: img.url || (u = `https://i.imgur.com/${img.hash}`) && (img.ext === ".gif" && img.animated !== false ? [`${u}.webm`, `${u}.mp4`, u] : u + img.ext),
+              desc: [meta.title, meta.description].filter(Boolean).join(" - ")
+            });
+          }
+          if (items[0] && info2.title && !`${items[0].desc || ""}`.includes(info2.title))
+            items.title = info2.title;
+          return items;
+        }
+      },
+      {
+        u: "||imgur.com/",
+        r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+\w*)/,
+        s: "gallery",
+        g: (text, doc2, url, m) => m[2].split(",").map((id) => ({
+          url: `https://i.${m[1]}${id}.jpg`
+        }))
+      },
+      {
+        u: "||imgur.com/",
+        r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.(mp4|[a-z]+))/i,
+        s: (m, node) => {
+          if (/memegen|random|register|search|signin/.test(m.input))
+            return "";
+          const a = node.closest("a");
+          if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
+            return false;
+          const id = m[3].replace(/(.{7})[hlmtbs]$/, "$1");
+          const ext = m[5] ? m[5].replace(/gifv?/, "webm") : "jpg";
+          const u = `https://i.${(m[1] || "").replace("www.", "")}imgur.com/${id}.`;
+          return ext === "webm" ? [`${u}webm`, `${u}mp4`, `${u}gif`] : u + ext;
+        }
+      },
+      {
+        u: ["||instagr.am/", "||instagram.com/"],
+        r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
+        s: (m) => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
+        g: gallery
+      },
+      {
+        u: [
+          "||livememe.com/",
+          "||lvme.me/"
+        ],
+        r: /\.\w+\/([^.]+)$/,
+        s: "http://i.lvme.me/$1.jpg"
+      },
+      {
+        u: "||lostpic.net/image",
+        q: ".image-viewer-image img"
+      },
+      {
+        u: "||makeameme.org/meme/",
+        r: /\/meme\/([^/?#]+)/,
+        s: "https://media.makeameme.org/created/$1.jpg"
+      },
+      {
+        u: "||photobucket.com/",
+        r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
+        s: "https://i$1$3",
+        xhr: !dotDomain.endsWith(".photobucket.com")
+      },
+      {
+        u: "||piccy.info/view3/",
+        r: /(.+?\/view3)\/(.*)\//,
+        s: "$1/$2/orig/",
+        q: "#mainim"
+      },
+      {
+        u: "||pimpandhost.com/image/",
+        r: /(.+?\/image\/[0-9]+)/,
+        s: "$1?size=original",
+        q: "img.original"
+      },
+      {
+        u: [
+          "||pixroute.com/",
+          "||imgspice.com/"
+        ],
+        r: /\.html$/,
+        q: "img[id]",
+        xhr: true
+      },
+      {
+        u: "||postima",
+        r: /postima?ge?\.org\/image\/\w+/,
+        q: [
+          'a[href*="dl="]',
+          "#main-image"
+        ]
+      },
+      {
+        u: [
+          "||prntscr.com/",
+          "||prnt.sc/"
+        ],
+        r: /\.\w+\/.+/,
+        q: 'meta[property="og:image"]',
+        xhr: true
+      },
+      {
+        u: "||radikal.ru/",
+        r: /\.ru\/(fp|.+?\.html)|^(.+?)t\.jpg/,
+        s: (m, node, rule) => m[2] && /radikal\.ru[\w%/]+?(\.\w+)/.test($propUp(node, "href")) ? m[2] + RegExp.$1 : toggle(rule, "q", m[1]) ? m.input : [m[2] + ".jpg", m[2] + ".png"],
+        _q: (text) => text.match(/https?:\/\/\w+\.radikal\.ru[\w/]+\.(jpg|gif|png)/i)[0]
+      },
+      {
+        u: "||tumblr.com",
+        r: /_500\.jpg/,
+        s: ["/_500/_1280/", ""]
+      },
+      {
+        u: "||twimg.com/media/",
+        r: /.+?format=(jpe?g|png|gif)/i,
+        s: "$0&name=orig"
+      },
+      {
+        u: "||twimg.com/media/",
+        r: /.+?\.(jpe?g|png|gif)/i,
+        s: "$0:orig"
+      },
+      {
+        u: "||twimg.com/1/proxy",
+        r: /t=([^&_]+)/i,
+        s: (m) => atob(m[1]).match(/http.+/)
+      },
+      {
+        u: "||twimg.com/",
+        r: /\/profile_images/i,
+        s: "/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g"
+      },
+      {
+        u: "||pic.twitter.com/",
+        r: /\.com\/[a-z0-9]+/i,
+        q: (text) => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
+        follow: true
+      },
+      {
+        u: "||twitpic.com/",
+        r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
+        s: "https://twitpic.com/show/large/$2"
+      },
+      {
+        u: "||wiki",
+        r: /\/(?:thumb|images)\/.+\.(?:jpe?g|gif|png|svg)/i,
+        s: (m) => m.input.replace(/\/(thumb(?=\/)|\d+px[^/]+(?=$|\?))/g, "").replace("//thumb.wikimedia.org/", "//upload.wikimedia.org/").replace(/\/(scale-to-width(-[a-z]+)?\/\d+|(zoom-crop|smart)(\/(width|height)\/\d+)+)/g, "/"),
+        xhr: !hostname.includes("wiki")
+      },
+      {
+        u: "||ytimg.com/vi/",
+        r: /(.+?\/vi\/[^/]+)/,
+        s: "$1/0.jpg",
+        rect: ".video-list-item"
+      },
+      {
+        u: "/viewer.php?file=",
+        r: /(.+?)\/viewer\.php\?file=(.+)/,
+        s: "$1/images/$2",
+        xhr: true
+      },
+      {
+        u: "/thumb_",
+        r: /\/albums.+\/thumb_[^/]/,
+        s: "/thumb_//"
+      },
+      {
+        u: [
+          ".th.jp",
+          ".th.gif",
+          ".th.png"
+        ],
+        r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
+        s: "$1$2",
+        follow: true
+      },
+      {
+        r: RX_MEDIA_URL
+      }
+    );
+  }
+  function format(rule, { expand } = {}) {
+    const s = stringify(rule, null, " ");
+    return expand ? (
+      /* {"a": ...,
+          "b": ...,
+          "c": ...
+         } */
+      s.replace(/^{\s+/g, "{")
+    ) : (
+      /* {"a": ..., "b": ..., "c": ...} */
+      s.replace(/\n\s*/g, " ").replace(/^({)\s|\s+(})$/g, "$1$2")
+    );
+  }
+  function fromElement(el) {
+    const text = el.textContent.trim();
+    if (text.startsWith("{") && text.endsWith("}") && /[{,]\s*"[degqrsu]"\s*:\s*"/.test(text)) {
+      const rule = tryJSON(text);
+      return rule && Object.keys(rule).some((k) => /^[degqrsu]$/.test(k)) && rule;
+    }
+  }
+  var isValidE2 = ([k, v]) => k.trim() && typeof v === "string" && v.trim();
+  function parse(rule) {
+    const isBatchOp = this instanceof Map;
+    try {
+      if (typeof rule === "string")
+        rule = JSON.parse(rule);
+      if ("d" in rule && typeof rule.d !== "string")
+        rule.d = void 0;
+      else if (isBatchOp && rule.d && !hostname.includes(rule.d))
+        return false;
+      let { e } = rule;
+      if (e != null) {
+        e = typeof e === "string" ? e.trim() : isArray(e) ? e.join(",").trim() : Object.entries(e).every(isValidE2) && e;
+        if (!e)
+          throw new Error('Invalid syntax for "e". Examples: "e": ".image" or "e": [".image1", ".image2"] or "e": {".parent": ".image"} or "e": {".parent1": ".image1", ".parent2": ".image2"}');
+        if (isBatchOp) rule.e = e || void 0;
+      }
+      let compileTo = isBatchOp ? rule : {};
+      if (rule.r)
+        compileTo.r = new RegExp(rule.r, "i");
+      if (NOP)
+        compileTo = {};
+      for (const key of Object.keys(FN_ARGS)) {
+        if (RX_HAS_CODE.test(rule[key])) {
+          const fn = newFunction(...FN_ARGS[key], rule[key]);
+          if (fn !== NOP || !isBatchOp) {
+            compileTo[key] = fn;
+          } else if (isBatchOp) {
+            this.set(rule, "unsafe-eval");
+          }
+        }
+      }
+      return rule;
+    } catch (err) {
+      if (isBatchOp) {
+        this.set(rule, err);
+        return rule;
+      } else {
+        return err;
+      }
+    }
+  }
+  function runC(text, doc2 = document) {
+    const fn = runCHandler[typeof ai.rule.c] || runCHandler.default;
+    ai.caption = fn(text, doc2);
+  }
+  var runCHandler = {
+    function: (text, doc2) => ai.rule.c(text || doc2.documentElement.outerHTML, doc2, ai.node, ai.rule),
+    string: (text, doc2) => {
+      const el = $many(ai.rule.c, doc2);
+      return !el ? "" : el.getAttribute("content") || el.getAttribute("title") || el.textContent;
+    },
+    default: (text, doc2, el = ai.node) => (ai.tooltip || 0).text || el.alt || $propUp(el, "title") || getFileName(
+      el.tagName === (ai.popup || 0).tagName ? ai.url : el.src || $propUp(el, "href")
+    )
   };
+  function runQ(text, doc2, docUrl) {
+    let url;
+    if (isFunction(ai.rule.q)) {
+      url = ai.rule.q(text, doc2, ai.node, ai.rule);
+      if (isArray(url)) {
+        ai.urls = url.slice(1);
+        url = url[0];
+      }
+    } else {
+      const el = $many(ai.rule.q, doc2);
+      url = findImageUrl(el, docUrl);
+    }
+    return url;
+  }
+  function runE(rule, e, node) {
+    let p, img, res, info2;
+    for (const selParent in e) {
+      if ((p = node.closest(selParent)) && (img = $(e[selParent], p))) {
+        if (img === node)
+          res = true;
+        else if (info2 = adaptiveFind(img, { rules: [rule] }))
+          return info2;
+      }
+    }
+    return res;
+  }
+  function runS(node, rule, m) {
+    let urls = [], u;
+    for (const s of ensureArray(rule.s))
+      urls.push(
+        typeof s === "string" ? decodeUrl(substituteSingle(s, m)) : isFunction(s) ? s(m, node, rule) : s
+      );
+    if (rule.q && urls.length > 1) {
+      console.warn('Rule discarded: "s" array is not allowed with "q"\n%o', rule);
+      return;
+    }
+    if (isArray(u = urls[0]))
+      u = [urls = u][0];
+    return u === "" ? urls : u && arrayFrom(new Set(urls), decodeUrl);
+  }
+  function runU(rule, url) {
+    const u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(rule.u));
+    return u.fn.call(u.data, url);
+  }
+  function substituteSingle(s, m) {
+    if (!m || m.input == null) return s;
+    if (s.startsWith("/") && !s.startsWith("//")) {
+      const mid = s.search(/[^\\]\//) + 1;
+      const end = s.lastIndexOf("/");
+      const re = new RegExp(s.slice(1, mid), s.slice(end + 1));
+      return m.input.replace(re, s.slice(mid + 1, end));
+    }
+    if (m.length && s.includes("$")) {
+      const maxLength = Math.floor(Math.log10(m.length)) + 1;
+      s = s.replace(/\$(\d{1,3})/g, (text, num) => {
+        for (let i = maxLength; i >= 0; i--) {
+          const part = num.slice(0, i) | 0;
+          if (part < m.length)
+            return (m[part] || "") + num.slice(i);
+        }
+        return text;
+      });
+    }
+    return s;
+  }
+  function toggle(rule, prop, condition) {
+    rule[prop] = condition ? rule[`_${prop}`] : null;
+    return condition;
+  }
 
   // src/csp.js
-  var CspSniffer = {
-    /** @type {?Object<string,string[]>} */
-    csp: null,
-    selfUrl: location.origin + "/",
-    // will be null when done
-    init() {
-      this.busy = new Promise((resolve) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("GET", location);
-        xhr.timeout = Math.max(2e3, (performance.timing.responseEnd - performance.timeOrigin) * 2);
-        xhr.onreadystatechange = () => {
-          if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
-            this.csp = this._parse([
-              xhr.getResponseHeader("content-security-policy"),
-              $prop('meta[http-equiv="Content-Security-Policy"]', "content")
-            ].filter(Boolean).join(","));
-            this.init = this.busy = xhr.onreadystatechange = null;
-            xhr.abort();
-            resolve();
-          }
-        };
-        xhr.send();
-      });
-    },
-    async check(url, allowInit) {
-      if (allowInit && this.init) this.init();
-      if (this.busy) await this.busy;
-      const isVideo2 = Util.isVideoUrl(url);
-      let mode;
-      if (this.csp) {
-        const src = this.csp[isVideo2 ? "media" : "img"] || this.csp.default;
-        if (!src.some(this._srcMatches, url))
-          mode = [mode, "blob", "data"].find((m) => src.includes(`${m}:`));
-      }
-      return [mode || state.ai.xhr, isVideo2];
-    },
-    _parse(csp) {
-      if (!csp) return;
-      const src = {};
-      const rx = /(?:^|[;,])\s*(?:(default|img|media|script)-src|require-(trusted)-types-for) ([^;,]+)/g;
-      for (let m; m = rx.exec(csp); )
-        src[m[1] || m[2]] = m[3].trim().split(/\s+/);
-      if ((src.script || []).find((s) => /^'nonce-(.+)'$/.test(s)))
-        state.nonce = RegExp.$1;
-      if ((src.trusted || []).includes("'script'"))
-        App.NOP = () => {
-        };
-      for (const set of /* @__PURE__ */ new Set([src.img || src.default, src.media || src.default])) {
-        set.forEach((item, i) => {
-          if (item !== "*" && item.includes("*")) {
-            set[i] = new RegExp(
-              (/^\w+:/.test(item) ? "^" : "^\\w+://") + item.replace(/[.+?^$|()[\]{}]/g, "\\$&").replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) => `${a ? "\\.?" : ""}[^:/]*${c ? "\\.?" : ""}`).replace(/[^/]$/, "$&/")
-            );
-          }
-        });
-      }
-      return src;
-    },
-    /** @this string */
-    _srcMatches(src) {
-      return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(CspSniffer.selfUrl);
-    }
+  var busy;
+  var csp = null;
+  var selfUrl = location.origin + "/";
+  var init2 = function() {
+    busy = new Promise((resolve) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("GET", location);
+      xhr.timeout = Math.max(2e3, (performance.timing.responseEnd - performance.timeOrigin) * 2);
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
+          csp = _parse([
+            xhr.getResponseHeader("content-security-policy"),
+            $prop('meta[http-equiv="Content-Security-Policy"]', "content")
+          ].filter(Boolean).join(","));
+          init2 = busy = xhr.onreadystatechange = null;
+          xhr.abort();
+          resolve();
+        }
+      };
+      xhr.send();
+    });
   };
+  async function check(url, allowInit) {
+    if (allowInit && init2) init2();
+    if (busy) await busy;
+    const isVideo2 = isVideoUrl(url);
+    let mode;
+    if (csp) {
+      const src = csp[isVideo2 ? "media" : "img"] || csp.default;
+      if (!src.some(_srcMatches, url))
+        mode = [mode, "blob", "data"].find((m) => src.includes(`${m}:`));
+    }
+    return [mode || ai.xhr, isVideo2];
+  }
+  function _parse(cspValue) {
+    if (!cspValue) return;
+    const src = {};
+    const rx = /(?:^|[;,])\s*(?:(default|img|media|script)-src|require-(trusted)-types-for) ([^;,]+)/g;
+    for (let m; m = rx.exec(cspValue); )
+      src[m[1] || m[2]] = m[3].trim().split(/\s+/);
+    if ((src.script || []).find((s) => /^'nonce-(.+)'$/.test(s)))
+      setNonce(RegExp.$1);
+    if ((src.trusted || []).includes("'script'"))
+      setNOP(() => {
+      });
+    for (const set3 of /* @__PURE__ */ new Set([src.img || src.default, src.media || src.default])) {
+      set3.forEach((item, i) => {
+        if (item !== "*" && item.includes("*")) {
+          set3[i] = new RegExp(
+            (/^\w+:/.test(item) ? "^" : "^\\w+://") + item.replace(/[.+?^$|()[\]{}]/g, "\\$&").replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) => `${a ? "\\.?" : ""}[^:/]*${c ? "\\.?" : ""}`).replace(/[^/]$/, "$&/")
+          );
+        }
+      });
+    }
+    return src;
+  }
+  function _srcMatches(src) {
+    return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(selfUrl);
+  }
 
   // src/popup-video.js
-  var PopupVideo = {
-    create(volume) {
-      state.ai.bufBar = false;
-      state.ai.bufStart = now();
-      return $new("video", {
-        autoplay: state.ai.preloadStart !== -1,
-        controls: true,
-        muted: state.cfg.mute || new AudioContext().state === "suspended",
-        loop: true,
-        volume: clamp(+volume || 0.5, 0, 1),
-        onprogress: PopupVideo.progress,
-        oncanplaythrough: PopupVideo.progressDone,
-        onvolumechange: PopupVideo.rememberVolume
-      });
-    },
-    progress() {
-      const { duration } = this;
-      if (duration && this.buffered.length && now() - state.ai.bufStart > 2e3) {
-        const pct = Math.round(this.buffered.end(0) / duration * 100);
-        if (state.ai.bar && (state.ai.bufBar |= pct > 0 && pct < 50))
-          Bar.set(`${pct}% of ${Math.round(duration)}s`, "xhr");
-      }
-    },
-    progressDone() {
-      this.onprogress = this.oncanplaythrough = null;
-      if (state.ai.bar && state.ai.bar.classList.contains(`${PREFIX}xhr`))
-        Bar.set(false);
-      Popup.onLoad.call(this);
-    },
-    rememberVolume() {
-      api.setValue("volume", this.volume);
+  function create(volume) {
+    ai.bufBar = false;
+    ai.bufStart = now();
+    return $new("video", {
+      autoplay: ai.preloadStart !== -1,
+      controls: true,
+      muted: cfg.mute || new AudioContext().state === "suspended",
+      loop: true,
+      volume: clamp(+volume || 0.5, 0, 1),
+      onprogress: progress,
+      oncanplaythrough: progressDone,
+      onvolumechange: rememberVolume
+    });
+  }
+  function progress() {
+    const { duration } = this;
+    if (duration && this.buffered.length && now() - ai.bufStart > 2e3) {
+      const pct = Math.round(this.buffered.end(0) / duration * 100);
+      if (ai.bar && (ai.bufBar |= pct > 0 && pct < 50))
+        set(`${pct}% of ${Math.round(duration)}s`, "xhr");
     }
-  };
+  }
+  function progressDone() {
+    this.onprogress = this.oncanplaythrough = null;
+    if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
+      set(false);
+    onLoad.call(this);
+  }
+  function rememberVolume() {
+    setValue("volume", this.volume);
+  }
 
   // src/popup.js
-  var Popup = {
-    async create(src, pageUrl, error) {
-      let p = state.ai.popup, blank;
-      const inGallery = p && !state.cfg.uiFadeinGallery && state.ai.gItems && !state.ai.zooming;
-      if (inGallery && p === document.fullscreenElement) {
-        Popup.destroyBlob();
-      } else if (p) {
-        Popup.destroy();
-        p = null;
-      }
-      state.ai.imageUrl = src;
-      if (!src)
-        return;
-      const myAi = state.ai;
-      let [xhr, isVideo2] = await CspSniffer.check(src, error);
-      if (state.ai !== myAi)
-        return;
-      if (!xhr && error) {
-        App.handleError(error);
-        return;
-      }
-      Object.assign(state.ai, { pageUrl, xhr });
-      if (xhr)
-        [src, isVideo2] = await Req.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
-      let vol;
-      if (state.ai !== myAi || !src || isVideo2 && (vol = await api.getValue("volume"), state.ai !== myAi))
-        return;
-      if (p) {
-        p.src = blank = BLANK_PIXEL;
-        p.classList.remove(PREFIX + "show");
-        p.removeAttribute("style");
-        state.ai.popupShown = null;
-        state.ai.popupLoaded = false;
-      } else p = state.ai.popup = isVideo2 ? PopupVideo.create(vol) : $new("img");
-      p.id = `${PREFIX}popup`;
-      p.src = src;
-      p.addEventListener("error", App.handleError);
-      if (state.ai.night = state.ai.night != null ? state.ai.night : state.cfg.night)
-        p.classList.add(`${PREFIX}night`);
-      if (state.ai.zooming)
-        p.addEventListener("transitionend", Popup.onZoom);
-      $dataset(p, "galleryFlip", inGallery ? "" : null);
-      p.toggleAttribute("loaded", !!inGallery);
-      const poo = state.ai.popover || typeof p.showPopover === "function" && $("[popover]:popover-open");
-      state.ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, { opacity: 0 }), poo) || null;
-      if (p.parentElement !== doc.body)
-        doc.body.insertBefore(
-          p,
-          state.ai.bar && state.ai.bar.parentElement === doc.body && state.ai.bar || null
-        );
-      await 0;
-      if (state.ai.popup !== p || App.checkProgress({ start: true }) === false)
-        return;
-      if (!blank && p.complete)
-        Popup.onLoad.call(p);
-      else if (!isVideo2)
-        p.addEventListener("load", Popup.onLoad, { once: true });
-    },
-    destroy() {
-      const p = state.ai.popup;
-      if (!p) return;
-      p.removeEventListener("load", Popup.onLoad);
-      p.removeEventListener("error", App.handleError);
-      if (state.ai.popover) {
-        state.ai.popover.style.removeProperty("opacity");
-        state.ai.popover = null;
-      }
-      if (isFunction(p.pause))
-        p.pause();
-      p.remove();
-      Popup.destroyBlob();
-      state.ai.zoomed = state.ai.popup = state.ai.popupLoaded = null;
-    },
-    destroyBlob() {
-      if (!state.ai.blobUrl) return;
-      setTimeout(URL.revokeObjectURL, SETTLE_TIME, state.ai.blobUrl);
-      state.ai.blobUrl = null;
-    },
-    move() {
-      let x, y;
-      const { cx, cy, extras, view } = state.ai;
-      const vw = view.w - extras.outw;
-      const vh = view.h - extras.outh;
-      const w0 = state.ai.scale * state.ai.nwidth + extras.inw;
-      const h0 = state.ai.scale * state.ai.nheight + extras.inh;
-      const isSwapped = state.ai.rotate % 180;
-      const w = isSwapped ? h0 : w0;
-      const h = isSwapped ? w0 : h0;
-      if (!state.ai.zoomed && state.ai.gNum < 2 && !state.cfg.center) {
-        const r = state.ai.rect;
-        const rx = (r.left + r.right) / 2;
-        const ry = (r.top + r.bottom) / 2;
-        if (vw - r.right - 40 > w || w < r.left - 40) {
-          if (h < vh - 60)
-            y = clamp(ry - h / 2, 30, vh - h - 30);
-          x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
-        } else if (vh - r.bottom - 40 > h || h < r.top - 40) {
-          if (w < vw - 60)
-            x = clamp(rx - w / 2, 30, vw - w - 30);
-          y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
-        }
-      }
-      if (x == null) {
-        x = vw > w ? (vw - w) / 2 + view.x : (vw - w) * clamp(5 / 3 * ((cx - view.x) / vw - 0.2), -1, 1);
-      }
-      if (y == null) {
-        y = vh > h ? (vh - h) / 2 + view.y : (vh - h) * clamp(5 / 3 * ((cy - view.y) / vh - 0.2), -1, 1);
-      }
-      const diff = isSwapped ? (w0 - h0) / 2 : 0;
-      x += extras.o - diff;
-      y += extras.o + diff;
-      $css(state.ai.popup, {
-        transform: `translate(${Math.round(x)}px, ${Math.round(y)}px) rotate(${state.ai.rotate || 0}deg) scale(${state.ai.flipX ? -1 : 1},${state.ai.flipY ? -1 : 1})`,
-        width: `${Math.round(w0)}px`,
-        height: `${Math.round(h0)}px`
-      });
-    },
-    onLoad() {
-      if (this === state.ai.popup) {
-        this.setAttribute("loaded", "");
-        state.ai.popupLoaded = true;
-        Status.set("-loading");
-        App.checkProgress();
-        let i = state.ai.gItem;
-        if (i) i.url = this.src;
-        if (i = state.ai.gItemNext)
-          Popup.preload(this, i);
-      }
-    },
-    onZoom() {
-      this.classList.remove(`${PREFIX}zooming`);
-    },
-    async preload(p, item, u = item.url, el = $new("img")) {
-      state.ai.gItemNext = null;
-      if (!isArray(u)) {
-        el.src = u;
-        return;
-      }
-      for (const arr = u; p === state.ai.popup && item.url === arr && (u = arr[0]); ) {
-        const { type } = await new Promise((cb) => {
-          el.src = u;
-          el.onload = el.onerror = cb;
-        });
-        if (arr[0] === u)
-          arr.shift();
-        if (type === "load") {
-          item.url = u;
-          break;
-        }
+  async function create2(src, pageUrl, error) {
+    let p = ai.popup, blank;
+    const inGallery = p && !cfg.uiFadeinGallery && ai.gItems && !ai.zooming;
+    if (inGallery && p === document.fullscreenElement) {
+      destroyBlob();
+    } else if (p) {
+      destroy();
+      p = null;
+    }
+    ai.imageUrl = src;
+    if (!src)
+      return;
+    const myAi = ai;
+    let [xhr, isVideo2] = await check(src, error);
+    if (ai !== myAi)
+      return;
+    if (!xhr && error) {
+      handleError(error);
+      return;
+    }
+    Object.assign(ai, { pageUrl, xhr });
+    if (xhr)
+      [src, isVideo2] = await getImage(src, pageUrl, xhr).catch(handleError) || [];
+    let vol;
+    if (ai !== myAi || !src || isVideo2 && (vol = await getValue("volume"), ai !== myAi))
+      return;
+    if (p) {
+      p.src = blank = BLANK_PIXEL;
+      p.classList.remove(PREFIX + "show");
+      p.removeAttribute("style");
+      ai.popupShown = null;
+      ai.popupLoaded = false;
+    } else p = ai.popup = isVideo2 ? create(vol) : $new("img");
+    p.id = `${PREFIX}popup`;
+    p.src = src;
+    p.addEventListener("error", handleError);
+    if (ai.night = ai.night != null ? ai.night : cfg.night)
+      p.classList.add(`${PREFIX}night`);
+    if (ai.zooming)
+      p.addEventListener("transitionend", onZoom);
+    $dataset(p, "galleryFlip", inGallery ? "" : null);
+    p.toggleAttribute("loaded", !!inGallery);
+    const poo = ai.popover || typeof p.showPopover === "function" && $("[popover]:popover-open");
+    ai.popover = poo && poo.getBoundingClientRect().width && ($css(poo, { opacity: 0 }), poo) || null;
+    if (p.parentElement !== doc.body)
+      doc.body.insertBefore(
+        p,
+        ai.bar && ai.bar.parentElement === doc.body && ai.bar || null
+      );
+    await 0;
+    if (ai.popup !== p || checkProgress({ start: true }) === false)
+      return;
+    if (!blank && p.complete)
+      onLoad.call(p);
+    else if (!isVideo2)
+      p.addEventListener("load", onLoad, { once: true });
+  }
+  function destroy() {
+    const p = ai.popup;
+    if (!p) return;
+    p.removeEventListener("load", onLoad);
+    p.removeEventListener("error", handleError);
+    if (ai.popover) {
+      ai.popover.style.removeProperty("opacity");
+      ai.popover = null;
+    }
+    if (isFunction(p.pause))
+      p.pause();
+    p.remove();
+    destroyBlob();
+    ai.zoomed = ai.popup = ai.popupLoaded = null;
+  }
+  function destroyBlob() {
+    if (!ai.blobUrl) return;
+    setTimeout(URL.revokeObjectURL, SETTLE_TIME, ai.blobUrl);
+    ai.blobUrl = null;
+  }
+  function move() {
+    let x, y;
+    const { cx, cy, extras, view } = ai;
+    const vw = view.w - extras.outw;
+    const vh = view.h - extras.outh;
+    const w0 = ai.scale * ai.nwidth + extras.inw;
+    const h0 = ai.scale * ai.nheight + extras.inh;
+    const isSwapped = ai.rotate % 180;
+    const w = isSwapped ? h0 : w0;
+    const h = isSwapped ? w0 : h0;
+    if (!ai.zoomed && ai.gNum < 2 && !cfg.center) {
+      const r = ai.rect;
+      const rx = (r.left + r.right) / 2;
+      const ry = (r.top + r.bottom) / 2;
+      if (vw - r.right - 40 > w || w < r.left - 40) {
+        if (h < vh - 60)
+          y = clamp(ry - h / 2, 30, vh - h - 30);
+        x = rx > vw / 2 ? r.left - 40 - w : r.right + 40;
+      } else if (vh - r.bottom - 40 > h || h < r.top - 40) {
+        if (w < vw - 60)
+          x = clamp(rx - w / 2, 30, vw - w - 30);
+        y = ry > vh / 2 ? r.top - 40 - h : r.bottom + 40;
       }
     }
-  };
+    if (x == null) {
+      x = vw > w ? (vw - w) / 2 + view.x : (vw - w) * clamp(5 / 3 * ((cx - view.x) / vw - 0.2), -1, 1);
+    }
+    if (y == null) {
+      y = vh > h ? (vh - h) / 2 + view.y : (vh - h) * clamp(5 / 3 * ((cy - view.y) / vh - 0.2), -1, 1);
+    }
+    const diff = isSwapped ? (w0 - h0) / 2 : 0;
+    x += extras.o - diff;
+    y += extras.o + diff;
+    $css(ai.popup, {
+      transform: `translate(${Math.round(x)}px, ${Math.round(y)}px) rotate(${ai.rotate || 0}deg) scale(${ai.flipX ? -1 : 1},${ai.flipY ? -1 : 1})`,
+      width: `${Math.round(w0)}px`,
+      height: `${Math.round(h0)}px`
+    });
+  }
+  function onLoad() {
+    if (this === ai.popup) {
+      this.setAttribute("loaded", "");
+      ai.popupLoaded = true;
+      set2("-loading");
+      checkProgress();
+      let i = ai.gItem;
+      if (i) i.url = this.src;
+      if (i = ai.gItemNext)
+        preload(this, i);
+    }
+  }
+  function onZoom() {
+    this.classList.remove(`${PREFIX}zooming`);
+  }
+  async function preload(p, item, u = item.url, el = $new("img")) {
+    ai.gItemNext = null;
+    if (!isArray(u)) {
+      el.src = u;
+      return;
+    }
+    for (const arr = u; p === ai.popup && item.url === arr && (u = arr[0]); ) {
+      const { type } = await new Promise((cb) => {
+        el.src = u;
+        el.onload = el.onerror = cb;
+      });
+      if (arr[0] === u)
+        arr.shift();
+      if (type === "load") {
+        item.url = u;
+        break;
+      }
+    }
+  }
 
   // src/events.js
-  var Events = {
-    ctrl: false,
-    hoverData: null,
-    hoverTimer: 0,
-    ignoreKeyHeld: false,
-    onMouseOver(e) {
-      if (relayEmbedEvent(e)) return;
-      let node = e.target;
-      Events.ignoreKeyHeld = e.shiftKey;
-      if (!App.isEnabled || e.shiftKey || state.ai.zoomed || node === state.ai.popup || node === doc.body || node === doc.documentElement || node === state.elSetup || state.ai.gallery && state.ai.rectHovered || !App.canClose())
-        return;
-      if (node.shadowRoot)
-        node = Events.pierceShadow(node, e.clientX, e.clientY);
-      Events.hoverData = { e, node, start: now() };
-      Events.hoverTimer = Events.hoverTimer || setTimeout(Events.onMouseOverThrottled, SETTLE_TIME);
-      node.addEventListener("mouseout", Events.onMouseOutThrottled);
-    },
-    onMouseOverThrottled(force) {
-      const { start, e, node, nodeOut } = Events.hoverData || {};
-      if (!node || node === nodeOut && (Events.hoverData = null, 1))
-        return;
-      const wait = force ? 0 : start + SETTLE_TIME - now();
-      const t = Events.hoverTimer = wait > 10 && setTimeout(Events.onMouseOverThrottled, wait);
-      if (t)
-        return;
-      Events.hoverData = null;
-      if (!Ruler.rules)
-        Ruler.init();
-      const info = RuleMatcher.adaptiveFind(node);
-      if (info && info.url && info.node !== state.ai.node)
-        App.activate(info, e);
-    },
-    onMouseOut(e) {
-      if (!e.relatedTarget && !state.cfg.keepOnBlur && !e.shiftKey && App.canClose())
-        App.deactivate();
-    },
-    onMouseOutThrottled() {
-      const d = Events.hoverData;
-      if (d) d.nodeOut = this;
-      this.removeEventListener("mouseout", Events.onMouseOutThrottled);
-      Events.hoverTimer = 0;
-    },
-    onMouseOutShadow(e) {
-      const root = e.target.shadowRoot;
-      if (root) {
-        root.removeEventListener("mouseover", Events.onMouseOver);
-        root.removeEventListener("mouseout", Events.onMouseOutShadow);
-      }
-    },
-    onMouseMove(e) {
-      Events.trackMouse(e);
-      if (e.shiftKey)
-        return;
-      if (!state.ai.zoomed && !state.ai.rectHovered && App.canClose()) {
-        App.deactivate();
-      } else if (state.ai.zoomed) {
-        Popup.move();
-        const { cx, cy, view: { w, h } } = state.ai;
-        const bx = w / 6;
-        const by = h / 6;
-        const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
-        Status.set(`${onEdge ? "+" : "-"}edge`);
-      }
-    },
-    onMouseDown({ shiftKey, button, target }) {
-      if (!button && target === state.ai.popup && state.ai.popup.controls && (shiftKey || !App.canClose())) {
-        state.ai.controlled = state.ai.zoomed = true;
-      } else if (button === 2 || shiftKey) {
-      } else {
-        App.deactivate({ wait: true });
-        doc.addEventListener("mouseup", App.enable, { once: true });
-      }
-    },
-    onMouseScroll(e) {
-      const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
-      if (state.ai.zoomed) {
-        Events.zoomInOut(dir);
-      } else if (state.ai.gNum > 1 && state.ai.popup) {
-        Gallery.next(-dir);
-      } else if (state.cfg.zoom === "wheel" && dir > 0 && state.ai.popup) {
-        App.toggleZoom();
-      } else if (App.canClose()) {
-        App.deactivate();
-        return;
-      }
-      dropEvent(e);
-    },
-    onKeyDown(e) {
-      const key = describeKey(e);
-      const p = state.ai.popupShown;
-      if (!p && key === "^Control") {
-        addEventListener("keyup", Events.onKeyUp, true);
-        Events.ctrl = true;
-      }
-      if (!p && key === "^ContextMenu")
-        return Events.onContext.call(this, e);
-      if (!p || e.repeat)
-        return;
-      switch (key) {
-        case "+Shift":
-          if (state.ai.shiftKeyTime)
-            return;
-          state.ai.shiftKeyTime = now();
-          Status.set("+shift");
-          if (state.cfg.uiInfo)
-            Bar.show(1);
-          if (isVideo(p))
-            p.controls = true;
-          return;
-        case "KeyA":
-          p.toggleAttribute(NOAA_ATTR);
-          break;
-        case "ArrowRight":
-        case "KeyJ":
-          Gallery.next(1);
-          break;
-        case "ArrowLeft":
-        case "KeyK":
-          Gallery.next(-1);
-          break;
-        case "KeyC":
-          if (state.ai.bar.firstChild) {
-            Bar.setText("");
-            Bar.hide(0);
-          } else {
-            Bar.setText(state.ai.barText);
-            Bar.show(2);
-          }
-          break;
-        case "KeyD":
-          Req.saveFile();
-          break;
-        case "KeyF":
-          if (p !== document.fullscreenElement) p.requestFullscreen();
-          else document.exitFullscreen();
-          break;
-        case "KeyH":
-        // flip horizontally
-        case "KeyV":
-        // flip vertically
-        case "KeyL":
-        // rotate left
-        case "KeyR":
-          if (!p)
-            return;
-          if (key === "KeyH" || key === "KeyV") {
-            const side = !!(state.ai.rotate % 180) ^ key === "KeyH" ? "flipX" : "flipY";
-            state.ai[side] = !state.ai[side];
-          } else {
-            state.ai.rotate = ((state.ai.rotate || 0) + 90 * (key === "KeyL" ? -1 : 1) + 360) % 360;
-          }
-          Bar.updateDetails();
-          Popup.move();
-          break;
-        case "KeyI":
-          (state.ai.barShown ? Bar.hide : Bar.show)(2);
-          break;
-        case "KeyM":
-          if (isVideo(p))
-            p.muted = !p.muted;
-          break;
-        case "KeyN":
-          state.ai.night = p.classList.toggle(`${PREFIX}night`);
-          break;
-        case "KeyT":
-          api.openInTab(Util.tabFixUrl() || p.src);
-          App.deactivate();
-          break;
-        case "Minus":
-        case "NumpadSubtract":
-          if (state.ai.zoomed) {
-            Events.zoomInOut(-1);
-          } else {
-            App.toggleZoom();
-          }
-          break;
-        case "Equal":
-        case "NumpadAdd":
-          if (state.ai.zoomed) {
-            Events.zoomInOut(1);
-          } else {
-            App.toggleZoom();
-          }
-          break;
-        case "Escape":
-          App.deactivate({ wait: true });
-          break;
-        case "!Alt":
-          return;
-        default:
-          App.deactivate({ wait: true });
-          return;
-      }
-      dropEvent(e);
-    },
-    onKeyUp(e) {
-      const p = state.ai.popupShown || false;
-      if (e.key === "Control") {
-        if (!p) removeEventListener("keyup", Events.onKeyUp, true);
-        setTimeout(() => Events.ctrl = false);
-      }
-      if (p && e.key === "Shift" && state.ai.shiftKeyTime) {
-        Status.set("-shift");
-        if (state.cfg.uiInfo)
-          Bar.hide(1);
-        if (p.controls)
-          p.controls = false;
-        if (state.ai.controlled || !isFF && now() - state.ai.shiftKeyTime > 500)
-          state.ai.controlled = false;
-        else if (p && (state.ai.zoomed || state.ai.rectHovered !== false))
-          App.toggleZoom();
-        else
-          App.deactivate({ wait: true });
-        state.ai.shiftKeyTime = 0;
-      } else if (describeKey(e) === "Control" && !p && !Events.ignoreKeyHeld && (state.cfg.start === "ctrl" || state.cfg.start === "context" || state.ai.rule.manual)) {
-        dropEvent(e);
-        if (Events.hoverData) {
-          Events.hoverData.e = e;
-          Events.onMouseOverThrottled(true);
-        }
-        if (state.ai.node) {
-          state.ai.force = true;
-          App.start();
-        }
-      }
-    },
-    onContext(e) {
-      if (Events.ignoreKeyHeld)
-        return;
-      const p = state.ai.popupShown;
-      if (state.cfg.zoom === "context" && p && App.toggleZoom()) {
-        dropEvent(e);
-      } else if (!p && (!state.cfg.videoCtrl || !isVideo(state.ai.node) || Events.ctrl) && (state.cfg.start === "context" || state.cfg.start === "contextMK" || state.cfg.start === "contextM" && e.button === 2 || state.cfg.start === "contextK" && e.button !== 2 || state.cfg.start === "auto" && state.ai.rule.manual)) {
-        if (!state.ai.node) {
-          if (!Events.hoverData)
-            Events.onMouseOver(e);
-          Events.onMouseOverThrottled(true);
-        }
-        if (state.ai.node) {
-          state.ai.force = true;
-          App.start();
-          dropEvent(e);
-        }
-      } else if (p) {
-        setTimeout(App.deactivate, SETTLE_TIME, { wait: true });
-      }
-    },
-    onVisibility() {
-      Events.ctrl = false;
-    },
-    pierceShadow(node, x, y) {
-      for (let root; root = node.shadowRoot; ) {
-        root.addEventListener("mouseover", Events.onMouseOver, { passive: true });
-        root.addEventListener("mouseout", Events.onMouseOutShadow);
-        const inner = root.elementFromPoint(x, y);
-        if (!inner || inner === node)
-          break;
-        node = inner;
-      }
-      return node;
-    },
-    toggle(enable) {
-      const onOff = enable ? "addEventListener" : "removeEventListener";
-      const passive = { passive: true, capture: true };
-      window[onOff]("mousemove", Events.onMouseMove, passive);
-      window[onOff]("mouseout", Events.onMouseOut, passive);
-      window[onOff]("mousedown", Events.onMouseDown, passive);
-      window[onOff]("keyup", Events.onKeyUp, true);
-      window[onOff](WHEEL_EVENT, Events.onMouseScroll, { passive: false, capture: true });
-      state.ai.node.removeEventListener("mouseout", Events.onMouseOutThrottled);
-    },
-    trackMouse(e) {
-      const cx = state.ai.cx = e.clientX;
-      const cy = state.ai.cy = e.clientY;
-      const r = state.ai.rect || (state.ai.rect = Calc.rect());
-      state.ai.rectHovered = !r ? false : cx > r.left - 2 && cx < r.right + 2 && cy > r.top - 2 && cy < r.bottom + 2;
-    },
-    zoomInOut(dir) {
-      const i = Calc.scaleIndex(dir);
-      const n = state.ai.scales.length;
-      if (i >= 0 && i < n)
-        state.ai.scale = state.ai.scales[i];
-      const zo = state.cfg.zoomOut;
-      if (i <= 0 && zo !== "stay") {
-        if (state.ai.scaleFit < state.ai.scale * 0.99) {
-          state.ai.scales.unshift(state.ai.scale = state.ai.scaleFit);
-        } else if ((i <= 0 && zo === "close" || i < 0 && !state.ai.rectHovered) && state.ai.gNum < 2) {
-          App.deactivate({ wait: true });
-          return;
-        }
-        state.ai.zoomed = zo !== "unzoom";
-      } else {
-        state.ai.popup.classList.toggle(`${PREFIX}zoom-max`, state.ai.scale >= 4 && i >= n - 1);
-      }
-      if (state.ai.zooming)
-        state.ai.popup.classList.add(`${PREFIX}zooming`);
-      Popup.move();
-      Bar.updateDetails();
+  var ctrl = false;
+  var hoverData = null;
+  var hoverTimer = 0;
+  var ignoreKeyHeld = false;
+  function onMouseOver(e) {
+    if (relayEmbedEvent(e)) return;
+    let node = e.target;
+    ignoreKeyHeld = e.shiftKey;
+    if (!isEnabled || e.shiftKey || ai.zoomed || node === ai.popup || node === doc.body || node === doc.documentElement || node === elSetup || ai.gallery && ai.rectHovered || !canClose())
+      return;
+    if (node.shadowRoot)
+      node = pierceShadow(node, e.clientX, e.clientY);
+    hoverData = { e, node, start: now() };
+    hoverTimer = hoverTimer || setTimeout(onMouseOverThrottled, SETTLE_TIME);
+    node.addEventListener("mouseout", onMouseOutThrottled);
+  }
+  function onMouseOverThrottled(force) {
+    const { start: start2, e, node, nodeOut } = hoverData || {};
+    if (!node || node === nodeOut && (hoverData = null, 1))
+      return;
+    const wait = force ? 0 : start2 + SETTLE_TIME - now();
+    const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
+    if (t)
+      return;
+    hoverData = null;
+    if (!rules)
+      init();
+    const info2 = adaptiveFind(node);
+    if (info2 && info2.url && info2.node !== ai.node)
+      activate(info2, e);
+  }
+  function onMouseOut(e) {
+    if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && canClose())
+      deactivate();
+  }
+  function onMouseOutThrottled() {
+    const d = hoverData;
+    if (d) d.nodeOut = this;
+    this.removeEventListener("mouseout", onMouseOutThrottled);
+    hoverTimer = 0;
+  }
+  function onMouseOutShadow(e) {
+    const root = e.target.shadowRoot;
+    if (root) {
+      root.removeEventListener("mouseover", onMouseOver);
+      root.removeEventListener("mouseout", onMouseOutShadow);
     }
-  };
+  }
+  function onMouseMove(e) {
+    trackMouse(e);
+    if (e.shiftKey)
+      return;
+    if (!ai.zoomed && !ai.rectHovered && canClose()) {
+      deactivate();
+    } else if (ai.zoomed) {
+      move();
+      const { cx, cy, view: { w, h } } = ai;
+      const bx = w / 6;
+      const by = h / 6;
+      const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
+      set2(`${onEdge ? "+" : "-"}edge`);
+    }
+  }
+  function onMouseDown({ shiftKey, button, target }) {
+    if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !canClose())) {
+      ai.controlled = ai.zoomed = true;
+    } else if (button === 2 || shiftKey) {
+    } else {
+      deactivate({ wait: true });
+      doc.addEventListener("mouseup", enable, { once: true });
+    }
+  }
+  function onMouseScroll(e) {
+    const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
+    if (ai.zoomed) {
+      zoomInOut(dir);
+    } else if (ai.gNum > 1 && ai.popup) {
+      next(-dir);
+    } else if (cfg.zoom === "wheel" && dir > 0 && ai.popup) {
+      toggleZoom();
+    } else if (canClose()) {
+      deactivate();
+      return;
+    }
+    dropEvent(e);
+  }
+  function onKeyDown(e) {
+    const key = describeKey(e);
+    const p = ai.popupShown;
+    if (!p && key === "^Control") {
+      addEventListener("keyup", onKeyUp, true);
+      ctrl = true;
+    }
+    if (!p && key === "^ContextMenu")
+      return onContext.call(this, e);
+    if (!p || e.repeat)
+      return;
+    switch (key) {
+      case "+Shift":
+        if (ai.shiftKeyTime)
+          return;
+        ai.shiftKeyTime = now();
+        set2("+shift");
+        if (cfg.uiInfo)
+          show(1);
+        if (isVideo(p))
+          p.controls = true;
+        return;
+      case "KeyA":
+        p.toggleAttribute(NOAA_ATTR);
+        break;
+      case "ArrowRight":
+      case "KeyJ":
+        next(1);
+        break;
+      case "ArrowLeft":
+      case "KeyK":
+        next(-1);
+        break;
+      case "KeyC":
+        if (ai.bar.firstChild) {
+          setText("");
+          hide(0);
+        } else {
+          setText(ai.barText);
+          show(2);
+        }
+        break;
+      case "KeyD":
+        saveFile();
+        break;
+      case "KeyF":
+        if (p !== document.fullscreenElement) p.requestFullscreen();
+        else document.exitFullscreen();
+        break;
+      case "KeyH":
+      // flip horizontally
+      case "KeyV":
+      // flip vertically
+      case "KeyL":
+      // rotate left
+      case "KeyR":
+        if (!p)
+          return;
+        if (key === "KeyH" || key === "KeyV") {
+          const side = !!(ai.rotate % 180) ^ key === "KeyH" ? "flipX" : "flipY";
+          ai[side] = !ai[side];
+        } else {
+          ai.rotate = ((ai.rotate || 0) + 90 * (key === "KeyL" ? -1 : 1) + 360) % 360;
+        }
+        updateDetails();
+        move();
+        break;
+      case "KeyI":
+        (ai.barShown ? hide : show)(2);
+        break;
+      case "KeyM":
+        if (isVideo(p))
+          p.muted = !p.muted;
+        break;
+      case "KeyN":
+        ai.night = p.classList.toggle(`${PREFIX}night`);
+        break;
+      case "KeyT":
+        openInTab(tabFixUrl() || p.src);
+        deactivate();
+        break;
+      case "Minus":
+      case "NumpadSubtract":
+        if (ai.zoomed) {
+          zoomInOut(-1);
+        } else {
+          toggleZoom();
+        }
+        break;
+      case "Equal":
+      case "NumpadAdd":
+        if (ai.zoomed) {
+          zoomInOut(1);
+        } else {
+          toggleZoom();
+        }
+        break;
+      case "Escape":
+        deactivate({ wait: true });
+        break;
+      case "!Alt":
+        return;
+      default:
+        deactivate({ wait: true });
+        return;
+    }
+    dropEvent(e);
+  }
+  function onKeyUp(e) {
+    const p = ai.popupShown || false;
+    if (e.key === "Control") {
+      if (!p) removeEventListener("keyup", onKeyUp, true);
+      setTimeout(() => ctrl = false);
+    }
+    if (p && e.key === "Shift" && ai.shiftKeyTime) {
+      set2("-shift");
+      if (cfg.uiInfo)
+        hide(1);
+      if (p.controls)
+        p.controls = false;
+      if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
+        ai.controlled = false;
+      else if (p && (ai.zoomed || ai.rectHovered !== false))
+        toggleZoom();
+      else
+        deactivate({ wait: true });
+      ai.shiftKeyTime = 0;
+    } else if (describeKey(e) === "Control" && !p && !ignoreKeyHeld && (cfg.start === "ctrl" || cfg.start === "context" || ai.rule.manual)) {
+      dropEvent(e);
+      if (hoverData) {
+        hoverData.e = e;
+        onMouseOverThrottled(true);
+      }
+      if (ai.node) {
+        ai.force = true;
+        start();
+      }
+    }
+  }
+  function onContext(e) {
+    if (ignoreKeyHeld)
+      return;
+    const p = ai.popupShown;
+    if (cfg.zoom === "context" && p && toggleZoom()) {
+      dropEvent(e);
+    } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (cfg.start === "context" || cfg.start === "contextMK" || cfg.start === "contextM" && e.button === 2 || cfg.start === "contextK" && e.button !== 2 || cfg.start === "auto" && ai.rule.manual)) {
+      if (!ai.node) {
+        if (!hoverData)
+          onMouseOver(e);
+        onMouseOverThrottled(true);
+      }
+      if (ai.node) {
+        ai.force = true;
+        start();
+        dropEvent(e);
+      }
+    } else if (p) {
+      setTimeout(deactivate, SETTLE_TIME, { wait: true });
+    }
+  }
+  function onVisibility() {
+    ctrl = false;
+  }
+  function pierceShadow(node, x, y) {
+    for (let root; root = node.shadowRoot; ) {
+      root.addEventListener("mouseover", onMouseOver, { passive: true });
+      root.addEventListener("mouseout", onMouseOutShadow);
+      const inner = root.elementFromPoint(x, y);
+      if (!inner || inner === node)
+        break;
+      node = inner;
+    }
+    return node;
+  }
+  function toggle2(enable2) {
+    const onOff = enable2 ? "addEventListener" : "removeEventListener";
+    const passive = { passive: true, capture: true };
+    window[onOff]("mousemove", onMouseMove, passive);
+    window[onOff]("mouseout", onMouseOut, passive);
+    window[onOff]("mousedown", onMouseDown, passive);
+    window[onOff]("keyup", onKeyUp, true);
+    window[onOff](WHEEL_EVENT, onMouseScroll, { passive: false, capture: true });
+    ai.node.removeEventListener("mouseout", onMouseOutThrottled);
+  }
+  function trackMouse(e) {
+    const cx = ai.cx = e.clientX;
+    const cy = ai.cy = e.clientY;
+    const r = ai.rect || (ai.rect = rect());
+    ai.rectHovered = !r ? false : cx > r.left - 2 && cx < r.right + 2 && cy > r.top - 2 && cy < r.bottom + 2;
+  }
+  function zoomInOut(dir) {
+    const i = scaleIndex(dir);
+    const n = ai.scales.length;
+    if (i >= 0 && i < n)
+      ai.scale = ai.scales[i];
+    const zo = cfg.zoomOut;
+    if (i <= 0 && zo !== "stay") {
+      if (ai.scaleFit < ai.scale * 0.99) {
+        ai.scales.unshift(ai.scale = ai.scaleFit);
+      } else if ((i <= 0 && zo === "close" || i < 0 && !ai.rectHovered) && ai.gNum < 2) {
+        deactivate({ wait: true });
+        return;
+      }
+      ai.zoomed = zo !== "unzoom";
+    } else {
+      ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
+    }
+    if (ai.zooming)
+      ai.popup.classList.add(`${PREFIX}zooming`);
+    move();
+    updateDetails();
+  }
+  var setCtrl = (val) => ctrl = val;
 
   // src/styles.js
   function createGlobalStyle() {
-    App.globalStyle = /*language=CSS*/
-    (String.raw`
+    setGlobalStyle((String.raw`
 #\mpiv-bar {
   position: fixed;
   z-index: 2147483647;
@@ -2617,11 +2584,11 @@ URL: ${url}`);
   display: none;
   cursor: none;
   box-shadow: none;
-${state.cfg.uiFadein ? String.raw`
+${cfg.uiFadein ? String.raw`
   animation: .2s \mpiv-fadein both;
   transition: box-shadow .25s, background-color .25s;
   ` : ""}
-${App.popupStyleBase = `
+${setPopupStyleBase(`
   border: none;
   box-sizing: border-box;
   background-size: cover;
@@ -2636,16 +2603,16 @@ ${App.popupStyleBase = `
   transform-origin: center;
   max-width: none;
   max-height: none;
-`}
+`)}
 }
 #\mpiv-popup.\mpiv-show {
-  ${state.cfg.uiBorder ? `border: ${state.cfg.uiBorder}px solid ${Util.color("Border")};` : ""}
-  ${state.cfg.uiPadding ? `padding: ${state.cfg.uiPadding}px;` : ""}
-  ${state.cfg.uiMargin ? `margin: ${state.cfg.uiMargin}px;` : ""}
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${color("Border")};` : ""}
+  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ""}
+  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ""}
 }
-#\mpiv-popup.\mpiv-show${state.cfg.uiShadowOnLoad ? "[loaded]" : ""} {
-  background-color: ${Util.color("Background")};
-  ${state.cfg.uiShadow ? `box-shadow: 2px 4px ${state.cfg.uiShadow}px 4px ${Util.color("Shadow")};` : ""}
+#\mpiv-popup.\mpiv-show${cfg.uiShadowOnLoad ? "[loaded]" : ""} {
+  background-color: ${color("Background")};
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${color("Shadow")};` : ""}
 }
 #\mpiv-popup[data-gallery-flip] {
   animation: none;
@@ -2672,7 +2639,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     opacity: 1;
   }
 }
-` + (state.cfg.globalStatus ? String.raw`
+` + (cfg.globalStatus ? String.raw`
 :root.\mpiv-loading:not(.\mpiv-preloading) *:hover {
   cursor: progress !important;
 }
@@ -2706,381 +2673,380 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
 [\mpiv-status~="shift"]:hover {
   cursor: default;
 }
-`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
-    App.popupStyleBase = App.popupStyleBase.replace(/;/g, "!important;");
-    return App.globalStyle;
+`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX));
+    setPopupStyleBase(popupStyleBase.replace(/;/g, "!important;"));
+    return globalStyle;
   }
 
   // src/app.js
-  var App = {
-    isEnabled: true,
-    isImageTab: false,
-    globalStyle: "",
-    popupStyleBase: "",
-    tabfix: /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain),
-    NOP: /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {
-    }),
-    activate(info, event) {
-      const { match, node, rule, url } = info;
-      const auto = state.cfg.start === "auto";
-      const vidCtrl = state.cfg.videoCtrl && isVideo(node);
-      if (state.elSetup) console.info({ node, rule, url, match });
-      if (auto && vidCtrl && !Events.ctrl)
-        return;
-      if (state.ai.node) App.deactivate();
-      state.ai = info;
-      state.ai.force = Events.ctrl;
-      state.ai.gNum = 0;
-      state.ai.zooming = state.cfg.css.includes(`${PREFIX}zooming`);
-      if (auto) Util.suppressTooltip();
-      Calc.updateViewSize();
-      Events.ctrl = false;
-      Events.toggle(true);
-      Events.trackMouse(event);
-      if (state.ai.force && (auto || state.cfg.start === "ctrl" || state.cfg.start === "context")) {
-        App.start();
-      } else if ((auto || state.cfg.preload) && !vidCtrl && !rule.manual) {
-        App.belate(auto);
-      } else {
-        Status.set("ready");
-      }
-    },
-    belate(auto) {
-      if (state.cfg.preload) {
-        state.ai.preloadStart = auto ? now() : -1;
-        App.start();
-        Status.set("+preloading");
-      } else {
-        state.ai.timer = setTimeout(App.start, state.cfg.delay);
-      }
-    },
-    checkProgress({ start } = {}) {
-      const p = state.ai.popup;
-      if (!p || state.ai.committed)
-        return;
-      const w = state.ai.nwidth = p.naturalWidth || p.videoWidth || state.ai.popupLoaded && innerWidth / 2;
-      const h = state.ai.nheight = p.naturalHeight || p.videoHeight || state.ai.popupLoaded && innerHeight / 2;
-      if (h)
-        return App.canCommit(w, h);
-      if (start) {
-        clearInterval(state.timerProgress);
-        state.timerProgress = setInterval(App.checkProgress, 150);
-      }
-    },
-    canClose: (p = state.ai.popup) => !p || (isVideo(p) ? !state.cfg.keepVids : document.fullscreenElement !== p),
-    canCommit(w, h) {
-      if (!state.ai.force && state.ai.rect && !state.ai.gItems && Math.max(w / (state.ai.rect.width || 1), h / (state.ai.rect.height || 1)) < state.cfg.scale) {
-        App.deactivate();
-        return false;
-      }
-      App.stopTimers();
-      let wait = state.ai.preloadStart;
-      if (wait < 0 && !state.ai.force || !state.ai.popup)
-        return;
-      if (wait > 0 && (wait += state.cfg.delay - now()) > 0) {
-        state.ai.timer = setTimeout(App.checkProgress, wait);
-      } else if ((!w || !h) && (state.ai.urls || []).length) {
-        App.handleError({ type: "error" });
-      } else {
-        App.commit();
-        state.ai.committed = true;
-      }
-      return true;
-    },
-    async commit() {
-      const p = state.ai.popupShown = state.ai.popup;
-      const isDecoded = state.cfg.waitLoad && isFunction(p.decode);
-      if (isDecoded) {
-        await p.decode();
-        if (p !== state.ai.popup)
-          return;
-      }
-      Status.set("-preloading");
-      App.updateStyles();
-      Calc.measurePopup();
-      const willZoom = state.cfg.zoom === "auto" || App.isImageTab && state.cfg.imgtab;
-      const willMove = !willZoom || App.toggleZoom({ keepScale: true }) === void 0;
-      if (willMove)
-        Popup.move();
-      Bar.updateName();
-      Bar.updateDetails();
-      Status.set(!state.ai.popupLoaded && "loading");
-      state.ai.large = state.ai.nwidth > p.clientWidth + state.ai.extras.w || state.ai.nheight > p.clientHeight + state.ai.extras.h;
-      if (state.ai.large) {
-        Status.set("+large");
-        if (isFF && p.complete && !isDecoded)
-          p.style.backgroundImage = `url('${p.src}')`;
-      }
-      if (state.ai.preloadStart < 0 && isFunction(p.play))
-        p.play().catch(now);
-    },
-    deactivate({ wait } = {}) {
-      App.stopTimers(true);
-      if (state.ai.req)
-        tryCatch(state.ai.req.abort);
-      if (state.ai.tooltip)
-        state.ai.tooltip.node.title = state.ai.tooltip.text;
-      Status.set(false);
-      Bar.set(false);
-      Events.toggle(false);
-      Popup.destroy();
-      if (wait) {
-        App.isEnabled = false;
-        setTimeout(App.enable, 200);
-      }
-      state.ai = { rule: {} };
-    },
-    enable() {
-      App.isEnabled = true;
-    },
-    handleError(e, rule = state.ai.rule) {
-      if (rule && rule.onerror === "skip")
-        return;
-      if (state.ai.imageUrl && !state.ai.xhr && !state.ai.imageUrl.startsWith(location.origin + "/") && location.protocol === "https:" && CspSniffer.init) {
-        Popup.create(state.ai.imageUrl, state.ai.pageUrl, e);
-        return;
-      }
-      const fe = Util.formatError(e, rule);
-      if (!rule || !state.ai.urls || !state.ai.urls.length)
-        console.warn(...fe);
-      if (state.ai.urls && state.ai.urls.length) {
-        state.ai.url = state.ai.urls.shift();
-        if (state.ai.url) {
-          state.ai.committed = false;
-          App.stopTimers();
-          App.startSingle();
-        } else {
-          App.deactivate();
-        }
-      } else if (state.ai.node) {
-        Status.set("error");
-        Bar.set(fe.message, "error");
-      }
-    },
-    /** @param {MessageEvent} e */
-    onMessage(e) {
-      if (onEmbedMessage(e)) return;
-      if (typeof e.data === "string" && e.data === MSG.getViewSize) {
-        e.stopImmediatePropagation();
-        for (const el of doc.getElementsByTagName("iframe")) {
-          if (el.contentWindow === e.source) {
-            const s = Calc.frameSize(el, window).join(":");
-            e.source.postMessage(`${MSG.viewSize}:${s}`, "*");
-            return;
-          }
-        }
-      }
-    },
-    /** @param {MessageEvent} e */
-    onMessageChild(e) {
-      if (e.source === parent && typeof e.data === "string" && e.data.startsWith(MSG.viewSize)) {
-        e.stopImmediatePropagation();
-        removeEventListener("message", App.onMessageChild, true);
-        const [w, h, x, y] = e.data.split(":").slice(1).map(parseFloat);
-        if (w && h) state.ai.view = { w, h, x, y };
-      }
-    },
-    start() {
-      App.updateStyles();
-      if (state.ai.gallery)
-        App.startGallery();
-      else
-        App.startSingle();
-    },
-    startSingle() {
-      Status.loading();
-      if (state.ai.force && state.ai.preloadStart < 0) {
-        App.commit();
-        return;
-      }
-      state.ai.imageUrl = null;
-      if (state.ai.rule.follow && !state.ai.rule.q && !state.ai.rule.s) {
-        Req.findRedirect();
-      } else if (state.ai.rule.q && !isArray(state.ai.urls)) {
-        App.startFromQ();
-      } else {
-        Popup.create(state.ai.url);
-        Ruler.runC();
-      }
-    },
-    async startFromQ() {
-      try {
-        const { responseText, doc: doc2, finalUrl } = await Req.getDoc(state.ai.url);
-        const url = Ruler.runQ(responseText, doc2, finalUrl);
-        if (!url) {
-          App.handleError(['The "q" rule did not produce any URL.', "\nRemote doc: %o", doc2]);
-          return;
-        }
-        if (RuleMatcher.isFollowableUrl(url, state.ai.rule)) {
-          const info = RuleMatcher.find(url, state.ai.node, { noHtml: true });
-          if (!info || !info.url)
-            throw `Couldn't follow URL: ${url}`;
-          Object.assign(state.ai, info);
-          App.startSingle();
-        } else {
-          Popup.create(url, finalUrl);
-          Ruler.runC(responseText, doc2);
-        }
-      } catch (e) {
-        App.handleError(e);
-      }
-    },
-    async startGallery() {
-      Status.loading();
-      try {
-        const startUrl = state.ai.url;
-        const p = await Req.getDoc(state.ai.rule.s !== "gallery" && startUrl);
-        const items = await new Promise((cb) => {
-          const res = state.ai.gallery(
-            p.responseText,
-            p.doc,
-            p.finalUrl,
-            state.ai.match,
-            state.ai.rule,
-            state.ai.node,
-            cb
-          );
-          if (res !== void 0) cb(res);
-        });
-        if (state.ai.url !== startUrl) return;
-        state.ai.gNum = items.length;
-        state.ai.gItems = items.length && items;
-        if (state.ai.gItems) {
-          const i = items.index;
-          state.ai.gIndex = i >= 0 && items[i] ? +i : Gallery.findIndex(typeof i === "string" ? i : state.ai.url);
-          setTimeout(Gallery.next);
-        } else {
-          throw "Empty gallery";
-        }
-      } catch (e) {
-        App.handleError(e);
-      }
-    },
-    stopTimers(bar) {
-      for (const timer of ["timer", "timerStatus", bar && "timerBar"])
-        clearTimeout(state.ai[timer]);
-      clearInterval(state.timerProgress);
-    },
-    toggleZoom({ keepScale } = {}) {
-      const p = state.ai.popup;
-      if (!p || !state.ai.scales || state.ai.scales.length < 2)
-        return;
-      state.ai.zoomed = !state.ai.zoomed;
-      state.ai.scale = state.ai.zoomed && Calc.scaleForFirstZoom(keepScale) || state.ai.scales[0];
-      if (state.ai.zooming)
-        p.classList.add(`${PREFIX}zooming`);
-      Popup.move();
-      Bar.updateDetails();
-      Status.set(state.ai.zoomed ? "zoom" : false);
-      return state.ai.zoomed;
-    },
-    updateStyles() {
-      Util.addStyle("global", (App.globalStyle || createGlobalStyle()) + state.cfg._getCss());
-      Util.addStyle("rule", state.ai.rule.css || "");
+  var isEnabled = true;
+  var isImageTab = false;
+  var globalStyle = "";
+  var popupStyleBase = "";
+  var tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
+  var NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {
+  });
+  function activate(info2, event) {
+    const { match, node, rule, url } = info2;
+    const auto = cfg.start === "auto";
+    const vidCtrl = cfg.videoCtrl && isVideo(node);
+    if (elSetup) console.info({ node, rule, url, match });
+    if (auto && vidCtrl && !ctrl)
+      return;
+    if (ai.node) deactivate();
+    setAi(info2);
+    ai.force = ctrl;
+    ai.gNum = 0;
+    ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
+    if (auto) suppressTooltip();
+    updateViewSize();
+    setCtrl(false);
+    toggle2(true);
+    trackMouse(event);
+    if (ai.force && (auto || cfg.start === "ctrl" || cfg.start === "context")) {
+      start();
+    } else if ((auto || cfg.preload) && !vidCtrl && !rule.manual) {
+      belate(auto);
+    } else {
+      set2("ready");
     }
-  };
+  }
+  function belate(auto) {
+    if (cfg.preload) {
+      ai.preloadStart = auto ? now() : -1;
+      start();
+      set2("+preloading");
+    } else {
+      ai.timer = setTimeout(start, cfg.delay);
+    }
+  }
+  function checkProgress({ start: startValue } = {}) {
+    const p = ai.popup;
+    if (!p || ai.committed)
+      return;
+    const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
+    const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
+    if (h)
+      return canCommit(w, h);
+    if (startValue) {
+      clearInterval(timerProgress);
+      setTimerProgress(setInterval(checkProgress, 150));
+    }
+  }
+  var canClose = (p = ai.popup) => !p || (isVideo(p) ? !cfg.keepVids : document.fullscreenElement !== p);
+  function canCommit(w, h) {
+    if (!ai.force && ai.rect && !ai.gItems && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1)) < cfg.scale) {
+      deactivate();
+      return false;
+    }
+    stopTimers();
+    let wait = ai.preloadStart;
+    if (wait < 0 && !ai.force || !ai.popup)
+      return;
+    if (wait > 0 && (wait += cfg.delay - now()) > 0) {
+      ai.timer = setTimeout(checkProgress, wait);
+    } else if ((!w || !h) && (ai.urls || []).length) {
+      handleError({ type: "error" });
+    } else {
+      commit();
+      ai.committed = true;
+    }
+    return true;
+  }
+  async function commit() {
+    const p = ai.popupShown = ai.popup;
+    const isDecoded = cfg.waitLoad && isFunction(p.decode);
+    if (isDecoded) {
+      await p.decode();
+      if (p !== ai.popup)
+        return;
+    }
+    set2("-preloading");
+    updateStyles();
+    measurePopup();
+    const willZoom = cfg.zoom === "auto" || isImageTab && cfg.imgtab;
+    const willMove = !willZoom || toggleZoom({ keepScale: true }) === void 0;
+    if (willMove)
+      move();
+    updateName();
+    updateDetails();
+    set2(!ai.popupLoaded && "loading");
+    ai.large = ai.nwidth > p.clientWidth + ai.extras.w || ai.nheight > p.clientHeight + ai.extras.h;
+    if (ai.large) {
+      set2("+large");
+      if (isFF && p.complete && !isDecoded)
+        p.style.backgroundImage = `url('${p.src}')`;
+    }
+    if (ai.preloadStart < 0 && isFunction(p.play))
+      p.play().catch(now);
+  }
+  function deactivate({ wait } = {}) {
+    stopTimers(true);
+    if (ai.req)
+      tryCatch(ai.req.abort);
+    if (ai.tooltip)
+      ai.tooltip.node.title = ai.tooltip.text;
+    set2(false);
+    set(false);
+    toggle2(false);
+    destroy();
+    if (wait) {
+      isEnabled = false;
+      setTimeout(enable, 200);
+    }
+    setAi({ rule: {} });
+  }
+  function enable() {
+    isEnabled = true;
+  }
+  function handleError(e, rule = ai.rule) {
+    if (rule && rule.onerror === "skip")
+      return;
+    if (ai.imageUrl && !ai.xhr && !ai.imageUrl.startsWith(location.origin + "/") && location.protocol === "https:" && init2) {
+      create2(ai.imageUrl, ai.pageUrl, e);
+      return;
+    }
+    const fe = formatError(e, rule);
+    if (!rule || !ai.urls || !ai.urls.length)
+      console.warn(...fe);
+    if (ai.urls && ai.urls.length) {
+      ai.url = ai.urls.shift();
+      if (ai.url) {
+        ai.committed = false;
+        stopTimers();
+        startSingle();
+      } else {
+        deactivate();
+      }
+    } else if (ai.node) {
+      set2("error");
+      set(fe.message, "error");
+    }
+  }
+  function onMessage(e) {
+    if (onEmbedMessage(e)) return;
+    if (typeof e.data === "string" && e.data === MSG.getViewSize) {
+      e.stopImmediatePropagation();
+      for (const el of doc.getElementsByTagName("iframe")) {
+        if (el.contentWindow === e.source) {
+          const s = frameSize(el, window).join(":");
+          e.source.postMessage(`${MSG.viewSize}:${s}`, "*");
+          return;
+        }
+      }
+    }
+  }
+  function onMessageChild(e) {
+    if (e.source === parent && typeof e.data === "string" && e.data.startsWith(MSG.viewSize)) {
+      e.stopImmediatePropagation();
+      removeEventListener("message", onMessageChild, true);
+      const [w, h, x, y] = e.data.split(":").slice(1).map(parseFloat);
+      if (w && h) ai.view = { w, h, x, y };
+    }
+  }
+  function start() {
+    updateStyles();
+    if (ai.gallery)
+      startGallery();
+    else
+      startSingle();
+  }
+  function startSingle() {
+    loading();
+    if (ai.force && ai.preloadStart < 0) {
+      commit();
+      return;
+    }
+    ai.imageUrl = null;
+    if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
+      findRedirect();
+    } else if (ai.rule.q && !isArray(ai.urls)) {
+      startFromQ();
+    } else {
+      create2(ai.url);
+      runC();
+    }
+  }
+  async function startFromQ() {
+    try {
+      const { responseText, doc: doc2, finalUrl } = await getDoc(ai.url);
+      const url = runQ(responseText, doc2, finalUrl);
+      if (!url) {
+        handleError(['The "q" rule did not produce any URL.', "\nRemote doc: %o", doc2]);
+        return;
+      }
+      if (isFollowableUrl(url, ai.rule)) {
+        const info2 = find(url, ai.node, { noHtml: true });
+        if (!info2 || !info2.url)
+          throw `Couldn't follow URL: ${url}`;
+        Object.assign(ai, info2);
+        startSingle();
+      } else {
+        create2(url, finalUrl);
+        runC(responseText, doc2);
+      }
+    } catch (e) {
+      handleError(e);
+    }
+  }
+  async function startGallery() {
+    loading();
+    try {
+      const startUrl = ai.url;
+      const p = await getDoc(ai.rule.s !== "gallery" && startUrl);
+      const items = await new Promise((cb) => {
+        const res = ai.gallery(
+          p.responseText,
+          p.doc,
+          p.finalUrl,
+          ai.match,
+          ai.rule,
+          ai.node,
+          cb
+        );
+        if (res !== void 0) cb(res);
+      });
+      if (ai.url !== startUrl) return;
+      ai.gNum = items.length;
+      ai.gItems = items.length && items;
+      if (ai.gItems) {
+        const i = items.index;
+        ai.gIndex = i >= 0 && items[i] ? +i : findIndex(typeof i === "string" ? i : ai.url);
+        setTimeout(next);
+      } else {
+        throw "Empty gallery";
+      }
+    } catch (e) {
+      handleError(e);
+    }
+  }
+  function stopTimers(bar) {
+    for (const timer of ["timer", "timerStatus", bar && "timerBar"])
+      clearTimeout(ai[timer]);
+    clearInterval(timerProgress);
+  }
+  function toggleZoom({ keepScale } = {}) {
+    const p = ai.popup;
+    if (!p || !ai.scales || ai.scales.length < 2)
+      return;
+    ai.zoomed = !ai.zoomed;
+    ai.scale = ai.zoomed && scaleForFirstZoom(keepScale) || ai.scales[0];
+    if (ai.zooming)
+      p.classList.add(`${PREFIX}zooming`);
+    move();
+    updateDetails();
+    set2(ai.zoomed ? "zoom" : false);
+    return ai.zoomed;
+  }
+  function updateStyles() {
+    addStyle("global", (globalStyle || createGlobalStyle()) + getCss(cfg));
+    addStyle("rule", ai.rule.css || "");
+  }
+  var setGlobalStyle = (val) => globalStyle = val;
+  var setNOP = (val) => NOP = val;
+  var setIsImageTab = (val) => isImageTab = val;
+  var setIsEnabled = (val) => isEnabled = val;
+  var setPopupStyleBase = (val) => popupStyleBase = val;
 
   // src/config.js
-  var Config = class _Config {
-    constructor({ data: c, save }) {
-      if (typeof c === "string")
-        c = tryJSON(c);
-      if (typeof c !== "object" || !c)
-        c = {};
-      const { DEFAULTS } = _Config;
-      c.fit = ["all", "large", "no", ""].includes(c.fit) ? c.fit : !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? "large" : "";
-      if (c.version !== DEFAULTS.version) {
-        if (typeof c.hosts === "string")
-          c.hosts = c.hosts.split("\n").map((s) => tryJSON(s) || s).filter(Boolean);
-        if (c.close === true || c.close === false)
-          c.zoomOut = c.close ? "auto" : "stay";
-        for (const key in DEFAULTS)
-          if (typeof c[key] !== typeof DEFAULTS[key])
-            c[key] = DEFAULTS[key];
-        if (c.version === 3 && c.scales[0] === 0)
-          c.scales[0] = "0!";
-        for (const key in c)
-          if (!(key in DEFAULTS))
-            delete c[key];
-        c.version = DEFAULTS.version;
-        if (save)
-          api.setValue("cfg", c);
-      }
-      if (Object.keys(state.cfg || {}).some((k) => /^ui|^(css|globalStatus)$/.test(k) && state.cfg[k] !== c[k]))
-        App.globalStyle = "";
-      if (!isArray(c.scales))
-        c.scales = [];
-      c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
-      Object.assign(this, DEFAULTS, c);
+  function create3({ data: c, save }) {
+    if (typeof c === "string")
+      c = tryJSON(c);
+    if (typeof c !== "object" || !c)
+      c = {};
+    c.fit = ["all", "large", "no", ""].includes(c.fit) ? c.fit : !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? "large" : "";
+    if (c.version !== DEFAULTS.version) {
+      if (typeof c.hosts === "string")
+        c.hosts = c.hosts.split("\n").map((s) => tryJSON(s) || s).filter(Boolean);
+      if (c.close === true || c.close === false)
+        c.zoomOut = c.close ? "auto" : "stay";
+      for (const key in DEFAULTS)
+        if (typeof c[key] !== typeof DEFAULTS[key])
+          c[key] = DEFAULTS[key];
+      if (c.version === 3 && c.scales[0] === 0)
+        c.scales[0] = "0!";
+      for (const key in c)
+        if (!(key in DEFAULTS))
+          delete c[key];
+      c.version = DEFAULTS.version;
+      if (save)
+        setValue("cfg", c);
     }
-    static async load(opts) {
-      opts.data = await api.getValue("cfg");
-      return new _Config(opts);
+    if (Object.keys(cfg || {}).some((k) => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
+      setGlobalStyle("");
+    if (!isArray(c.scales))
+      c.scales = [];
+    c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
+    return Object.assign({}, DEFAULTS, c);
+  }
+  async function load(opts) {
+    opts.data = await getValue("cfg");
+    return create3(opts);
+  }
+  function getCss({ css }) {
+    return css.includes("{") ? css : `#${PREFIX}-popup {${css}}`;
+  }
+  var DEFAULTS = (
+    /** @type mpiv.Config */
+    {
+      __proto__: null,
+      center: false,
+      css: "",
+      delay: 500,
+      fit: "",
+      globalStatus: false,
+      // prefer ' inside rules because " will be displayed as \"
+      // example: "img[src*='icon']"
+      hosts: [{
+        name: "No popup for YouTube thumbnails",
+        d: "www.youtube.com",
+        e: "ytd-rich-item-renderer *, ytd-thumbnail *",
+        s: ""
+      }, {
+        name: "No popup for SVG/PNG icons",
+        d: "",
+        e: "img[src*='icon']",
+        r: "//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)",
+        s: ""
+      }],
+      imgtab: false,
+      keepOnBlur: false,
+      keepVids: false,
+      mute: false,
+      night: false,
+      preload: false,
+      scale: 1.05,
+      scales: ["0!", 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
+      start: "auto",
+      startAlt: "context",
+      startAltShown: false,
+      uiBackgroundColor: "#ffffff",
+      uiBackgroundOpacity: 100,
+      uiBorderColor: "#000000",
+      uiBorderOpacity: 100,
+      uiBorder: 0,
+      uiFadein: true,
+      uiFadeinGallery: true,
+      // some computers show white background while loading so fading hides it
+      uiInfo: true,
+      uiInfoCaption: true,
+      uiInfoHide: 3,
+      uiInfoOnce: true,
+      uiShadowColor: "#000000",
+      uiShadowOpacity: 80,
+      uiShadow: 20,
+      uiShadowOnLoad: true,
+      uiPadding: 0,
+      uiMargin: 0,
+      version: 6,
+      videoCtrl: true,
+      waitLoad: false,
+      xhr: true,
+      zoom: "context",
+      zoomOut: "auto",
+      zoomStep: 133
     }
-    _getCss() {
-      const { css } = this;
-      return css.includes("{") ? css : `#${PREFIX}-popup {${css}}`;
-    }
-  };
-  Config.DEFAULTS = /** @type mpiv.Config */
-  {
-    __proto__: null,
-    center: false,
-    css: "",
-    delay: 500,
-    fit: "",
-    globalStatus: false,
-    // prefer ' inside rules because " will be displayed as \"
-    // example: "img[src*='icon']"
-    hosts: [{
-      name: "No popup for YouTube thumbnails",
-      d: "www.youtube.com",
-      e: "ytd-rich-item-renderer *, ytd-thumbnail *",
-      s: ""
-    }, {
-      name: "No popup for SVG/PNG icons",
-      d: "",
-      e: "img[src*='icon']",
-      r: "//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)",
-      s: ""
-    }],
-    imgtab: false,
-    keepOnBlur: false,
-    keepVids: false,
-    mute: false,
-    night: false,
-    preload: false,
-    scale: 1.05,
-    scales: ["0!", 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
-    start: "auto",
-    startAlt: "context",
-    startAltShown: false,
-    uiBackgroundColor: "#ffffff",
-    uiBackgroundOpacity: 100,
-    uiBorderColor: "#000000",
-    uiBorderOpacity: 100,
-    uiBorder: 0,
-    uiFadein: true,
-    uiFadeinGallery: true,
-    // some computers show white background while loading so fading hides it
-    uiInfo: true,
-    uiInfoCaption: true,
-    uiInfoHide: 3,
-    uiInfoOnce: true,
-    uiShadowColor: "#000000",
-    uiShadowOpacity: 80,
-    uiShadow: 20,
-    uiShadowOnLoad: true,
-    uiPadding: 0,
-    uiMargin: 0,
-    version: 6,
-    videoCtrl: true,
-    waitLoad: false,
-    xhr: true,
-    zoom: "context",
-    zoomOut: "auto",
-    zoomStep: 133
-  };
+  );
 
   // src/setup-view.js
   var CSS_SETUP_X = 20;
@@ -3287,7 +3253,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
       transparent 13px, currentColor 13px, currentColor 14px, transparent 14px);
   }
   #_mover::after {
-    content: 'MPIV ${api.info.script.version}';
+    content: 'MPIV ${info.script.version}';
     font: bold 20px/1.3 sans;
     background: var(--bg);
     padding: 0 1ex;
@@ -3700,7 +3666,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     }
     const RULE = setup.RULE || (setup.RULE = /* @__PURE__ */ Symbol("rule"));
     let uiCfg;
-    let root = (state.elSetup || 0).shadowRoot;
+    let root = (elSetup || 0).shadowRoot;
     let { blankRuleElement } = setup;
     let mover, moveX = 0, moveY = 0, moveBaseX = 0, moveBaseY = 0;
     const UI = setup.UI = new Proxy({}, {
@@ -3708,27 +3674,27 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         return root.getElementById(id);
       }
     });
-    if (!state.elSetup)
+    if (!elSetup)
       build();
-    if (state.elSetup.parentElement !== doc.body) {
-      init(await Config.load({ save: true }));
-      doc.body.append(state.elSetup);
+    if (elSetup.parentElement !== doc.body) {
+      init3(await load({ save: true }));
+      doc.body.append(elSetup);
     }
     if (rule)
       installRule(rule);
     function build() {
-      state.elSetup = $new("div", { contentEditable: true });
-      root = state.elSetup.attachShadow({ mode: "open" });
+      setElSetup($new("div", { contentEditable: true }));
+      root = elSetup.attachShadow({ mode: "open" });
       root.append(...createSetupElement());
       initEvents();
     }
-    function init(data) {
+    function init3(data) {
       uiCfg = data;
       renderAll();
       renderVolatiles();
       renderRules();
       requestAnimationFrame(() => {
-        UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, state.elSetup.clientHeight / 4) + "px";
+        UI.css.style.minHeight = clamp(UI.css.scrollHeight, 40, elSetup.clientHeight / 4) + "px";
       });
     }
     function initEvents() {
@@ -3750,7 +3716,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
       UI._apply.onclick = UI._cancel.onclick = UI._ok.onclick = UI._x.onclick = closeSetup;
       UI._export.onclick = (e) => {
         dropEvent(e);
-        api.setClipboard(Util.stringify(collectConfig(), null, "  "));
+        setClipboard(stringify(collectConfig(), null, "  "));
         UI._exportNotification.hidden = false;
         setTimeout(() => UI._exportNotification.hidden = true, 1e3);
       };
@@ -3758,7 +3724,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         dropEvent(e);
         const s = prompt("Paste settings:");
         if (s)
-          init(new Config({ data: s }));
+          init3(create3({ data: s }));
       };
       UI._install.onclick = setupRuleInstaller;
       const cssApp = UI._cssApp;
@@ -3767,8 +3733,8 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         cssApp.hidden = !cssApp.hidden;
         if (!cssApp.hidden) {
           if (!cssApp.value) {
-            App.updateStyles();
-            cssApp.value = App.globalStyle.trim();
+            updateStyles();
+            cssApp.value = globalStyle.trim();
             cssApp.setSelectionRange(0, 0);
           }
           cssApp.focus();
@@ -3788,7 +3754,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         x = moveBaseX = clamp(
           x - moveX,
           -innerWidth + CSS_SETUP_X * 4,
-          state.elSetup.clientWidth - CSS_SETUP_X
+          elSetup.clientWidth - CSS_SETUP_X
         );
         y = moveBaseY = clamp(y - moveY, 0, innerHeight - CSS_SETUP_X * 3);
         $css(mover, { transform: `translate(${x}px, ${y}px)` });
@@ -3810,7 +3776,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
       function colorOnInput() {
         this.elSwatch.style.setProperty(
           "--color",
-          Util.color(this.value, this.elOpacity.valueAsNumber)
+          color(this.value, this.elOpacity.valueAsNumber)
         );
       }
       for (const el of $$('[type="range"]', root)) {
@@ -3859,14 +3825,14 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     function closeSetup(event) {
       const isApply = this.id === "_apply";
       if (event && (this.id === "_ok" || isApply)) {
-        state.cfg = uiCfg = collectConfig({ save: true, clone: isApply });
-        Ruler.init();
-        Menu.reRegisterAlt();
+        setCfg(uiCfg = collectConfig({ save: true, clone: isApply }));
+        init();
+        reRegisterAlt();
         if (isApply)
           return renderVolatiles();
       }
-      $remove(state.elSetup);
-      state.elSetup = null;
+      $remove(elSetup);
+      setElSetup(null);
     }
     function collectConfig({ save, clone } = {}) {
       let data = {};
@@ -3880,8 +3846,8 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         scales: UI.scales.value.trim().split(/[,;]*\s+/).map((x) => x.replace(",", ".")).filter((x) => !isNaN(parseFloat(x)))
       });
       if (clone)
-        data = JSON.parse(Util.stringify(data));
-      return new Config({ data, save });
+        data = JSON.parse(stringify(data));
+      return create3({ data, save });
     }
     function collectRules() {
       return [...UI._rules.children].map((el) => [el.value.trim(), el[RULE]]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).map(([s, json]) => json || s).filter(Boolean);
@@ -3890,7 +3856,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
       let json, error, title;
       const prev = el.previousElementSibling;
       if (el.value) {
-        json = Ruler.parse(el.value);
+        json = parse(el.value);
         error = json instanceof Error && (json.message || String(json));
         const invalidDomain = !error && json && typeof json.d === "string" && !/^[-.a-z0-9]*$/i.test(json.d);
         title = [invalidDomain && 'Disabled due to invalid characters in "d"', error].filter(Boolean).join("\n");
@@ -3912,7 +3878,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
       await new Promise(setTimeout);
       if (el[RULE] && el.rows < 2) {
         let i = el.selectionStart;
-        const txt = el.value = Ruler.format(el[RULE], { expand: true });
+        const txt = el.value = format(el[RULE], { expand: true });
         i += txt.slice(0, i).match(/^\s*/gm).reduce((len, s) => len + s.length, 0);
         el.setSelectionRange(i, i);
         el.rows = txt.match(/^/gm).length;
@@ -3922,44 +3888,44 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     }
     function installRule(rule2) {
       const inputs = UI._rules.children;
-      let el = [...inputs].find((el2) => Util.deepEqual(el2[RULE], rule2));
+      let el = [...inputs].find((el2) => deepEqual(el2[RULE], rule2));
       if (!el) {
         el = inputs[0];
         el[RULE] = rule2;
-        el.value = Ruler.format(rule2);
+        el.value = format(rule2);
         el.hidden = false;
         const i = Math.max(0, collectRules().indexOf(rule2));
         inputs[i].insertAdjacentElement("afterend", el);
         inputs[0].insertAdjacentElement("beforebegin", blankRuleElement.cloneNode());
       }
-      const rect = el.getBoundingClientRect();
-      if (rect.bottom < 0 || rect.bottom > el.parentNode.offsetHeight)
+      const rect2 = el.getBoundingClientRect();
+      if (rect2.bottom < 0 || rect2.bottom > el.parentNode.offsetHeight)
         el.scrollIntoView();
       el.classList.add("highlight");
       el.addEventListener("animationend", () => el.classList.remove("highlight"), { once: true });
       el.focus();
     }
     function renderRules() {
-      const rules = UI._rules;
-      rules.addEventListener("input", checkRule);
-      rules.addEventListener("focusin", focusRule);
-      rules.addEventListener("paste", focusRule);
-      blankRuleElement = setup.blankRuleElement = setup.blankRuleElement || rules.firstElementChild.cloneNode();
+      const rules2 = UI._rules;
+      rules2.addEventListener("input", checkRule);
+      rules2.addEventListener("focusin", focusRule);
+      rules2.addEventListener("paste", focusRule);
+      blankRuleElement = setup.blankRuleElement = setup.blankRuleElement || rules2.firstElementChild.cloneNode();
       if (blankRuleElement.nextElementSibling) {
-        rules.textContent = "";
-        rules.appendChild(blankRuleElement.cloneNode());
+        rules2.textContent = "";
+        rules2.appendChild(blankRuleElement.cloneNode());
       }
       for (const rule2 of uiCfg.hosts || []) {
         const el = blankRuleElement.cloneNode();
-        el.value = typeof rule2 === "string" ? rule2 : Ruler.format(rule2);
-        rules.appendChild(el);
+        el.value = typeof rule2 === "string" ? rule2 : format(rule2);
+        rules2.appendChild(el);
         checkRule({ target: el });
       }
       const search = UI._search;
       search.oninput = () => {
         setup.search = search.value;
         const s = search.value.toLowerCase();
-        for (const el of rules.children)
+        for (const el of rules2.children)
           el.hidden = s && !el.value.toLowerCase().includes(s);
       };
       search.value = setup.search || "";
@@ -3967,8 +3933,8 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
         search.oninput();
     }
     function renderVolatiles() {
-      UI.scales.value = uiCfg.scales.join(" ").trim() || Config.DEFAULTS.scales.join(" ");
-      UI._css.textContent = state.cfg._getCss();
+      UI.scales.value = uiCfg.scales.join(" ").trim() || DEFAULTS.scales.join(" ");
+      UI._css.textContent = getCss(cfg);
     }
     function renderAll() {
       for (const el of $$("input[id], select[id], textarea[id]", root))
@@ -3986,7 +3952,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
   function setupClickedRule(event) {
     let rule;
     const el = event.target.closest("blockquote, code, pre");
-    if (el && !event.button && !eventModifiers(event) && (rule = Ruler.fromElement(el))) {
+    if (el && !event.button && !eventModifiers(event) && (rule = fromElement(el))) {
       dropEvent(event);
       setup({ rule });
     }
@@ -3996,16 +3962,16 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     const parent2 = setup.UI._rules2;
     this.disabled = true;
     this.textContent = "Loading...";
-    let rules;
+    let rules2;
     try {
-      rules = extractRules(await Req.getDoc(this.parentElement.href));
+      rules2 = extractRules(await getDoc(this.parentElement.href));
       this.textContent = "Rules loaded.";
       const el = $new("select", {
         size: 8,
         style: "width: 100%",
         ondblclick: (e2) => e2.target !== el && maybeSetup(e2),
         onkeyup: (e2) => e2.key === "Enter" && maybeSetup(e2)
-      }, rules.map(renderRule));
+      }, rules2.map(renderRule));
       const i = el.selectedIndex = findMatchingRuleIndex();
       parent2.append(
         $new("div#_installHint", [
@@ -4029,13 +3995,13 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     function extractRules({ doc: doc2 }) {
       return [...$$("#wiki-body tr", doc2)].map((tr) => [
         tr.cells[0].textContent.trim(),
-        Ruler.fromElement(tr.cells[1])
+        fromElement(tr.cells[1])
       ]).filter(([name, r]) => name && r && (!r.d || hostname.includes(r.d))).sort(([a], [b]) => (a = a.toLowerCase()) < (b = b.toLowerCase()) ? -1 : a > b ? 1 : 0);
     }
     function findMatchingRuleIndex() {
       const dottedHost = `.${hostname}.`;
       let maxCount = 0, maxIndex = 0, index = 0;
-      for (const [name, { d }] of rules) {
+      for (const [name, { d }] of rules2) {
         let count = !!(d && hostname.includes(d)) * 10;
         for (const part of name.toLowerCase().split(/[^a-z\d.-]+/i))
           count += dottedHost.includes(`.${part}.`) && part.length;
@@ -4050,7 +4016,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     function renderRule([name, rule]) {
       return $new("option", {
         textContent: name,
-        title: Ruler.format(rule, { expand: true }).replace(/^{|\s*}$/g, "").split("\n").slice(0, 12).map(renderTitleLine).filter(Boolean).join("\n")
+        title: format(rule, { expand: true }).replace(/^{|\s*}$/g, "").split("\n").slice(0, 12).map(renderTitleLine).filter(Boolean).join("\n")
       });
     }
     function renderTitleLine(line, i, arr) {
@@ -4064,63 +4030,63 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     }
     function maybeSetup(e2) {
       if (!eventModifiers(e2))
-        setup({ rule: rules[e2.currentTarget.selectedIndex][1] });
+        setup({ rule: rules2[e2.currentTarget.selectedIndex][1] });
     }
   }
 
   // src/menu.js
-  var Menu = window === top && api.registerMenuCommand && {
-    curAltName: "",
-    unreg: api.unregisterMenuCommand,
-    makeAltName: () => Menu.unreg ? `MPIV: auto-start is ${state.cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start",
-    register() {
-      api.registerMenuCommand("MPIV: configure", setup);
-      Menu.registerAlt();
-    },
-    registerAlt() {
-      if (state.cfg.startAltShown) {
-        Menu.curAltName = Menu.makeAltName();
-        api.registerMenuCommand(Menu.curAltName, Menu.onAltToggled);
-      }
-    },
-    reRegisterAlt() {
-      const old = Menu.curAltName;
-      if (old && Menu.unreg) Menu.unreg(old);
-      if (!old || Menu.unreg) Menu.registerAlt();
-    },
-    onAltToggled() {
-      const wasAuto = state.cfg.start === "auto";
-      if (wasAuto) {
-        state.cfg.start = state.cfg.startAlt || (state.cfg.startAlt = "context");
-      } else {
-        state.cfg.startAlt = state.cfg.start;
-        state.cfg.start = "auto";
-      }
-      Menu.reRegisterAlt();
+  var enabled = window === top && !!registerMenuCommand;
+  var curAltName = "";
+  var unreg = unregisterMenuCommand;
+  var makeAltName = () => unreg ? `MPIV: auto-start is ${cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start";
+  function register() {
+    if (!enabled) return;
+    registerMenuCommand("MPIV: configure", setup);
+    registerAlt();
+  }
+  function registerAlt() {
+    if (cfg.startAltShown) {
+      curAltName = makeAltName();
+      registerMenuCommand(curAltName, onAltToggled);
     }
-  };
+  }
+  function reRegisterAlt() {
+    const old = curAltName;
+    if (old && unreg) unreg(old);
+    if (!old || unreg) registerAlt();
+  }
+  function onAltToggled() {
+    const wasAuto = cfg.start === "auto";
+    if (wasAuto) {
+      cfg.start = cfg.startAlt || (cfg.startAlt = "context");
+    } else {
+      cfg.startAlt = cfg.start;
+      cfg.start = "auto";
+    }
+    reRegisterAlt();
+  }
 
   // src/main.js
   (async () => {
-    state.cfg = await Config.load({ save: true });
+    setCfg(await load({ save: true }));
     if (!doc.body) {
       await new Promise((resolve) => new MutationObserver((_, mo) => doc.body && (mo.disconnect(), resolve())).observe(document, { subtree: true, childList: true }));
     }
     const el = doc.body.firstElementChild;
     if (el) {
-      App.isImageTab = el === doc.body.lastElementChild && el.matches("img, video");
-      App.isEnabled = state.cfg.imgtab || !App.isImageTab;
+      setIsImageTab(el === doc.body.lastElementChild && el.matches("img, video"));
+      setIsEnabled(cfg.imgtab || !isImageTab);
     }
-    if (Menu) Menu.register();
+    register();
     initEmbed();
-    addEventListener("mouseover", Events.onMouseOver, true);
-    addEventListener("contextmenu", Events.onContext, true);
-    addEventListener("keydown", Events.onKeyDown, true);
-    addEventListener("visibilitychange", Events.onVisibility, true);
-    addEventListener("blur", Events.onVisibility, true);
+    addEventListener("mouseover", onMouseOver, true);
+    addEventListener("contextmenu", onContext, true);
+    addEventListener("keydown", onKeyDown, true);
+    addEventListener("visibilitychange", onVisibility, true);
+    addEventListener("blur", onVisibility, true);
     if (["greasyfork.org", "github.com"].includes(hostname))
       addEventListener("click", setupClickedRule, true);
-    addEventListener("message", App.onMessage, true);
+    addEventListener("message", onMessage, true);
   })();
   if (window.trustedTypes) {
     const TT = window.trustedTypes;
@@ -4129,7 +4095,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     TT[CP] = function ovr(name, opts) {
       let fn;
       const p = createPolicy.call(TT, name, opts);
-      if ((state.trustedHTML || opts[fn = "createHTML"] && (state.trustedHTML = p[fn].bind(p))) && (state.trustedScript || opts[fn = "createScript"] && (state.trustedScript = p[fn].bind(p))) && TT[CP] === ovr)
+      if ((trustedHTML || opts[fn = "createHTML"] && setTrustedHTML(p[fn].bind(p))) && (trustedScript || opts[fn = "createScript"] && setTrustedScript(p[fn].bind(p))) && TT[CP] === ovr)
         delete TT[CP];
       return p;
     };

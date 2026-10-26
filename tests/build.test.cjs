@@ -64,6 +64,7 @@ test('distribution retains metadata first and is valid standalone JavaScript', (
   assert.ok(bundle.startsWith(metadata + '\n'));
   assert.equal((bundle.match(/==UserScript==/g) || []).length, 1);
   assert.match(bundle, /\n'use strict';\n/);
+  assert.doesNotMatch(bundle, /\bstate\.(cfg|ai|elSetup|nonce|timerProgress|trustedHTML|trustedScript)\b/);
   assert.doesNotThrow(() => new vm.Script(bundle));
 });
 

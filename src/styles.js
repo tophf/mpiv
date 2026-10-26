@@ -1,10 +1,10 @@
-import {App} from './app.js';
-import {state} from './state.js';
-import {Util} from './util.js';
+import {cfg} from './state.js';
+import * as App from './app.js';
+import * as Util from './util.js';
 import {NOAA_ATTR, STATUS_ATTR, PREFIX} from './constants.js';
 
 function createGlobalStyle() {
-  App.globalStyle = /*language=CSS*/ (String.raw`
+  App.setGlobalStyle((String.raw`
 #\mpiv-bar {
   position: fixed;
   z-index: 2147483647;
@@ -46,11 +46,11 @@ function createGlobalStyle() {
   display: none;
   cursor: none;
   box-shadow: none;
-${state.cfg.uiFadein ? String.raw`
+${cfg.uiFadein ? String.raw`
   animation: .2s \mpiv-fadein both;
   transition: box-shadow .25s, background-color .25s;
   ` : ''}
-${App.popupStyleBase = `
+${App.setPopupStyleBase(`
   border: none;
   box-sizing: border-box;
   background-size: cover;
@@ -65,16 +65,16 @@ ${App.popupStyleBase = `
   transform-origin: center;
   max-width: none;
   max-height: none;
-`}
+`)}
 }
 #\mpiv-popup.\mpiv-show {
-  ${state.cfg.uiBorder ? `border: ${state.cfg.uiBorder}px solid ${Util.color('Border')};` : ''}
-  ${state.cfg.uiPadding ? `padding: ${state.cfg.uiPadding}px;` : ''}
-  ${state.cfg.uiMargin ? `margin: ${state.cfg.uiMargin}px;` : ''}
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')};` : ''}
+  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ''}
+  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ''}
 }
-#\mpiv-popup.\mpiv-show${state.cfg.uiShadowOnLoad ? '[loaded]' : ''} {
+#\mpiv-popup.\mpiv-show${cfg.uiShadowOnLoad ? '[loaded]' : ''} {
   background-color: ${Util.color('Background')};
-  ${state.cfg.uiShadow ? `box-shadow: 2px 4px ${state.cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
 }
 #\mpiv-popup[data-gallery-flip] {
   animation: none;
@@ -101,7 +101,7 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
     opacity: 1;
   }
 }
-` + (state.cfg.globalStatus ? String.raw`
+` + (cfg.globalStatus ? String.raw`
 :root.\mpiv-loading:not(.\mpiv-preloading) *:hover {
   cursor: progress !important;
 }
@@ -135,8 +135,8 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
 [\mpiv-status~="shift"]:hover {
   cursor: default;
 }
-`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX);
-  App.popupStyleBase = App.popupStyleBase.replace(/;/g, '!important;');
+`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX));
+  App.setPopupStyleBase(App.popupStyleBase.replace(/;/g, '!important;'));
   return App.globalStyle;
 }
 
