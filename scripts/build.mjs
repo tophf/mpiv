@@ -12,7 +12,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
     absWorkingDir: root,
     entryPoints: ['src/main.js'],
     bundle: true,
-    format: 'iife',
+    format: 'esm',
     platform: 'browser',
     target: 'es2018',
     charset: 'utf8',
