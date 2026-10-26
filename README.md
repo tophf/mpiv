@@ -40,7 +40,6 @@ Install Node.js 22 or newer, then run:
 
 ```sh
 pnpm ci
-pnpm run hooks:install
 ```
 
 Edit the ES modules in `src/`. `src/index.js` starts the application, and
