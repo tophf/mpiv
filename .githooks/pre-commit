@@ -1,3 +1,4 @@
 #!/bin/sh
 set -e
-node scripts/pre-commit.mjs
+npm run build
+git add -- script.user.js
