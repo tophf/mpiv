@@ -10,7 +10,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
   const metadataPath = resolve(root, 'src/metadata.js');
   const options = {
     absWorkingDir: root,
-    entryPoints: ['src/main.js'],
+    entryPoints: ['./src'],
     bundle: true,
     format: 'esm',
     platform: 'browser',
@@ -23,7 +23,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
       name: 'userscript-output',
       setup(builder) {
         // Include the metadata file in esbuild's dependency watcher.
-        builder.onLoad({filter: /[/\\]src[/\\]main\.js$/}, async args => ({
+        builder.onLoad({filter: /[/\\]src[/\\]index\.js$/}, async args => ({
           contents: await readFile(args.path, 'utf8'),
           resolveDir: dirname(args.path),
           watchFiles: [metadataPath],

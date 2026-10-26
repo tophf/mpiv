@@ -4066,7 +4066,7 @@ function onAltToggled() {
   reRegisterAlt();
 }
 
-// src/main.js
+// src/index.js
 (async () => {
   setCfg(await load({ save: true }));
   if (!doc.body) {

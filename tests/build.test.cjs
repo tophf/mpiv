@@ -108,7 +108,7 @@ test('Instagram iframe startup registers the embed relays without a top-level me
 
 test('native ES modules initialize without relying on bundler variable hoisting', () => {
   execFileSync(process.execPath, ['--input-type=module', '--eval', `
-    import assert from 'node:assert/strict';
+    import assert from 'node:assert/strict'; await (${async () => {
     const listeners = [];
     const window = {};
     Object.assign(globalThis, {
@@ -120,8 +120,8 @@ test('native ES modules initialize without relying on bundler variable hoisting'
         getValue() {}, setValue() {}, openInTab() {}, setClipboard() {}, xmlHttpRequest() {},
       },
     });
-    await import('./src/main.js');
+    await import('./src/index.js');
     await new Promise(resolve => setImmediate(resolve));
     assert.ok(listeners.includes('message'));
-  `], {cwd: root, stdio: 'pipe'});
+  }})()`], {cwd: root, stdio: 'pipe'});
 });

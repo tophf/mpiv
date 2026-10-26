@@ -43,7 +43,7 @@ npm ci
 npm run hooks:install
 ```
 
-Edit the ES modules in `src/`. `src/main.js` starts the application, and
+Edit the ES modules in `src/`. `src/index.js` starts the application, and
 `src/metadata.js` contains the userscript header and version. Run `npm run build`
 to bundle them with esbuild into `script.user.js`. Commit that generated file so
 the existing installation links keep working. It is a standalone userscript;
@@ -53,7 +53,7 @@ The main source boundaries are:
 
 | Modules | Responsibility |
 | --- | --- |
-| `main.js`, `gm.js`, `constants.js`, `state.js` | Startup, userscript APIs, constants, and shared mutable state |
+| `index.js`, `gm.js`, `constants.js`, `state.js` | Startup, userscript APIs, constants, and shared mutable state |
 | `app.js`, `events.js`, `calc.js` | Preview lifecycle, input events, and positioning |
 | `popup.js`, `popup-video.js`, `gallery.js`, `bar.js`, `status.js` | Media rendering and feedback |
 | `rules.js`, `rule-matcher.js`, `url-matcher.js`, `instagram.js` | Site rules, matching, and Instagram support |
@@ -68,7 +68,7 @@ Modules export individual functions and variables. Shared values such as `ai`
 expression behavior. Configuration objects are created with `Config.create()` or
 loaded with `Config.load()`; `Config.getCss(config)` formats their CSS.
 Some application modules depend on one another; access those imports inside
-functions and keep application startup in `main.js`.
+functions and keep application startup in `index.js`.
 
 Run `npm run dev` (or `npm run watch`) while editing to rebuild automatically when
 source modules or userscript metadata change. Build errors leave the previous

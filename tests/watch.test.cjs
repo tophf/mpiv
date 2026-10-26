@@ -49,9 +49,9 @@ test('watch rebuilds source and metadata, preserves good output on error, and re
   const built = count => text => text.split('Built script.user.js;').length - 1 >= count;
   const bundle = () => readFileSync(path.join(dir, 'script.user.js'), 'utf8');
   await waitFor(built(1));
-  const main = path.join(dir, 'src/main.js');
-  const originalMain = readFileSync(main, 'utf8');
-  writeFileSync(main, originalMain + '\nconsole.info("watch-source-change");\n');
+  const src = path.join(dir, 'src/index.js');
+  const originalSrc = readFileSync(src, 'utf8');
+  writeFileSync(src, originalSrc + '\nconsole.info("watch-source-change");\n');
   await waitFor(built(2));
   assert.match(bundle(), /watch-source-change/);
   const metadata = path.join(dir, 'src/metadata.js');
@@ -60,10 +60,10 @@ test('watch rebuilds source and metadata, preserves good output on error, and re
   await waitFor(built(3));
   assert.match(bundle(), /@version\s+99\.0\.0/);
   const good = bundle();
-  writeFileSync(main, 'export const = ;\n');
+  writeFileSync(src, 'export const = ;\n');
   await waitFor(text => text.includes('ERROR'));
   assert.equal(bundle(), good);
-  writeFileSync(main, originalMain);
+  writeFileSync(src, originalSrc);
   await waitFor(built(4));
   assert.doesNotMatch(bundle(), /watch-source-change/);
   assert.match(bundle(), /@version\s+99\.0\.0/);
