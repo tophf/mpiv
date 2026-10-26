@@ -1,0 +1,5 @@
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+.githooks/* text eol=lf

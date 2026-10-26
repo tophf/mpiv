@@ -1,0 +1,3 @@
+#!/bin/sh
+git diff --cached --quiet -- "src/*" "scripts/*" "package*" || pnpm run build
+git add -- script.user.js
