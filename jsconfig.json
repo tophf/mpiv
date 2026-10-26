@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
-    "target": "es2018"
+    "target": "es2018",
+    "module": "esnext"
   },
+  "include": ["src/**/*.js", "types.d.ts"],
   "typeAcquisition": {
     "include": [
       "./types.d.ts",

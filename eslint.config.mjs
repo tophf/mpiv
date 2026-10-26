@@ -1,13 +1,12 @@
 import globals from 'globals';
 
 export default [{
-  files: ['*.user.js'],
+  files: ['src/**/*.js'],
   languageOptions: {
     ecmaVersion: 2018,
     globals: {
       ...globals.browser,
       ...globals.es2018,
-      ai: true,
       GM: false,
       GM_addElement: false,
       GM_addStyle: false,
@@ -23,7 +22,7 @@ export default [{
       GM_xmlhttpRequest: false,
       unsafeWindow: false,
     },
-    sourceType: 'script',
+    sourceType: 'module',
   },
   rules: {
     'accessor-pairs': [2],

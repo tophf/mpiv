@@ -1,12 +1,26 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const {readFileSync} = require('node:fs');
+const {buildSync} = require('esbuild');
+const path = require('node:path');
 const {test} = require('node:test');
 const vm = require('node:vm');
 
-const source = readFileSync(require.resolve('../script.user.js'), 'utf8');
-const section = (from, to) => source.slice(source.indexOf(from), source.indexOf(to));
+const source = buildSync({
+  absWorkingDir: path.resolve(__dirname, '..'),
+  stdin: {
+    contents: `
+      export * as Instagram from './src/instagram.js';
+      export {Ruler} from './src/rules.js';
+      export {RuleMatcher} from './src/rule-matcher.js';
+      export {state} from './src/state.js';
+      export {App} from './src/app.js';
+      export {Events} from './src/events.js';
+    `,
+    resolveDir: path.resolve(__dirname, '..'),
+  },
+  bundle: true, format: 'iife', globalName: 'api', write: false,
+}).outputFiles[0].text;
 const rect = {left: 0, top: 0, right: 300, bottom: 300, width: 300, height: 300};
 
 // Small DOM doubles keep the extraction tests runnable without a browser or dependencies.
@@ -51,28 +65,21 @@ function element(tag, props = {}, children = []) {
 
 function setup(hostname = 'www.instagram.com', path = '/', globals = {}) {
   const pageWindow = {};
+  const doc = globals.doc || element('html');
   const context = vm.createContext({
     console, URL, URLSearchParams, performance,
-    window: pageWindow, top: pageWindow, PREFIX: 'mpiv-',
-    doc: element('html'), cfg: {hosts: [], xhr: true}, ai: {rule: {}}, nonce: '',
-    hostname, dotDomain: '.' + hostname,
+    window: pageWindow, top: pageWindow,
+    document: doc, CSS: {supports: () => false},
+    GM: {getValue() {}, setValue() {}, openInTab() {}, setClipboard() {}, xmlHttpRequest() {}},
     location: new URL('https://' + hostname + path), isSecureContext: true,
-    arrayFrom: Array.from, isArray: Array.isArray, SYM_U: Symbol('u'),
-    RX_MEDIA_URL: /\.(?:jpg|png|mp4|webm)(?:[?#]|$)/i,
-    Util: {
-      isVideoUrlExt: url => /\.(?:mp4|webm)(?:[?#]|$)/i.test(url),
-      decodeUrl: url => url,
-      rel2abs: url => new URL(url, 'https://' + hostname + '/').href,
-    },
-    Gallery: {makeParser: fn => fn},
     ...globals,
   });
-  vm.runInContext([
-    section('const Instagram = {', 'const Req = {'),
-    section('const UrlMatcher =', 'const Util = {'),
-    section('const clamp =', '//#region Init'),
-    'Ruler.init(); globalThis.api = {Instagram, Ruler, RuleMatcher};',
-  ].join('\n'), context);
+  vm.runInContext(source, context);
+  Object.assign(context.api.state, {cfg: {hosts: [], xhr: true}, ai: {rule: {}}, nonce: ''});
+  if (globals.ai) context.api.state.ai = globals.ai;
+  if (globals.App) Object.assign(context.api.App, globals.App);
+  if (globals.Events) Object.assign(context.api.Events, globals.Events);
+  context.api.Ruler.init();
   return context.api;
 }
 

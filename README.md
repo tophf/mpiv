@@ -34,13 +34,62 @@ Action | Trigger
 
 ![config UI screenshot](https://i.imgur.com/A7hplWg.png)
 
+### Development
+
+Install Node.js 22 or newer, then run:
+
+```sh
+npm ci
+npm run hooks:install
+```
+
+Edit the ES modules in `src/`. `src/main.js` starts the application, and
+`src/metadata.txt` contains the userscript header and version. Run `npm run build`
+to bundle them with esbuild into `script.user.js`. Commit that generated file so
+the existing installation links keep working. It is a standalone userscript;
+users do not need Node.js or a module loader.
+
+The main source boundaries are:
+
+| Modules | Responsibility |
+| --- | --- |
+| `main.js`, `gm.js`, `constants.js`, `state.js` | Startup, userscript APIs, constants, and shared mutable state |
+| `app.js`, `events.js`, `calc.js` | Preview lifecycle, input events, and positioning |
+| `popup.js`, `popup-video.js`, `gallery.js`, `bar.js`, `status.js` | Media rendering and feedback |
+| `rules.js`, `rule-matcher.js`, `url-matcher.js`, `instagram.js` | Site rules, matching, and Instagram support |
+| `request.js`, `csp.js` | Requests and content security policy handling |
+| `config.js`, `menu.js`, `setup.js`, `setup-view.js`, `styles.js` | Preferences, configuration UI, and styling |
+| `helpers.js`, `util.js` | DOM helpers and application utilities |
+
+Modules import their dependencies explicitly. Shared values such as the active
+preview and configuration stay on `state`, so replacing them is visible to all
+consumers. Some application modules depend on one another; access those imports
+inside functions and keep application startup in `main.js`.
+
+The optional local pre-commit hook rebuilds and stages `script.user.js`. Stage all
+build inputs before committing; the hook refuses unstaged or untracked changes
+in `src/`, `scripts/`, the package files, `jsconfig.json`, or the generated file.
+This prevents a partially staged source change from leaking into the bundle.
+The installer preserves existing hooks: if one is already configured, add
+`node scripts/pre-commit.mjs` to it. Hook installation is local to each clone.
+
+```sh
+npm run build        # regenerate the installable userscript
+npm run lint         # lint the source modules
+npm test             # regression, startup, and hook checks
+npm run build:check  # verify the committed bundle matches the source
+```
+
+CI runs lint, tests, and the bundle freshness check. Tests exercise the source
+modules and the generated userscript, including modern and legacy userscript APIs.
+
 ### Technical notes
 
 * Instagram: hover photos, profile/grid thumbnails, and loaded post or Reel media to preview the largest source provided by the page. Transparent hover overlays are supported. Reel covers and streaming players resolve their playable video from embedded post data. When Instagram identifies a video but withholds its playable URL, MPIV reports an error instead of showing its poster. Loaded carousel slides can be previewed individually. Links to posts, Reels, and legacy TV posts use embedded post data (including carousel galleries) or Open Graph metadata when Instagram supplies it. Login-required or unavailable posts may not expose this metadata; the script does not bypass Instagram's access restrictions.
 
 * Instagram embeds: direct Instagram iframes and s9e embeds (such as those used by phpBB forums) relay media hover events to the containing page, so the preview can extend beyond the iframe. Video URLs are extracted from Instagram's embedded JSON even when the HTML shows only a thumbnail; photos use the largest available image. Keep the userscript enabled in all frames, including `s9e.github.io` and `instagram.com`, and reload the forum after updating it.
 
-* Run the Instagram regression checks with `npm test` (or `node --test tests/*.test.cjs`).
+* After installing development dependencies, run the regression checks with `npm test`.
 
 * Ancient browsers aren't supported anymore because the code is using the modern JS syntax.
 
