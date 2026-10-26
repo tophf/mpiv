@@ -54,7 +54,7 @@ test('watch rebuilds source and metadata, preserves good output on error, and re
   writeFileSync(main, originalMain + '\nconsole.info("watch-source-change");\n');
   await waitFor(built(2));
   assert.match(bundle(), /watch-source-change/);
-  const metadata = path.join(dir, 'src/metadata.txt');
+  const metadata = path.join(dir, 'src/metadata.js');
   writeFileSync(metadata, readFileSync(metadata, 'utf8')
     .replace(/^(\/\/ @version\s+).+$/m, (_, prefix) => prefix + '99.0.0'));
   await waitFor(built(3));

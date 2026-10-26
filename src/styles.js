@@ -3,7 +3,7 @@ import * as App from './app.js';
 import * as Util from './util.js';
 import {NOAA_ATTR, STATUS_ATTR, PREFIX} from './constants.js';
 
-function createGlobalStyle() {
+export function createGlobalStyle() {
   App.setGlobalStyle((String.raw`
 #\mpiv-bar {
   position: fixed;
@@ -139,7 +139,3 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
   App.setPopupStyleBase(App.popupStyleBase.replace(/;/g, '!important;'));
   return App.globalStyle;
 }
-
-export {
-  createGlobalStyle,
-};

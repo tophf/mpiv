@@ -1,66 +1,66 @@
 import {isArray, doc} from './constants.js';
 
-const clamp = (v, min, max) =>
+export const clamp = (v, min, max) =>
   v < min ? min : v > max ? max : v;
 
-const compareNumbers = (a, b) =>
+export const compareNumbers = (a, b) =>
   a - b;
 
-const flattenHtml = str =>
+export const flattenHtml = str =>
   str.trim().replace(/\n\s*/g, '');
 
-const dropEvent = e =>
+export const dropEvent = e =>
   ((e.preventDefault(), e.stopPropagation()));
 
-const ensureArray = v =>
+export const ensureArray = v =>
   isArray(v) ? v : [v];
 
 /** @param {KeyboardEvent} e */
-const eventModifiers = e =>
+export const eventModifiers = e =>
   (e.altKey ? '!' : '') +
   (e.ctrlKey ? '^' : '') +
   (e.metaKey ? '#' : '') +
   (e.shiftKey ? '+' : '');
 
 /** @param {KeyboardEvent} e */
-const describeKey = e => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
+export const describeKey = e => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
 
-const isFunction = val => typeof val === 'function';
+export const isFunction = val => typeof val === 'function';
 
-const isVideo = el => el && el.tagName === 'VIDEO';
+export const isVideo = el => el && el.tagName === 'VIDEO';
 
-const now = performance.now.bind(performance);
+export const now = performance.now.bind(performance);
 
-const sumProps = (...props) => {
+export const sumProps = (...props) => {
   let sum = 0;
   for (const p of props)
     sum += parseFloat(p) || 0;
   return sum;
 };
 
-const tryCatch = (fn, ...args) => {
+export const tryCatch = (fn, ...args) => {
   try {
     return fn(...args);
   } catch (e) {}
 };
 
-const tryJSON = str =>
+export const tryJSON = str =>
   tryCatch(JSON.parse, str);
 
-const pick = (obj, path, fn) => {
+export const pick = (obj, path, fn) => {
   if (obj && path)
     for (const p of path.split('.'))
       if (obj) obj = obj[p]; else break;
   return fn && obj !== undefined ? fn(obj) : obj;
 };
 
-const $ = (sel, node = doc) =>
+export const $ = (sel, node = doc) =>
   node.querySelector(sel) || false;
 
-const $$ = (sel, node = doc) =>
+export const $$ = (sel, node = doc) =>
   node.querySelectorAll(sel);
 
-const $new = (sel, props, children) => {
+export const $new = (sel, props, children) => {
   if (typeof sel !== 'string') {
     children = props;
     props = sel;
@@ -95,14 +95,14 @@ const $new = (sel, props, children) => {
   return el;
 };
 
-const $css = (el, props) =>
+export const $css = (el, props) =>
   Object.entries(props).forEach(([k, v]) =>
     el.style.setProperty(k, v, 'important'));
 
-const $parseHtml = str =>
+export const $parseHtml = str =>
   new DOMParser().parseFromString(str, 'text/html');
 
-const $many = (q, doc) => {
+export const $many = (q, doc) => {
   for (const selector of ensureArray(q)) {
     const el = selector && $(selector, doc);
     if (el)
@@ -110,22 +110,16 @@ const $many = (q, doc) => {
   }
 };
 
-const $prop = (sel, prop, node = doc) =>
+export const $prop = (sel, prop, node = doc) =>
   (node = $(sel, node)) && node[prop] || '';
 
-const $propUp = (node, prop) =>
+export const $propUp = (node, prop) =>
   (node = node.closest(`[${prop}]`)) &&
   (prop.startsWith('data-') ? node.getAttribute(prop) : node[prop]) ||
   '';
 
-const $remove = node =>
+export const $remove = node =>
   node && node.remove();
 
-const $dataset = ({dataset: d}, key, val) =>
+export const $dataset = ({dataset: d}, key, val) =>
   val == null ? delete d[key] : (d[key] = val);
-
-export {
-  clamp, compareNumbers, flattenHtml, dropEvent, ensureArray, eventModifiers, describeKey,
-  isFunction, isVideo, now, sumProps, tryCatch, tryJSON, pick, $, $$, $new, $css, $parseHtml,
-  $many, $prop, $propUp, $remove, $dataset,
-};

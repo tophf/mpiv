@@ -9,7 +9,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const bundle = readFileSync(path.join(root, 'script.user.js'), 'utf8');
-const metadata = readFileSync(path.join(root, 'src/metadata.txt'), 'utf8').trimEnd();
+const metadata = readFileSync(path.join(root, 'src/metadata.js'), 'utf8').trimEnd();
 
 function browser({legacy = false, frame = false, body = true} = {}) {
   const listeners = [];

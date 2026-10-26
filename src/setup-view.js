@@ -2,9 +2,9 @@ import * as GM from './gm.js';
 import {$new} from './helpers.js';
 import {PREFIX} from './constants.js';
 
-const CSS_SETUP_X = 20;
-const CSS_SETUP_MAX_Y = 200;
-const CSS_SETUP = /*language=css*/ `
+export const CSS_SETUP_X = 20;
+export const CSS_SETUP_MAX_Y = 200;
+export const CSS_SETUP = /*language=css*/ `
   :host {
     all: initial !important;
     position: fixed !important;
@@ -336,7 +336,7 @@ const CSS_SETUP = /*language=css*/ `
   }
 `;
 
-function createSetupElement() {
+export function createSetupElement() {
   const MPIV_BASE_URL = 'https://github.com/tophf/mpiv/wiki/';
   const scalesHint = 'Leave it empty and click Apply or OK to restore the default values.';
   const $newLink = (text, href, props) =>
@@ -562,7 +562,3 @@ function createSetupElement() {
     ]),
   ];
 }
-
-export {
-  CSS_SETUP_X, CSS_SETUP_MAX_Y, CSS_SETUP, createSetupElement,
-};

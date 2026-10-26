@@ -8,9 +8,9 @@ import * as Util from './util.js';
 let inEmbed = false;
 let embedHovered = false;
 
-const links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
+export const links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
 
-function embedUrl(src) {
+export function embedUrl(src) {
   let url, code;
   try { url = new URL(src); } catch (e) { return ''; }
   if (!/^https?:$/.test(url.protocol)) return '';
@@ -24,7 +24,7 @@ function embedUrl(src) {
     ? `https://www.instagram.com/p/${code}/embed/captioned/` : '';
 }
 
-function initEmbed() {
+export function initEmbed() {
   if (window === top || !embedUrl(location.href)) return;
   if (hostname === 's9e.github.io') return; // Only relay messages from its Instagram child.
   inEmbed = true;
@@ -32,7 +32,7 @@ function initEmbed() {
     addEventListener(type, relayEmbedEvent, {capture: true, passive: true});
 }
 
-function relayEmbedEvent(e) {
+export function relayEmbedEvent(e) {
   if (!inEmbed) return false;
   const media = e.target.closest && e.target.closest('.EmbeddedMedia, .EmbedFrame');
   if (e.type === 'mouseout' && media && media.contains(e.relatedTarget)) return true;
@@ -50,7 +50,7 @@ function relayEmbedEvent(e) {
   return true; // The forum displays the popup outside the nested iframe.
 }
 
-function onEmbedMessage(e) {
+export function onEmbedMessage(e) {
   const data = e.data;
   if (!data || data.type !== `${PREFIX}instagram-embed`) return false;
   if (!e.source || !['mouseover', 'mousemove', 'mouseout', 'mousedown'].includes(data.action) ||
@@ -89,7 +89,7 @@ function onEmbedMessage(e) {
   return true;
 }
 
-function embedSource(text, doc, node, rule) {
+export function embedSource(text, doc, node, rule) {
   const url = rule && rule._postUrl || node && node.src || '';
   const code = (embedUrl(url).match(/\/p\/([\w-]+)/) || [])[1];
   const data = mediaData(text, doc, code);
@@ -106,7 +106,7 @@ function embedSource(text, doc, node, rule) {
   return img && source(img) || data && data.display_url || undefined;
 }
 
-function preview(m, node, rule) {
+export function preview(m, node, rule) {
   rule.follow = false;
   rule.q = null;
   rule._postUrl = null;
@@ -150,7 +150,7 @@ function preview(m, node, rule) {
   return false;
 }
 
-function source(media) {
+export function source(media) {
   const valid = url => /^https?:\/\//i.test(url || '');
   if (isVideo(media)) {
     // MediaSource blob URLs cannot be played in a second video element.
@@ -166,7 +166,7 @@ function source(media) {
     [media.currentSrc, media.src].find(valid);
 }
 
-function best(versions) {
+export function best(versions) {
   return (isArray(versions) ? versions : [])
     .filter(item => item && /^https?:\/\//i.test(item.url))
     .reduce((best, item) => !best || item.width * item.height > best.width * best.height
@@ -180,7 +180,7 @@ const videoSource = data => data && (
   /^https?:\/\//i.test(data.video_url || '') && data.video_url ||
   (best(data.video_versions) || {}).url);
 
-function mediaData(text, doc, code) {
+export function mediaData(text, doc, code) {
   if (!code) return;
   const roots = [tryJSON(text), ...arrayFrom($$('script[type="application/json"]', doc),
     el => tryJSON(el.textContent))];
@@ -205,7 +205,7 @@ function mediaData(text, doc, code) {
   }
 }
 
-function gallery(text, doc, url, m) {
+export function gallery(text, doc, url, m) {
   const media = mediaData(text, doc, m[2]);
   const children = media && (media.carousel_media ||
     pick(media, 'edge_sidecar_to_children.edges', edges => edges.map(e => e.node)) || [media]);
@@ -231,8 +231,3 @@ function gallery(text, doc, url, m) {
   }
   return items;
 }
-
-export {
-  links, embedUrl, initEmbed, relayEmbedEvent, onEmbedMessage, embedSource, preview, source,
-  mediaData, gallery,
-};

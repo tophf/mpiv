@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 
 export async function buildUserscript({check = false, watch = false} = {}) {
   if (check && watch) throw new Error('--check and --watch cannot be combined.');
-  const metadataPath = resolve(root, 'src/metadata.txt');
+  const metadataPath = resolve(root, 'src/metadata.js');
   const options = {
     absWorkingDir: root,
     entryPoints: ['src/main.js'],

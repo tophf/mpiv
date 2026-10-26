@@ -44,7 +44,7 @@ npm run hooks:install
 ```
 
 Edit the ES modules in `src/`. `src/main.js` starts the application, and
-`src/metadata.txt` contains the userscript header and version. Run `npm run build`
+`src/metadata.js` contains the userscript header and version. Run `npm run build`
 to bundle them with esbuild into `script.user.js`. Commit that generated file so
 the existing installation links keep working. It is a standalone userscript;
 users do not need Node.js or a module loader.
