@@ -7,7 +7,6 @@ import * as Gallery from './gallery.js';
 import * as GM from './gm.js';
 import * as Instagram from './instagram.js';
 import * as Popup from './popup.js';
-import {toggleZoom} from './popup.js';
 import * as Req from './request.js';
 import * as RuleMatcher from './rule-matcher.js';
 import * as Ruler from './ruler.js';
@@ -17,10 +16,14 @@ import {NOAA_ATTR} from './styles.js';
 import {describeKey, dropEvent, isVideo, now, tabFixUrl} from './util.js';
 import {isFF} from './vars.js';
 
-export let ctrl = false;
-export let hoverData = null;
-export let hoverTimer = 0;
-export let ignoreKeyHeld = false;
+export let ctrl;
+export let hoverNode;
+let hoverEvent, hoverNodeOut, hoverStart, hoverTimer;
+let ignoreKeyHeld;
+
+function clearHoverData() {
+  hoverNode = hoverNodeOut = hoverEvent = null;
+}
 
 export const setCtrl = val => (ctrl = val);
 /** time for volatile things to settle down meanwhile we postpone action
@@ -45,26 +48,29 @@ export function onMouseOver(e) {
   if (node.shadowRoot)
     node = pierceShadow(node, e.clientX, e.clientY);
   // we don't want to process everything in the path of a quickly moving mouse cursor
-  hoverData = {e, node, start: now()};
-  hoverTimer = hoverTimer || setTimeout(onMouseOverThrottled, SETTLE_TIME);
+  hoverEvent = e;
+  hoverNode = node;
+  hoverStart = now();
+  hoverTimer ||= setTimeout(onMouseOverThrottled, SETTLE_TIME);
   node.addEventListener('mouseout', onMouseOutThrottled);
 }
 
 export function onMouseOverThrottled(force) {
-  const {start, e, node, nodeOut} = hoverData || {};
-  if (!node || node === nodeOut && (hoverData = null, 1))
+  if (!hoverNode)
     return;
+  if (hoverNode === hoverNodeOut)
+    return clearHoverData();
   // clearTimeout + setTimeout is expensive so we'll use the cheaper perf.now() for rescheduling
-  const wait = force ? 0 : start + SETTLE_TIME - now();
+  const wait = force ? 0 : hoverStart + SETTLE_TIME - now();
   const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
   if (t)
     return;
-  hoverData = null;
+  clearHoverData();
   if (!Ruler.rules)
     Ruler.init();
-  const info = RuleMatcher.adaptiveFind(node);
+  const info = RuleMatcher.adaptiveFind(hoverNode);
   if (info && info.url && info.node !== ai.node)
-    App.activate(info, e);
+    App.activate(info, hoverEvent);
 }
 
 export function onMouseOut(e) {
@@ -73,8 +79,7 @@ export function onMouseOut(e) {
 }
 
 export function onMouseOutThrottled(/*e*/) {
-  const d = hoverData;
-  if (d) d.nodeOut = this;
+  if (hoverNode) hoverNodeOut = this;
   this.removeEventListener('mouseout', onMouseOutThrottled);
   hoverTimer = 0;
 }
@@ -122,7 +127,7 @@ export function onMouseScroll(e) {
   } else if (ai.gNum > 1 && ai.popup) {
     Gallery.next(-dir);
   } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
-    toggleZoom();
+    Popup.toggleZoom();
   } else if (App.canClose()) {
     App.deactivate();
     return;
@@ -214,7 +219,7 @@ export function onKeyDown(e) {
       if (ai.zoomed) {
         Popup.zoomInOut(-1);
       } else {
-        toggleZoom();
+        Popup.toggleZoom();
       }
       break;
     case 'Equal':
@@ -222,7 +227,7 @@ export function onKeyDown(e) {
       if (ai.zoomed) {
         Popup.zoomInOut(1);
       } else {
-        toggleZoom();
+        Popup.toggleZoom();
       }
       break;
     case 'Escape':
@@ -253,7 +258,7 @@ export function onKeyUp(e) {
     if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
       ai.controlled = false;
     else if (p && (ai.zoomed || ai.rectHovered !== false))
-      toggleZoom();
+      Popup.toggleZoom();
     else
       App.deactivate({wait: true});
     ai.shiftKeyTime = 0;
@@ -262,8 +267,8 @@ export function onKeyUp(e) {
     (cfg.start === 'ctrl' || cfg.start === 'context' || ai.rule.manual)
   ) {
     dropEvent(e);
-    if (hoverData) {
-      hoverData.e = e;
+    if (hoverEvent) {
+      hoverEvent = e;
       onMouseOverThrottled(true);
     }
     if (ai.node) {
@@ -277,7 +282,7 @@ export function onContext(e) {
   if (ignoreKeyHeld)
     return;
   const p = ai.popupShown;
-  if (cfg.zoom === 'context' && p && toggleZoom()) {
+  if (cfg.zoom === 'context' && p && Popup.toggleZoom()) {
     dropEvent(e);
   } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (
     cfg.start === 'context' ||
@@ -288,7 +293,7 @@ export function onContext(e) {
   )) {
     // right-clicked on an image while the context menu is shown for something else
     if (!ai.node) {
-      if (!hoverData)
+      if (!hoverEvent)
         onMouseOver(e);
       onMouseOverThrottled(true);
     }

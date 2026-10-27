@@ -894,7 +894,7 @@ function onEmbedMessage(e, data) {
   } else if (action === "mousemove") {
     if (ai.node === frame) onMouseMove(data);
   } else {
-    if (hoverData && hoverData.node === frame)
+    if (hoverNode === frame)
       onMouseOutThrottled.call(frame);
     if (ai.node === frame && !data.shiftKey && (action === "mousedown" || !ai.zoomed && canClose()))
       deactivate();
@@ -3506,10 +3506,16 @@ async function setupRuleInstaller(e) {
 }
 
 // src/events.js
-var ctrl = false;
-var hoverData = null;
-var hoverTimer = 0;
-var ignoreKeyHeld = false;
+var ctrl;
+var hoverNode;
+var hoverEvent;
+var hoverNodeOut;
+var hoverStart;
+var hoverTimer;
+var ignoreKeyHeld;
+function clearHoverData() {
+  hoverNode = hoverNodeOut = hoverEvent = null;
+}
 var setCtrl = (val) => ctrl = val;
 var SETTLE_TIME = 50;
 var WHEEL_EVENT = "onwheel" in doc ? "wheel" : "mousewheel";
@@ -3521,32 +3527,34 @@ function onMouseOver(e) {
     return;
   if (node.shadowRoot)
     node = pierceShadow(node, e.clientX, e.clientY);
-  hoverData = { e, node, start: now() };
-  hoverTimer = hoverTimer || setTimeout(onMouseOverThrottled, SETTLE_TIME);
+  hoverEvent = e;
+  hoverNode = node;
+  hoverStart = now();
+  hoverTimer || (hoverTimer = setTimeout(onMouseOverThrottled, SETTLE_TIME));
   node.addEventListener("mouseout", onMouseOutThrottled);
 }
 function onMouseOverThrottled(force) {
-  const { start: start2, e, node, nodeOut } = hoverData || {};
-  if (!node || node === nodeOut && (hoverData = null, 1))
+  if (!hoverNode)
     return;
-  const wait = force ? 0 : start2 + SETTLE_TIME - now();
+  if (hoverNode === hoverNodeOut)
+    return clearHoverData();
+  const wait = force ? 0 : hoverStart + SETTLE_TIME - now();
   const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
   if (t)
     return;
-  hoverData = null;
+  clearHoverData();
   if (!rules)
     init2();
-  const info2 = adaptiveFind(node);
+  const info2 = adaptiveFind(hoverNode);
   if (info2 && info2.url && info2.node !== ai.node)
-    activate(info2, e);
+    activate(info2, hoverEvent);
 }
 function onMouseOut(e) {
   if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && canClose())
     deactivate();
 }
 function onMouseOutThrottled() {
-  const d = hoverData;
-  if (d) d.nodeOut = this;
+  if (hoverNode) hoverNodeOut = this;
   this.removeEventListener("mouseout", onMouseOutThrottled);
   hoverTimer = 0;
 }
@@ -3724,8 +3732,8 @@ function onKeyUp(e) {
     ai.shiftKeyTime = 0;
   } else if (describeKey(e) === "Control" && !p && !ignoreKeyHeld && (cfg.start === "ctrl" || cfg.start === "context" || ai.rule.manual)) {
     dropEvent(e);
-    if (hoverData) {
-      hoverData.e = e;
+    if (hoverEvent) {
+      hoverEvent = e;
       onMouseOverThrottled(true);
     }
     if (ai.node) {
@@ -3742,7 +3750,7 @@ function onContext(e) {
     dropEvent(e);
   } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (cfg.start === "context" || cfg.start === "contextMK" || cfg.start === "contextM" && e.button === 2 || cfg.start === "contextK" && e.button !== 2 || cfg.start === "auto" && ai.rule.manual)) {
     if (!ai.node) {
-      if (!hoverData)
+      if (!hoverEvent)
         onMouseOver(e);
       onMouseOverThrottled(true);
     }

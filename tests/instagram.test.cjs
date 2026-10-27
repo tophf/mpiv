@@ -33,7 +33,7 @@ before(async () => {
           return {contents: `
             import * as actual from ${JSON.stringify(module)};
             export * from ${JSON.stringify(module)};
-            ${app ? '' : 'export const hoverData = globalThis.Events?.hoverData || actual.hoverData;'}
+            ${app ? '' : 'export const hoverNode = globalThis.Events?.hoverNode || actual.hoverNode;'}
             ${functions.map(fn => `export function ${fn}(...args) {
               return (globalThis.${name}?.${fn} || actual.${fn}).apply(this, args);
             }`).join('\n')}
@@ -421,7 +421,7 @@ test('embed exit cancels pending hover and active preview; Shift preserves it', 
   let cancelled = 0, closed = 0;
   const ctx = setup('forum.example', '/', {
     doc: element('html', {}, [frame]), ai: {node: frame},
-    Events: {hoverData: {node: frame}, onMouseOutThrottled() { cancelled++; }},
+    Events: {hoverNode: frame, onMouseOutThrottled() { cancelled++; }},
     App: {canClose: () => true, deactivate() { closed++; }},
   });
   message(ctx, child, 'mouseout');

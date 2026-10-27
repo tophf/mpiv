@@ -77,7 +77,7 @@ export function onEmbedMessage(e, data) {
   } else if (action === 'mousemove') {
     if (ai.node === frame) Events.onMouseMove(data);
   } else {
-    if (Events.hoverData && Events.hoverData.node === frame)
+    if (Events.hoverNode === frame)
       Events.onMouseOutThrottled.call(frame);
     if (ai.node === frame && !data.shiftKey &&
         (action === 'mousedown' || !ai.zoomed && canClose()))
