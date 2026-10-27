@@ -1,16 +1,20 @@
-import {readFile, writeFile} from 'node:fs/promises';
-import {dirname, resolve} from 'node:path';
+import {readFileSync, writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {build, context} from 'esbuild';
+import pkg from '../package.json' with {type: 'json'};
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+const destination = root + '/' + pkg.main;
+const metadataPath = root + '/src/metadata.js';
+const DEPS = 'DEPS';
 
 export async function buildUserscript({check = false, watch = false} = {}) {
   if (check && watch) throw new Error('--check and --watch cannot be combined.');
-  const metadataPath = resolve(root, 'src/metadata.js');
   const options = {
     absWorkingDir: root,
-    entryPoints: ['./src'],
+    entryPoints: ['./src', DEPS],
+    outdir: root,
     bundle: true,
     format: 'esm',
     platform: 'browser',
@@ -25,22 +29,22 @@ export async function buildUserscript({check = false, watch = false} = {}) {
     plugins: [{
       name: 'userscript-output',
       setup(builder) {
-        // Include the metadata file in esbuild's dependency watcher.
-        builder.onLoad({filter: /[/\\]src[/\\]index\.js$/}, async args => ({
-          contents: await readFile(args.path, 'utf8'),
-          resolveDir: dirname(args.path),
+        const depsRE = RegExp(`^${DEPS}$`);
+        const depsNS = {namespace: DEPS};
+        builder.onResolve({filter: depsRE}, () => ({path: DEPS, ...depsNS}));
+        builder.onLoad({filter: depsRE, ...depsNS}, () => ({
+          contents: '',
           watchFiles: [metadataPath],
         }));
-        builder.onEnd(async result => {
+        builder.onEnd(result => {
           if (result.errors.length) return;
-          const metadata = (await readFile(metadataPath, 'utf8')).replace(/\r\n/g, '\n').trimEnd();
+          const metadata = readFileSync(metadataPath, 'utf8').replace(/\r\n/g, '\n').trimEnd();
           const output = `${metadata}\n\n${result.outputFiles[0].text}`;
-          const destination = new URL('../script.user.js', import.meta.url);
           if (check) {
-            const current = (await readFile(destination, 'utf8')).replace(/\r\n/g, '\n');
+            const current = readFileSync(destination, 'utf8').replace(/\r\n/g, '\n');
             if (current !== output) throw new Error('script.user.js is stale. Run pnpm run build and commit it.');
           } else {
-            await writeFile(destination, output);
+            writeFileSync(destination, output);
             if (watch) console.log('Built script.user.js; watching for changes.');
           }
         });
