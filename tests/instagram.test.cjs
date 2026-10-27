@@ -13,7 +13,7 @@ let source;
 before(async () => {
   source = (await build({
     absWorkingDir: path.resolve(__dirname, '..'),
-    entryPoints: [__dirname + '/instagram.mock.js'],
+    entryPoints: [__dirname + '/instagram.mock.mjs'],
     bundle: true, format: 'iife', globalName: 'api', write: false,
     define: {
       PREFIX: '"mpiv-"',

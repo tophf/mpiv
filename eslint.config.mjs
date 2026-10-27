@@ -1,30 +1,12 @@
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
+import pkg from './package.json' with {type: 'json'};
 
 export default [{
-  files: ['src/**/*.js'],
-  languageOptions: {
-    ecmaVersion: 'latest',
-    globals: {
-      ...globals.browser,
-      ...globals.es2020,
-      PREFIX: false,
-      GM: false,
-      GM_addElement: false,
-      GM_addStyle: false,
-      GM_download: false,
-      GM_getValue: false,
-      GM_getValues: false,
-      GM_info: false,
-      GM_openInTab: false,
-      GM_registerMenuCommand: false,
-      GM_setClipboard: false,
-      GM_setValue: false,
-      GM_unregisterMenuCommand: false,
-      GM_xmlhttpRequest: false,
-      unsafeWindow: false,
-    },
-    sourceType: 'module',
-  },
+  ignores: [
+    pkg.main,
+  ],
+}, {
   rules: {
     'accessor-pairs': [2],
     'array-bracket-spacing': [2, 'never'],
@@ -35,7 +17,6 @@ export default [{
     'block-scoped-var': [2],
     'brace-style': [2, '1tbs', {allowSingleLine: true}],
     'camelcase': [2, {properties: 'never', ignoreGlobals: true, allow: ['^k_']}],
-    'class-methods-use-this': [2],
     'comma-dangle': [2, {
       arrays: 'always-multiline',
       objects: 'always-multiline',
@@ -273,5 +254,48 @@ export default [{
     'wrap-iife': [2, 'inside'],
     'yield-star-spacing': [2, {before: true, after: false}],
     'yoda': [2, 'never'],
+  },
+}, {
+  files: ['src/**/*.js'],
+  plugins: {
+    'simple-import-sort': simpleImportSort,
+  },
+  rules: {
+    'simple-import-sort/imports': [2],
+    'simple-import-sort/exports': [2],
+  },
+  languageOptions: {
+    ecmaVersion: 'latest',
+    globals: {
+      ...globals.browser,
+      ...globals.es2020,
+      PREFIX: false,
+      GM: false,
+      GM_addElement: false,
+      GM_addStyle: false,
+      GM_download: false,
+      GM_getValue: false,
+      GM_getValues: false,
+      GM_info: false,
+      GM_openInTab: false,
+      GM_registerMenuCommand: false,
+      GM_setClipboard: false,
+      GM_setValue: false,
+      GM_unregisterMenuCommand: false,
+      GM_xmlhttpRequest: false,
+      unsafeWindow: false,
+    },
+    sourceType: 'module',
+  },
+}, {
+  files: ['{scripts,tests}/**/*.{js,cjs}'],
+  languageOptions: {
+    globals: globals.node,
+  },
+}, {
+  files: ['{scripts,tests}/**/*.mjs'],
+  languageOptions: {
+    globals: globals.node,
+    sourceType: 'module',
   },
 }];
