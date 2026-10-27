@@ -1,19 +1,18 @@
-import {cfg} from './state.js';
+import {cfg} from './app.js';
 import * as GM from './gm.js';
 import {setup} from './setup.js';
 
-export let curAltName = '';
+let curAltName = '';
 
-export const enabled = window === top && !!GM.registerMenuCommand;
-
-export const unreg = GM.unregisterMenuCommand;
+const unreg = GM.unregisterMenuCommand;
 
 export const makeAltName = () => unreg
   ? `MPIV: auto-start is ${cfg.start === 'auto' ? 'ON' : 'OFF'}`
   : 'MPIV: toggle auto-start';
 
 export function register() {
-  if (!enabled) return;
+  if (window !== top || !GM.registerMenuCommand)
+    return;
   GM.registerMenuCommand('MPIV: configure', setup);
   registerAlt();
 }
@@ -34,7 +33,7 @@ export function reRegisterAlt() {
 export function onAltToggled() {
   const wasAuto = cfg.start === 'auto';
   if (wasAuto) {
-    cfg.start = cfg.startAlt || (cfg.startAlt = 'context');
+    cfg.start = cfg.startAlt ||= 'context';
   } else {
     cfg.startAlt = cfg.start;
     cfg.start = 'auto';

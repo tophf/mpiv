@@ -59,64 +59,39 @@
 // Generated from src/ by pnpm run build. Do not edit directly.
 'use strict';
 
-// src/state.js
-var cfg;
-var ai = { rule: {} };
-var elSetup;
-var nonce;
-var timerProgress;
-var trustedHTML;
-var trustedScript;
-var setCfg = (val) => cfg = val;
-var setAi = (val) => ai = val;
-var setElSetup = (val) => elSetup = val;
-var setNonce = (val) => nonce = val;
-var setTimerProgress = (val) => timerProgress = val;
-var setTrustedHTML = (val) => trustedHTML = val;
-var setTrustedScript = (val) => trustedScript = val;
-
-// src/constants.js
-var doc = document;
+// src/vars.js
 var hostname = location.hostname;
 var dotDomain = "." + hostname;
 var isFF = CSS.supports("-moz-appearance", "none");
-var { AudioContext = function() {
-} } = window;
-var { from: arrayFrom, isArray } = Array;
-var PREFIX = "mpiv-";
-var NOAA_ATTR = "data-no-aa";
-var STATUS_ATTR = `${PREFIX}status`;
-var MSG = Object.assign({}, ...[
-  "getViewSize",
-  "viewSize"
-].map((k) => ({ [k]: `${PREFIX}${k}` })));
-var WHEEL_EVENT = "onwheel" in doc ? "wheel" : "mousewheel";
-var SETTLE_TIME = 50;
 var RX_HAS_CODE = /(^|[^-\w])return[\W\s]/;
 var RX_EVAL_BLOCKED = /'Trusted(Script| Type)'|unsafe-eval/;
-var RX_IMAGE_URL = /https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i;
 var RX_MEDIA_URL = /^(?!data:)[^?#]+?\.(avif|bmp|jpe?g?|gif|mp4|png|svgz?|web[mp])($|[?#])/i;
-var BLANK_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-var ZOOM_MAX = 16;
-var SYM_U = /* @__PURE__ */ Symbol("u");
-var FN_ARGS = {
-  s: ["m", "node", "rule"],
-  c: ["text", "doc", "node", "rule"],
-  q: ["text", "doc", "node", "rule"],
-  g: ["text", "doc", "url", "m", "rule", "node", "cb"]
-};
+var TT = window.trustedTypes;
 
-// src/helpers.js
+// src/util.js
+var setNOP = (val) => NOP = val;
+var { from: arrayFrom, isArray } = Array;
 var clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 var compareNumbers = (a, b) => a - b;
-var flattenHtml = (str) => str.trim().replace(/\n\s*/g, "");
+var describeKey = (e) => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
 var dropEvent = (e) => (e.preventDefault(), e.stopPropagation());
 var ensureArray = (v) => isArray(v) ? v : [v];
 var eventModifiers = (e) => (e.altKey ? "!" : "") + (e.ctrlKey ? "^" : "") + (e.metaKey ? "#" : "") + (e.shiftKey ? "+" : "");
-var describeKey = (e) => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
+var extractFileExt = (url) => (url = RX_MEDIA_URL.exec(url)) && url[1];
+var flattenHtml = (str) => str.trim().replace(/\n\s*/g, "");
+var getUiColor = (colorValue, opacity = cfg[`ui${colorValue}Opacity`]) => (colorValue.startsWith("#") ? colorValue : cfg[`ui${colorValue}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
 var isFunction = (val) => typeof val === "function";
 var isVideo = (el) => el && el.tagName === "VIDEO";
+var isVideoUrl = (url) => url.startsWith("data:video") || isVideoUrlExt(url);
+var isVideoUrlExt = (url) => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
 var now = performance.now.bind(performance);
+var pick = (obj, path, fn) => {
+  if (obj && path)
+    for (const p of path.split("."))
+      if (obj) obj = obj[p];
+      else break;
+  return fn && obj !== void 0 ? fn(obj) : obj;
+};
 var sumProps = (...props) => {
   let sum = 0;
   for (const p of props)
@@ -130,15 +105,140 @@ var tryCatch = (fn, ...args) => {
   }
 };
 var tryJSON = (str) => tryCatch(JSON.parse, str);
-var pick = (obj, path, fn) => {
-  if (obj && path)
-    for (const p of path.split("."))
-      if (obj) obj = obj[p];
-      else break;
-  return fn && obj !== void 0 ? fn(obj) : obj;
-};
+var NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {
+});
+var trustedHTML;
+var trustedScript;
+function decodeHtmlEntities(s) {
+  return s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+}
+function decodeUrl(url) {
+  if (!url || typeof url !== "string") return url;
+  const iPct = url.indexOf("%");
+  const iColon = url.indexOf(":");
+  return iPct >= 0 && (iPct < iColon || iColon < 0) ? decodeURIComponent(url) : url;
+}
+function deepEqual(a, b) {
+  if (!a || !b || typeof a !== "object" || typeof a !== typeof b)
+    return a === b;
+  if (isArray(a)) {
+    return isArray(b) && a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+  }
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => deepEqual(a[k], b[k]));
+}
+function forceLayout(node) {
+  node.clientHeight;
+}
+function formatError(e, rule) {
+  const arr = isArray(e);
+  const msg = arr ? e[0] : e.message;
+  const { url: u, imageUrl: iu } = ai;
+  e = msg ? e : e.readyState && "Request failed." || e.type === "error" && `File can't be displayed.${$('div[bgactive*="flashblock"]', doc) ? " Check Flashblock settings." : ""}` || e;
+  let fmt;
+  const res = [
+    fmt = "%c%s%c",
+    "font-weight:bold",
+    arr ? msg : e,
+    "font-weight:normal",
+    (fmt += "\nNode: %o", ai.node),
+    (fmt += "\nRule: %o", rule),
+    u && (fmt += "\nURL: %s", u),
+    iu && iu !== u && (fmt += "\nFile: %s", iu),
+    ...arr ? (fmt += e[1], e.slice(2)) : [],
+    e.stack
+  ].filter(Boolean);
+  res[0] = fmt;
+  res.message = msg || e;
+  return res;
+}
+function getReactChildren(el, path) {
+  if (isFF) el = el.wrappedJSObject || el;
+  for (const k of Object.keys(el))
+    if (typeof k === "string" && k.startsWith("__reactProps"))
+      return (el = el[k].children) && (path ? pick(el, path) : el);
+}
+function newFunction(...args) {
+  try {
+    return NOP || (trustedScript ? window.eval(trustedScript(`(function anonymous(${args.slice(0, -1).join(",")}){${args.slice(-1)[0]}})`)) : new Function(...args));
+  } catch (e) {
+    if (!RX_EVAL_BLOCKED.test(e.message))
+      throw e;
+    setNOP(() => {
+    });
+    return NOP;
+  }
+}
+function rel2abs(rel, abs = location.href) {
+  try {
+    return /^(data:|blob:|[-\w]+:\/\/)/.test(rel) ? rel : new URL(rel, abs).href;
+  } catch (e) {
+    return rel;
+  }
+}
+function stringify(...args) {
+  const p = Array.prototype;
+  const { toJSON } = p;
+  if (toJSON) p.toJSON = null;
+  const res = JSON.stringify(...args);
+  if (toJSON) p.toJSON = toJSON;
+  return res;
+}
+function tabFixUrl() {
+  const { tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain) } = ai.rule;
+  return tabfix && ai.popup.tagName === "IMG" && !ai.xhr && flattenHtml(`data:text/html;charset=utf8,
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background: #222;
+      }
+      .fit {
+        overflow: hidden
+      }
+      .fit > img {
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+      body > img {
+        margin: auto;
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+      }
+    </style>
+    <body class=fit>
+      <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
+    </body>
+  `).replace(/\x20?([:>])\x20/g, "$1").replace(/#/g, "%23");
+}
+if (TT) {
+  const CP = "createPolicy";
+  const createPolicy = TT[CP];
+  TT[CP] = function ovr(name, opts) {
+    let fn;
+    const p = createPolicy.call(TT, name, opts);
+    if ((trustedHTML || opts[fn = "createHTML"] && (trustedHTML = p[fn].bind(p))) && (trustedScript || opts[fn = "createScript"] && (trustedScript = p[fn].bind(p))) && TT[CP] === ovr)
+      delete TT[CP];
+    return p;
+  };
+}
+
+// src/dom.js
+var doc = document;
 var $ = (sel, node = doc) => node.querySelector(sel) || false;
 var $$ = (sel, node = doc) => node.querySelectorAll(sel);
+var $css = (el, props) => Object.entries(props).forEach(([k, v]) => el.style.setProperty(k, v, "important"));
+var $dataset = ({ dataset: d }, key, val) => val == null ? delete d[key] : d[key] = val;
+var $many = (q, doc2) => {
+  for (const selector of ensureArray(q)) {
+    const el = selector && $(selector, doc2);
+    if (el)
+      return el;
+  }
+};
 var $new = (sel, props, children) => {
   if (typeof sel !== "string") {
     children = props;
@@ -173,184 +273,563 @@ var $new = (sel, props, children) => {
   }
   return el;
 };
-var $css = (el, props) => Object.entries(props).forEach(([k, v]) => el.style.setProperty(k, v, "important"));
 var $parseHtml = (str) => new DOMParser().parseFromString(str, "text/html");
-var $many = (q, doc2) => {
-  for (const selector of ensureArray(q)) {
-    const el = selector && $(selector, doc2);
-    if (el)
-      return el;
-  }
-};
 var $prop = (sel, prop, node = doc) => (node = $(sel, node)) && node[prop] || "";
 var $propUp = (node, prop) => (node = node.closest(`[${prop}]`)) && (prop.startsWith("data-") ? node.getAttribute(prop) : node[prop]) || "";
 var $remove = (node) => node && node.remove();
-var $dataset = ({ dataset: d }, key, val) => val == null ? delete d[key] : d[key] = val;
+
+// src/msg.js
+var getViewSize = "mpiv-getViewSize";
+var instaEmbed = "mpiv-instaEmbed";
+var viewSize = "mpiv-viewSize";
 
 // src/gm.js
-var api = typeof GM !== "undefined" && GM.xmlHttpRequest ? GM : { __proto__: null, info: GM_info };
-if (!api.getValue)
-  api.getValue = GM_getValue;
-if (!api.setValue)
-  api.setValue = GM_setValue;
-if (!api.openInTab)
-  api.openInTab = GM_openInTab;
-if (!api.registerMenuCommand && typeof GM_registerMenuCommand === "function")
-  api.registerMenuCommand = GM_registerMenuCommand;
-if (!api.unregisterMenuCommand && typeof GM_unregisterMenuCommand === "function")
-  api.unregisterMenuCommand = GM_unregisterMenuCommand;
-if (!api.setClipboard)
-  api.setClipboard = GM_setClipboard;
-if (!api.xmlHttpRequest)
-  api.xmlHttpRequest = GM_xmlhttpRequest;
-var info = api.info;
-var getValue = api.getValue.bind(api);
-var setValue = api.setValue.bind(api);
-var openInTab = api.openInTab.bind(api);
-var setClipboard = api.setClipboard.bind(api);
-var xmlHttpRequest = api.xmlHttpRequest.bind(api);
-var registerMenuCommand = api.registerMenuCommand && api.registerMenuCommand.bind(api);
-var unregisterMenuCommand = api.unregisterMenuCommand && api.unregisterMenuCommand.bind(api);
+var {
+  info = GM_info,
+  getValue = GM_getValue,
+  // we use it only with `await` so no need to return a Promise,
+  setValue = GM_setValue,
+  // we use it only with `await` so no need to return a Promise,
+  openInTab = typeof GM_openInTab === "function" && GM_openInTab,
+  setClipboard = typeof GM_setClipboard === "function" && GM_setClipboard,
+  xmlHttpRequest = typeof GM_xmlhttpRequest === "function" && GM_xmlhttpRequest,
+  registerMenuCommand = typeof GM_registerMenuCommand === "function" && GM_registerMenuCommand,
+  unregisterMenuCommand = typeof GM_unregisterMenuCommand === "function" && GM_unregisterMenuCommand
+} = typeof GM !== "undefined" && GM.info ? GM : { __proto__: null };
 
-// src/util.js
+// src/config.js
+function create({ data: c, save }) {
+  if (typeof c === "string")
+    c = tryJSON(c);
+  if (typeof c !== "object" || !c)
+    c = {};
+  c.fit = ["all", "large", "no", ""].includes(c.fit) ? c.fit : !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? "large" : "";
+  if (c.version !== DEFAULTS.version) {
+    if (typeof c.hosts === "string")
+      c.hosts = c.hosts.split("\n").map((s) => tryJSON(s) || s).filter(Boolean);
+    if (c.close === true || c.close === false)
+      c.zoomOut = c.close ? "auto" : "stay";
+    for (const key in DEFAULTS)
+      if (typeof c[key] !== typeof DEFAULTS[key])
+        c[key] = DEFAULTS[key];
+    if (c.version === 3 && c.scales[0] === 0)
+      c.scales[0] = "0!";
+    for (const key in c)
+      if (!(key in DEFAULTS))
+        delete c[key];
+    c.version = DEFAULTS.version;
+    if (save)
+      setValue("cfg", c);
+  }
+  if (Object.keys(cfg || {}).some((k) => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
+    setGlobalStyle("");
+  if (!isArray(c.scales))
+    c.scales = [];
+  c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
+  return Object.assign({}, DEFAULTS, c);
+}
+async function load(opts) {
+  opts.data = await getValue("cfg");
+  return create(opts);
+}
+function getCss({ css }) {
+  return css.includes("{") ? css : `#${"mpiv-"}-popup {${css}}`;
+}
+var DEFAULTS = (
+  /** @type mpiv.Config */
+  {
+    __proto__: null,
+    center: false,
+    css: "",
+    delay: 500,
+    fit: "",
+    globalStatus: false,
+    // prefer ' inside rules because " will be displayed as \"
+    // example: "img[src*='icon']"
+    hosts: [{
+      name: "No popup for YouTube thumbnails",
+      d: "www.youtube.com",
+      e: "ytd-rich-item-renderer *, ytd-thumbnail *",
+      s: ""
+    }, {
+      name: "No popup for SVG/PNG icons",
+      d: "",
+      e: "img[src*='icon']",
+      r: "//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)",
+      s: ""
+    }],
+    imgtab: false,
+    keepOnBlur: false,
+    keepVids: false,
+    mute: false,
+    night: false,
+    preload: false,
+    scale: 1.05,
+    scales: ["0!", 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
+    start: "auto",
+    startAlt: "context",
+    startAltShown: false,
+    uiBackgroundColor: "#ffffff",
+    uiBackgroundOpacity: 100,
+    uiBorderColor: "#000000",
+    uiBorderOpacity: 100,
+    uiBorder: 0,
+    uiFadein: true,
+    uiFadeinGallery: true,
+    // some computers show white background while loading so fading hides it
+    uiInfo: true,
+    uiInfoCaption: true,
+    uiInfoHide: 3,
+    uiInfoOnce: true,
+    uiShadowColor: "#000000",
+    uiShadowOpacity: 80,
+    uiShadow: 20,
+    uiShadowOnLoad: true,
+    uiPadding: 0,
+    uiMargin: 0,
+    version: 6,
+    videoCtrl: true,
+    waitLoad: false,
+    xhr: true,
+    zoom: "context",
+    zoomOut: "auto",
+    zoomStep: 133
+  }
+);
+
+// src/styles.js
+var globalStyle = "";
+var popupStyleBase = "";
+var NOAA_ATTR = "data-no-aa";
+var STATUS_ATTR = "mpiv-status";
+var setGlobalStyle = (val) => globalStyle = val;
 var styles = { __proto__: null };
-function addStyle(name, css) {
+function createGlobalStyle() {
+  globalStyle = /*language=CSS*/
+  (String.raw`
+#mpiv-bar {
+  position: fixed;
+  z-index: 2147483647;
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 15px;
+  font-weight: bold;
+  background: #0005;
+  color: white;
+  padding: 4px 10px;
+  text-shadow: .5px .5px 2px #000;
+  transition: opacity 1s ease .25s;
+  opacity: 0;
+}
+#mpiv-bar[data-force] {
+  transition: none;
+}
+#mpiv-bar.mpiv-show {
+  opacity: 1;
+}
+#mpiv-bar[data-zoom][data-prefix]::before {
+  content: "[" attr(data-prefix) "] ";
+  color: gold;
+}
+#mpiv-bar[data-zoom]:not(:empty)::after {
+  content: " (" attr(data-zoom) ")";
+  opacity: .8;
+}
+#mpiv-bar[data-zoom]:empty::after {
+  content: attr(data-zoom);
+}
+#mpiv-popup.mpiv-show {
+  display: inline;
+}
+#mpiv-popup {
+  display: none;
+  cursor: none;
+  box-shadow: none;
+${cfg.uiFadein ? String.raw`
+  animation: .2s mpiv-fadein both;
+  transition: box-shadow .25s, background-color .25s;
+  ` : ""}
+${popupStyleBase = `
+  border: none;
+  box-sizing: border-box;
+  background-size: cover;
+  position: fixed;
+  z-index: 2147483647;
+  padding: 0;
+  margin: 0;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  transform-origin: center;
+  max-width: none;
+  max-height: none;
+`}
+}
+#mpiv-popup.mpiv-show {
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${getUiColor("Border")};` : ""}
+  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ""}
+  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ""}
+}
+#mpiv-popup.mpiv-show${cfg.uiShadowOnLoad ? "[loaded]" : ""} {
+  background-color: ${getUiColor("Background")};
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${getUiColor("Shadow")};` : ""}
+}
+#mpiv-popup[data-gallery-flip] {
+  animation: none;
+  transition: none;
+}
+#mpiv-popup[${NOAA_ATTR}],
+#mpiv-popup.mpiv-zoom-max {
+  image-rendering: pixelated;
+}
+#mpiv-popup.mpiv-night:not(#\\0) {
+  box-shadow: 0 0 0 ${Math.max(screen.width, screen.height)}px #000;
+}
+body:has(#mpiv-popup.mpiv-night)::-webkit-scrollbar {
+  background: #000;
+}
+#mpiv-setup {
+}
+@keyframes mpiv-fadein {
+  from {
+    opacity: 0;
+    border-color: transparent;
+  }
+  to {
+    opacity: 1;
+  }
+}
+` + (cfg.globalStatus ? String.raw`
+:root.mpiv-loading:not(.mpiv-preloading) *:hover {
+  cursor: progress !important;
+}
+:root.mpiv-edge #mpiv-popup {
+  cursor: default;
+}
+:root.mpiv-error *:hover {
+  cursor: not-allowed !important;
+}
+:root.mpiv-ready *:hover,
+:root.mpiv-large *:hover {
+  cursor: zoom-in !important;
+}
+:root.mpiv-shift *:hover {
+  cursor: default !important;
+}
+` : String.raw`
+[mpiv-status~="loading"]:not([mpiv-status~="preloading"]):hover {
+  cursor: progress;
+}
+[mpiv-status~="edge"]:hover {
+  cursor: default;
+}
+[mpiv-status~="error"]:hover {
+  cursor: not-allowed;
+}
+[mpiv-status~="ready"]:hover,
+[mpiv-status~="large"]:hover {
+  cursor: zoom-in;
+}
+[mpiv-status~="shift"]:hover {
+  cursor: default;
+}
+`)).replace(/mpiv-status/g, STATUS_ATTR);
+  popupStyleBase = popupStyleBase.replace(/;/g, "!important;");
+}
+function updateStyle(name, css) {
   const el = styles[name] || css && (styles[name] = typeof GM_addStyle === "function" ? GM_addStyle(css) : doc.head.appendChild($new("style", css)));
   if (!el) return;
   if (el.textContent !== css)
     el.textContent = css;
   return el;
 }
-function color(colorValue, opacity = cfg[`ui${colorValue}Opacity`]) {
-  return (colorValue.startsWith("#") ? colorValue : cfg[`ui${colorValue}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
+function updateStyles() {
+  if (!globalStyle) createGlobalStyle();
+  updateStyle("global", globalStyle + getCss(cfg));
+  updateStyle("rule", ai.rule.css || "");
 }
-function decodeHtmlEntities(s) {
-  return s.replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-}
-function decodeUrl(url) {
-  if (!url || typeof url !== "string") return url;
-  const iPct = url.indexOf("%");
-  const iColon = url.indexOf(":");
-  return iPct >= 0 && (iPct < iColon || iColon < 0) ? decodeURIComponent(url) : url;
-}
-function deepEqual(a, b) {
-  if (!a || !b || typeof a !== "object" || typeof a !== typeof b)
-    return a === b;
-  if (isArray(a)) {
-    return isArray(b) && a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+
+// src/calc.js
+var ZOOM_MAX = 16;
+function aspectRatio(w, h) {
+  for (let rat = w / h, a, b = 0; ; ) {
+    b++;
+    a = Math.round(w * b / h);
+    if (a > 10 && b > 10 || a > 100 || b > 100)
+      return rat.toFixed(2);
+    if (Math.abs(a / b - rat) < 0.01)
+      return `${a}:${b}`;
   }
-  const keys = Object.keys(a);
-  return keys.length === Object.keys(b).length && keys.every((k) => deepEqual(a[k], b[k]));
 }
-var extractFileExt = (url) => (url = RX_MEDIA_URL.exec(url)) && url[1];
-function forceLayout(node) {
-  node.clientHeight;
+function frameSize(elFrame, wnd) {
+  if (!elFrame) return;
+  const r = elFrame.getBoundingClientRect();
+  const w = Math.min(r.right, wnd.innerWidth) - Math.max(r.left, 0);
+  const h = Math.min(r.bottom, wnd.innerHeight) - Math.max(r.top, 0);
+  const x = r.left < 0 ? -r.left : 0;
+  const y = r.top < 0 ? -r.top : 0;
+  return [w, h, x, y];
 }
-function formatError(e, rule) {
-  const arr = isArray(e);
-  const msg = arr ? e[0] : e.message;
-  const { url: u, imageUrl: iu } = ai;
-  e = msg ? e : e.readyState && "Request failed." || e.type === "error" && `File can't be displayed.${$('div[bgactive*="flashblock"]', doc) ? " Check Flashblock settings." : ""}` || e;
-  let fmt;
-  const res = [
-    fmt = "%c%s%c",
-    "font-weight:bold",
-    arr ? msg : e,
-    "font-weight:normal",
-    (fmt += "\nNode: %o", ai.node),
-    (fmt += "\nRule: %o", rule),
-    u && (fmt += "\nURL: %s", u),
-    iu && iu !== u && (fmt += "\nFile: %s", iu),
-    ...arr ? (fmt += e[1], e.slice(2)) : [],
-    e.stack
-  ].filter(Boolean);
-  res[0] = fmt;
-  res.message = msg || e;
-  return res;
+function generateScales(fit) {
+  let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
+  const zoomStep = cfg.zoomStep / 100;
+  const arr = [scale];
+  if (fit !== 1) {
+    const diff = goal / scale;
+    const steps = Math.log(diff) / Math.log(zoomStep) | 0;
+    const step = steps && Math.pow(diff, 1 / steps);
+    for (let i = steps; --i > 0; )
+      arr.push(scale *= step);
+    arr.push(scale = goal);
+  }
+  while ((scale *= zoomStep) <= ZOOM_MAX)
+    arr.push(scale);
+  return arr;
 }
-function getReactChildren(el, path) {
-  if (isFF) el = el.wrappedJSObject || el;
-  for (const k of Object.keys(el))
-    if (typeof k === "string" && k.startsWith("__reactProps"))
-      return (el = el[k].children) && (path ? pick(el, path) : el);
+function measurePopup() {
+  let { popup: p, nwidth: nw, nheight: nh } = ai;
+  p.setAttribute("style", "display:inline !important;" + popupStyleBase);
+  if (p.clientWidth > nw) {
+    const w = clamp(p.clientWidth, nw, innerWidth / 2) | 0;
+    nh = ai.nheight = w / nw * nh | 0;
+    nw = ai.nwidth = w;
+    p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
+  } else
+    p.style.cssText = "";
+  p.classList.add("mpiv-show");
+  const s = getComputedStyle(p);
+  const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
+  const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
+  const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
+  const outw = o2 + sumProps(s.marginLeft, s.marginRight);
+  const outh = o2 + sumProps(s.marginTop, s.marginBottom);
+  ai.extras = {
+    inw,
+    inh,
+    outw,
+    outh,
+    o: o2 / 2,
+    w: inw + outw,
+    h: inh + outh
+  };
+  const fit = Math.min(
+    (ai.view.w - ai.extras.w) / ai.nwidth,
+    (ai.view.h - ai.extras.h) / ai.nheight
+  ) || 1;
+  const isCustom = !cfg.fit && cfg.scales.length;
+  let cutoff = Math.min(1, fit);
+  let scaleZoom = cfg.fit === "all" && fit || cfg.fit === "no" && 1 || cutoff;
+  if (isCustom) {
+    const dst = [];
+    for (const scale of cfg.scales) {
+      const val = parseFloat(scale) || fit;
+      dst.push(val);
+      if (isCustom && typeof scale === "string") {
+        if (scale.includes("!")) cutoff = val;
+        if (scale.includes("*")) scaleZoom = val;
+      }
+    }
+    ai.scales = dst.sort(compareNumbers).filter(scaleBiggerThan, cutoff);
+  } else {
+    ai.scales = generateScales(fit);
+  }
+  ai.scale = cfg.zoom === "auto" ? scaleZoom : Math.min(1, fit);
+  ai.scaleFit = fit;
+  ai.scaleZoom = scaleZoom;
 }
-var isVideoUrl = (url) => url.startsWith("data:video") || isVideoUrlExt(url);
-var isVideoUrlExt = (url) => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
-function newFunction(...args) {
-  try {
-    return NOP || (trustedScript ? window.eval(trustedScript(`(function anonymous(${args.slice(0, -1).join(",")}){${args.slice(-1)[0]}})`)) : new Function(...args));
-  } catch (e) {
-    if (!RX_EVAL_BLOCKED.test(e.message))
-      throw e;
+function rect() {
+  const { node, rule } = ai;
+  let n = rule.rect && node.closest(rule.rect);
+  if (n) return n.getBoundingClientRect();
+  const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [];
+  let maxArea = 0;
+  let maxBounds;
+  let i = 0;
+  do {
+    const bounds = n.getBoundingClientRect();
+    const area = bounds.width * bounds.height;
+    if (area > maxArea) {
+      maxArea = area;
+      maxBounds = bounds;
+    }
+  } while ((n = nested[i++]) && node.contains(n));
+  return maxBounds;
+}
+function scaleBiggerThan(scale, i, arr) {
+  return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > 0.01);
+}
+function scaleIndex(dir) {
+  const i = ai.scales.indexOf(ai.scale);
+  if (i >= 0) return i + dir;
+  for (let len = ai.scales.length, i2 = dir > 0 ? 0 : len - 1; i2 >= 0 && i2 < len; i2 += dir) {
+    if (Math.sign(ai.scales[i2] - ai.scale) === dir)
+      return i2;
+  }
+  return -1;
+}
+function scaleForFirstZoom(keepScale) {
+  const z = ai.scaleZoom;
+  return keepScale || z !== ai.scale ? z : ai.scales.find((x) => x > z);
+}
+function updateViewSize() {
+  const view = doc.compatMode === "BackCompat" ? doc.body : doc.documentElement;
+  ai.view = { w: view.clientWidth, h: view.clientHeight, x: 0, y: 0 };
+  if (window === top) return;
+  const [w, h] = frameSize(frameElement, parent) || [];
+  if (w && h) {
+    ai.view = { w, h, x: 0, y: 0 };
+  } else {
+    addEventListener("message", onMessageChild, true);
+    parent.postMessage(getViewSize, "*");
+  }
+}
+
+// src/bar.js
+function set(label, cls, prefix) {
+  let b = ai.bar;
+  if (typeof label !== "string") {
+    $remove(b);
+    ai.bar = null;
+    return;
+  }
+  const force = !b && 0;
+  if (!b) b = ai.bar = $new("div", { id: "mpiv-bar", className: "mpiv-" + cls });
+  ai.barText = label;
+  updateStyles();
+  updateDetails();
+  setText(cfg.uiInfoCaption || cls === "error" || cls === "xhr" ? label : "");
+  $dataset(b, "prefix", prefix);
+  setTimeout(show, 0, force);
+  if (!b.parentNode) {
+    doc.body.appendChild(b);
+    forceLayout(b);
+  }
+}
+function setText(text) {
+  if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(text)) {
+    ai.bar.innerHTML = trustedHTML ? trustedHTML(text) : text;
+  } else {
+    ai.bar.textContent = text;
+  }
+}
+function show(force) {
+  const b = ai.bar;
+  if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || ai.barShown)
+    return;
+  clearTimeout(ai.timerBar);
+  b.classList.add("mpiv-show");
+  $dataset(b, "force", force === 2 ? "" : null);
+  ai.timerBar = !force && setTimeout(hide, cfg.uiInfoHide * 1e3);
+  ai.barShown = true;
+}
+function hide(force) {
+  const b = ai.bar;
+  if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !ai.barShown)
+    return;
+  $dataset(b, "force", force === 2 ? "" : null);
+  b.classList.remove("mpiv-show");
+  ai.barShown = false;
+}
+function updateName() {
+  const { gItems: gi, gIndex: i, gNum: n } = ai;
+  if (gi) {
+    const item = gi[i];
+    const noDesc = !gi.some((_) => _.desc);
+    const c = [
+      gi.title && (!i || noDesc) && !`${item.desc || ""}`.includes(gi.title) && gi.title || "",
+      item.desc
+    ].filter(Boolean).join(" - ");
+    set(c.trim() || " ", "gallery", n > 1 ? `${i + 1}/${n}` : null);
+  } else if ("caption" in ai) {
+    set(ai.caption, "caption");
+  } else if (ai.tooltip) {
+    set(ai.tooltip.text, "tooltip");
+  } else {
+    set(" ", "info");
+  }
+}
+function updateDetails() {
+  if (!ai.bar) return;
+  const r = ai.rotate;
+  const zoom = ai.nwidth && `${Math.round(ai.scale * 100)}%${ai.flipX || ai.flipY ? `, ${ai.flipX ? "⇆" : ""}${ai.flipY ? "⇅" : ""}` : ""}${r ? ", " + (r > 180 ? r - 360 : r) + "°" : ""}, ${ai.nwidth} x ${ai.nheight} px, ${Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100} MP, ${aspectRatio(ai.nwidth, ai.nheight)}`.replace(/\x20/g, " ");
+  if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
+    $dataset(ai.bar, "zoom", zoom || null);
+    show();
+  }
+}
+
+// src/csp.js
+var busy;
+var csp = null;
+var nonce;
+var init = function() {
+  busy = new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", location);
+    xhr.timeout = Math.max(2e3, (performance.timing.responseEnd - performance.timeOrigin) * 2);
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
+        csp = _parse([
+          xhr.getResponseHeader("content-security-policy"),
+          $prop('meta[http-equiv="Content-Security-Policy"]', "content")
+        ].filter(Boolean).join(","));
+        init = busy = xhr.onreadystatechange = null;
+        xhr.abort();
+        resolve();
+      }
+    };
+    xhr.send();
+  });
+};
+var setNonce = (val) => nonce = val;
+async function check(url, allowInit) {
+  if (allowInit && init) init();
+  if (busy) await busy;
+  const isVideo2 = isVideoUrl(url);
+  let mode;
+  if (csp) {
+    const src = csp[isVideo2 ? "media" : "img"] || csp.default;
+    if (!src.some(_srcMatches, url))
+      mode = [mode, "blob", "data"].find((m) => src.includes(`${m}:`));
+  }
+  return [mode || ai.xhr, isVideo2];
+}
+function _parse(cspValue) {
+  if (!cspValue) return;
+  const src = {};
+  const rx = /(?:^|[;,])\s*(?:(default|img|media|script)-src|require-(trusted)-types-for) ([^;,]+)/g;
+  for (let m; m = rx.exec(cspValue); )
+    src[m[1] || m[2]] = m[3].trim().split(/\s+/);
+  if ((src.script || []).find((s) => /^'nonce-(.+)'$/.test(s)))
+    nonce = RegExp.$1;
+  if ((src.trusted || []).includes("'script'"))
     setNOP(() => {
     });
-    return NOP;
+  for (const set3 of /* @__PURE__ */ new Set([src.img || src.default, src.media || src.default])) {
+    set3.forEach((item, i) => {
+      if (item !== "*" && item.includes("*")) {
+        set3[i] = new RegExp(
+          (/^\w+:/.test(item) ? "^" : "^\\w+://") + item.replace(/[.+?^$|()[\]{}]/g, "\\$&").replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) => `${a ? "\\.?" : ""}[^:/]*${c ? "\\.?" : ""}`).replace(/[^/]$/, "$&/")
+        );
+      }
+    });
   }
+  return src;
 }
-function rel2abs(rel, abs = location.href) {
-  try {
-    return /^(data:|blob:|[-\w]+:\/\/)/.test(rel) ? rel : new URL(rel, abs).href;
-  } catch (e) {
-    return rel;
-  }
-}
-function stringify(...args) {
-  const p = Array.prototype;
-  const { toJSON } = p;
-  if (toJSON) p.toJSON = null;
-  const res = JSON.stringify(...args);
-  if (toJSON) p.toJSON = toJSON;
-  return res;
-}
-function suppressTooltip() {
-  for (const node of [
-    ai.node.parentNode,
-    ai.node,
-    ai.node.firstElementChild
-  ]) {
-    const t = (node || 0).title;
-    if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
-      ai.tooltip = { node, text: t };
-      node.title = "";
-      break;
-    }
-  }
-}
-function tabFixUrl() {
-  const { tabfix: tabfix2 = tabfix } = ai.rule;
-  return tabfix2 && ai.popup.tagName === "IMG" && !ai.xhr && flattenHtml(`data:text/html;charset=utf8,
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background: #222;
-      }
-      .fit {
-        overflow: hidden
-      }
-      .fit > img {
-        max-width: 100vw;
-        max-height: 100vh;
-      }
-      body > img {
-        margin: auto;
-        position: absolute;
-        left: 0;
-        right: 0;
-        top: 0;
-        bottom: 0;
-      }
-    </style>
-    <body class=fit>
-      <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
-    </body>
-  `).replace(/\x20?([:>])\x20/g, "$1").replace(/#/g, "%23");
+function _srcMatches(src) {
+  return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(location.origin + "/");
 }
 
 // src/instagram.js
 var inEmbed = false;
 var embedHovered = false;
 var links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
+var askParent = (data) => parent.postMessage(instaEmbed + stringify(data), "*");
+var S9E = "s9e.github.io";
 function embedUrl(src) {
   let url, code;
   try {
@@ -359,7 +838,7 @@ function embedUrl(src) {
     return "";
   }
   if (!/^https?:$/.test(url.protocol)) return "";
-  if (url.hostname === "s9e.github.io" && /^\/iframe\/(?:\d+\/)?instagram(?:\.min)?\.html$/.test(url.pathname)) {
+  if (url.hostname === S9E && /^\/iframe\/(?:\d+\/)?instagram(?:\.min)?\.html$/.test(url.pathname)) {
     code = url.hash.slice(1).split("#")[0];
   } else if (/(^|\.)instagram\.com$/.test(url.hostname)) {
     code = (url.pathname.match(/^\/(?:p|tv|reels?)\/([\w-]+)\/embed(?:\/|$)/) || [])[1];
@@ -367,8 +846,8 @@ function embedUrl(src) {
   return code && /^[\w-]+$/.test(code) ? `https://www.instagram.com/p/${code}/embed/captioned/` : "";
 }
 function initEmbed() {
-  if (window === top || !embedUrl(location.href)) return;
-  if (hostname === "s9e.github.io") return;
+  if (window === top || !embedUrl(location.href) || hostname === S9E)
+    return;
   inEmbed = true;
   for (const type of ["mousemove", "mouseout", "mousedown"])
     addEventListener(type, relayEmbedEvent, { capture: true, passive: true });
@@ -379,8 +858,7 @@ function relayEmbedEvent(e) {
   if (e.type === "mouseout" && media && media.contains(e.relatedTarget)) return true;
   const hovered = !!media && e.type !== "mouseout";
   if (hovered || embedHovered) {
-    parent.postMessage({
-      type: `${PREFIX}instagram-embed`,
+    askParent({
       action: hovered ? e.type : "mouseout",
       clientX: e.clientX,
       clientY: e.clientY,
@@ -389,50 +867,38 @@ function relayEmbedEvent(e) {
       shiftKey: e.shiftKey,
       ctrlKey: e.ctrlKey,
       button: e.button
-    }, "*");
+    });
   }
   embedHovered = hovered;
   return true;
 }
-function onEmbedMessage(e) {
-  const data = e.data;
-  if (!data || data.type !== `${PREFIX}instagram-embed`) return false;
-  if (!e.source || !["mouseover", "mousemove", "mouseout", "mousedown"].includes(data.action) || ![data.clientX, data.clientY, data.width, data.height].every(Number.isFinite) || data.width <= 0 || data.height <= 0) return true;
-  const frame = arrayFrom($$("iframe")).find((el) => el.contentWindow === e.source);
-  if (!frame || !embedUrl(frame.src) || new URL(frame.src).origin !== e.origin)
-    return true;
+function onEmbedMessage(e, data) {
+  const frame = [...$$("iframe")].find((el) => el.contentWindow === e.source);
+  const frameUrl = frame && embedUrl(frame.src);
+  if (!frameUrl || new URL(frame.src).origin !== e.origin)
+    return;
   const r = frame.getBoundingClientRect();
   const clientX = r.left + clamp(data.clientX / data.width, 0, 1) * r.width;
   const clientY = r.top + clamp(data.clientY / data.height, 0, 1) * r.height;
-  if (window !== top && hostname === "s9e.github.io" && embedUrl(location.href) === embedUrl(frame.src)) {
-    parent.postMessage(Object.assign({}, data, {
-      clientX,
-      clientY,
-      width: innerWidth,
-      height: innerHeight
-    }), "*");
-    return true;
+  if (window !== top && hostname === S9E && embedUrl(location.href) === frameUrl) {
+    askParent(Object.assign(data, { clientX, clientY, width: innerWidth, height: innerHeight }));
+    return;
   }
-  const event = {
-    target: frame,
-    clientX,
-    clientY,
-    button: data.button,
-    shiftKey: !!data.shiftKey,
-    ctrlKey: !!data.ctrlKey
-  };
-  if (data.action === "mouseover") {
-    setCtrl(event.ctrlKey);
-    onMouseOver(event);
-  } else if (data.action === "mousemove") {
-    if (ai.node === frame) onMouseMove(event);
+  const { action } = data;
+  data.target = frame;
+  data.clientX = clientX;
+  data.clientY = clientY;
+  if (action === "mouseover") {
+    setCtrl(data.ctrlKey);
+    onMouseOver(data);
+  } else if (action === "mousemove") {
+    if (ai.node === frame) onMouseMove(data);
   } else {
     if (hoverData && hoverData.node === frame)
       onMouseOutThrottled.call(frame);
-    if (ai.node === frame && !event.shiftKey && (data.action === "mousedown" || !ai.zoomed && canClose()))
+    if (ai.node === frame && !data.shiftKey && (action === "mousedown" || !ai.zoomed && canClose()))
       deactivate();
   }
-  return true;
 }
 function embedSource(text, doc2, node, rule) {
   const url = rule && rule._postUrl || node && node.src || "";
@@ -546,590 +1012,430 @@ function gallery(text, doc2, url, m) {
   return items;
 }
 
-// src/calc.js
-function aspectRatio(w, h) {
-  for (let rat = w / h, a, b = 0; ; ) {
-    b++;
-    a = Math.round(w * b / h);
-    if (a > 10 && b > 10 || a > 100 || b > 100)
-      return rat.toFixed(2);
-    if (Math.abs(a / b - rat) < 0.01)
-      return `${a}:${b}`;
-  }
-}
-function frameSize(elFrame, wnd) {
-  if (!elFrame) return;
-  const r = elFrame.getBoundingClientRect();
-  const w = Math.min(r.right, wnd.innerWidth) - Math.max(r.left, 0);
-  const h = Math.min(r.bottom, wnd.innerHeight) - Math.max(r.top, 0);
-  const x = r.left < 0 ? -r.left : 0;
-  const y = r.top < 0 ? -r.top : 0;
-  return [w, h, x, y];
-}
-function generateScales(fit) {
-  let [scale, goal] = fit < 1 ? [fit, 1] : [1, fit];
-  const zoomStep = cfg.zoomStep / 100;
-  const arr = [scale];
-  if (fit !== 1) {
-    const diff = goal / scale;
-    const steps = Math.log(diff) / Math.log(zoomStep) | 0;
-    const step = steps && Math.pow(diff, 1 / steps);
-    for (let i = steps; --i > 0; )
-      arr.push(scale *= step);
-    arr.push(scale = goal);
-  }
-  while ((scale *= zoomStep) <= ZOOM_MAX)
-    arr.push(scale);
-  return arr;
-}
-function measurePopup() {
-  let { popup: p, nwidth: nw, nheight: nh } = ai;
-  p.setAttribute("style", "display:inline !important;" + popupStyleBase);
-  if (p.clientWidth > nw) {
-    const w = clamp(p.clientWidth, nw, innerWidth / 2) | 0;
-    nh = ai.nheight = w / nw * nh | 0;
-    nw = ai.nwidth = w;
-    p.style.cssText = `width: ${nw}px !important; height: ${nh}px !important;`;
-  } else
-    p.style.cssText = "";
-  p.classList.add(`${PREFIX}show`);
-  const s = getComputedStyle(p);
-  const o2 = sumProps(s.outlineOffset, s.outlineWidth) * 2;
-  const inw = sumProps(s.paddingLeft, s.paddingRight, s.borderLeftWidth, s.borderRightWidth);
-  const inh = sumProps(s.paddingTop, s.paddingBottom, s.borderTopWidth, s.borderBottomWidth);
-  const outw = o2 + sumProps(s.marginLeft, s.marginRight);
-  const outh = o2 + sumProps(s.marginTop, s.marginBottom);
-  ai.extras = {
-    inw,
-    inh,
-    outw,
-    outh,
-    o: o2 / 2,
-    w: inw + outw,
-    h: inh + outh
-  };
-  const fit = Math.min(
-    (ai.view.w - ai.extras.w) / ai.nwidth,
-    (ai.view.h - ai.extras.h) / ai.nheight
-  ) || 1;
-  const isCustom = !cfg.fit && cfg.scales.length;
-  let cutoff = Math.min(1, fit);
-  let scaleZoom = cfg.fit === "all" && fit || cfg.fit === "no" && 1 || cutoff;
-  if (isCustom) {
-    const dst = [];
-    for (const scale of cfg.scales) {
-      const val = parseFloat(scale) || fit;
-      dst.push(val);
-      if (isCustom && typeof scale === "string") {
-        if (scale.includes("!")) cutoff = val;
-        if (scale.includes("*")) scaleZoom = val;
-      }
-    }
-    ai.scales = dst.sort(compareNumbers).filter(scaleBiggerThan, cutoff);
-  } else {
-    ai.scales = generateScales(fit);
-  }
-  ai.scale = cfg.zoom === "auto" ? scaleZoom : Math.min(1, fit);
-  ai.scaleFit = fit;
-  ai.scaleZoom = scaleZoom;
-}
-function rect() {
-  const { node, rule } = ai;
-  let n = rule.rect && node.closest(rule.rect);
-  if (n) return n.getBoundingClientRect();
-  const nested = (n = node).firstElementChild ? document.elementsFromPoint(ai.cx, ai.cy) : [];
-  let maxArea = 0;
-  let maxBounds;
-  let i = 0;
-  do {
-    const bounds = n.getBoundingClientRect();
-    const area = bounds.width * bounds.height;
-    if (area > maxArea) {
-      maxArea = area;
-      maxBounds = bounds;
-    }
-  } while ((n = nested[i++]) && node.contains(n));
-  return maxBounds;
-}
-function scaleBiggerThan(scale, i, arr) {
-  return scale >= this && (!i || Math.abs(scale - arr[i - 1]) > 0.01);
-}
-function scaleIndex(dir) {
-  const i = ai.scales.indexOf(ai.scale);
-  if (i >= 0) return i + dir;
-  for (let len = ai.scales.length, i2 = dir > 0 ? 0 : len - 1; i2 >= 0 && i2 < len; i2 += dir) {
-    if (Math.sign(ai.scales[i2] - ai.scale) === dir)
-      return i2;
-  }
-  return -1;
-}
-function scaleForFirstZoom(keepScale) {
-  const z = ai.scaleZoom;
-  return keepScale || z !== ai.scale ? z : ai.scales.find((x) => x > z);
-}
-function updateViewSize() {
-  const view = doc.compatMode === "BackCompat" ? doc.body : doc.documentElement;
-  ai.view = { w: view.clientWidth, h: view.clientHeight, x: 0, y: 0 };
-  if (window === top) return;
-  const [w, h] = frameSize(frameElement, parent) || [];
-  if (w && h) {
-    ai.view = { w, h, x: 0, y: 0 };
-  } else {
-    addEventListener("message", onMessageChild, true);
-    parent.postMessage(MSG.getViewSize, "*");
-  }
-}
-
-// src/bar.js
-function set(label, cls, prefix) {
-  let b = ai.bar;
-  if (typeof label !== "string") {
-    $remove(b);
-    ai.bar = null;
-    return;
-  }
-  const force = !b && 0;
-  if (!b) b = ai.bar = $new("div", { id: `${PREFIX}bar`, className: `${PREFIX}${cls}` });
-  ai.barText = label;
-  updateStyles();
-  updateDetails();
-  setText(cfg.uiInfoCaption || cls === "error" || cls === "xhr" ? label : "");
-  $dataset(b, "prefix", prefix);
-  setTimeout(show, 0, force);
-  if (!b.parentNode) {
-    doc.body.appendChild(b);
-    forceLayout(b);
-  }
-}
-function setText(text) {
-  if (/<([a-z][-a-z]*)[^<>]*>[^<>]*<\/\1\s*>/i.test(text)) {
-    ai.bar.innerHTML = trustedHTML ? trustedHTML(text) : text;
-  } else {
-    ai.bar.textContent = text;
-  }
-}
-function show(force) {
-  const b = ai.bar;
-  if (!force && (!cfg.uiInfo || force !== 0 && cfg.uiInfoOnce) || ai.barShown)
-    return;
-  clearTimeout(ai.timerBar);
-  b.classList.add(PREFIX + "show");
-  $dataset(b, "force", force === 2 ? "" : null);
-  ai.timerBar = !force && setTimeout(hide, cfg.uiInfoHide * 1e3);
-  ai.barShown = true;
-}
-function hide(force) {
-  const b = ai.bar;
-  if (!b || !force && (!cfg.uiInfo || b.dataset.force) || !ai.barShown)
-    return;
-  $dataset(b, "force", force === 2 ? "" : null);
-  b.classList.remove(PREFIX + "show");
-  ai.barShown = false;
-}
-function updateName() {
-  const { gItems: gi, gIndex: i, gNum: n } = ai;
-  if (gi) {
-    const item = gi[i];
-    const noDesc = !gi.some((_) => _.desc);
-    const c = [
-      gi.title && (!i || noDesc) && !`${item.desc || ""}`.includes(gi.title) && gi.title || "",
-      item.desc
-    ].filter(Boolean).join(" - ");
-    set(c.trim() || " ", "gallery", n > 1 ? `${i + 1}/${n}` : null);
-  } else if ("caption" in ai) {
-    set(ai.caption, "caption");
-  } else if (ai.tooltip) {
-    set(ai.tooltip.text, "tooltip");
-  } else {
-    set(" ", "info");
-  }
-}
-function updateDetails() {
-  if (!ai.bar) return;
-  const r = ai.rotate;
-  const zoom = ai.nwidth && `${Math.round(ai.scale * 100)}%${ai.flipX || ai.flipY ? `, ${ai.flipX ? "⇆" : ""}${ai.flipY ? "⇅" : ""}` : ""}${r ? ", " + (r > 180 ? r - 360 : r) + "°" : ""}, ${ai.nwidth} x ${ai.nheight} px, ${Math.round(100 * (ai.nwidth * ai.nheight / 1e6)) / 100} MP, ${aspectRatio(ai.nwidth, ai.nheight)}`.replace(/\x20/g, " ");
-  if (ai.bar.dataset.zoom !== zoom || !ai.nwidth) {
-    $dataset(ai.bar, "zoom", zoom || null);
-    show();
-  }
-}
-
-// src/gallery.js
-function makeParser(g) {
-  return isFunction(g) ? g : defaultParser;
-}
-function findIndex(gUrl) {
-  return Math.max(
-    0,
-    ai.gItems.findIndex(({ url }) => isArray(url) ? url.includes(gUrl) : url === gUrl)
-  );
-}
-function next(dir) {
-  if (dir) ai.gIndex = nextIndex(dir);
-  const item = ai.gItem = ai.gItems[ai.gIndex];
-  if (isArray(item.url)) {
-    ai.urls = item.url.slice(1);
-    ai.url = item.url[0];
-  } else {
-    ai.urls = null;
-    ai.url = item.url;
-  }
-  ai.gItemNext = ai.gItems[nextIndex(dir || 1)];
-  ai.committed = false;
-  startSingle();
-  updateName();
-  if (dir) show(0);
-}
-function nextIndex(dir) {
-  return (ai.gIndex + dir + ai.gNum) % ai.gNum;
-}
-function defaultParser(text, doc2, docUrl, m, rule) {
-  const { g } = rule;
-  const gi = g.index;
-  const qEntry = g.entry;
-  const qCaption = ensureArray(g.caption);
-  const qImage = g.image || "img";
-  const qTitle = g.title;
-  const fix = (typeof g.fix === "string" ? newFunction("s", "isURL", g.fix) : g.fix) || ((s) => s.trim());
-  const elems = [...$$(qEntry || qImage, doc2)];
-  const items = elems.map(processEntry).filter(Boolean);
-  items.title = processTitle();
-  items.index = RX_HAS_CODE.test(gi) ? newFunction("items", "node", gi)(items, ai.node) : typeof gi === "string" ? findImageUrl(tryCatch($, gi, doc2), docUrl) : gi == null ? Math.max(0, elems.indexOf(ai.node)) : gi;
-  return items;
-  function processEntry(entry) {
-    const item = {};
-    try {
-      const img = qEntry ? $(qImage, entry) : entry;
-      item.url = fix(findImageUrl(img, docUrl), true);
-      item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(" - ");
-    } catch (e) {
-    }
-    return item.url && item;
-  }
-  function processCaption(sel) {
-    const el = !sel ? this : $(sel, this) || $orSelf(sel, this.previousElementSibling) || $orSelf(sel, this.nextElementSibling);
-    return el && fix(runCHandler.default(el) || el.textContent);
-  }
-  function processTitle() {
-    const el = $(qTitle, doc2);
-    return el && fix(el.getAttribute("content") || el.textContent) || "";
-  }
-  function $orSelf(selector, el) {
-    if (el && !el.matches(qEntry))
-      return el.matches(selector) ? el : $(selector, el);
-  }
-}
-
-// src/rule-matcher.js
-function adaptiveFind(node, opts) {
-  const tn = node.tagName;
-  const src = node.currentSrc || node.src || "";
-  const isPic = tn === "IMG" || tn === "VIDEO" && isVideoUrlExt(src);
-  let a, info2, url;
-  if (tn !== "A") {
-    url = isPic && !src.startsWith("data:") && rel2abs(src);
-    info2 = find(url, node, opts);
-  }
-  if (!info2 && (a = node.closest("A"))) {
-    const ds = a.dataset;
-    url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || "";
-    url = url.includes("//t.co/") ? "https://" + a.textContent : url;
-    url = !url.startsWith("data:") && url;
-    info2 = find(url, a, opts);
-  }
-  if (!info2 && isPic)
-    info2 = { node, rule: {}, url: src };
-  return info2;
-}
-function find(url, node, { noHtml, rules: rules2, skipRules } = {}) {
-  let tn, isPic, html, h;
-  for (const rule of rules2 || rules) {
-    let e, m;
-    if (skipRules && skipRules.includes(rule) || rule.u && (!url || !runU(rule, url)) || !rules2 && (e = rule.e) && !(m = typeof e === "string" ? node.matches(e) : runE(rule, e, node)))
-      continue;
-    if (m && m.url)
-      return m;
-    const { r, s } = rule;
-    let hasS = s != null;
-    h = !(noHtml && rule === ai.rule) && (r || hasS) && rule.html && (html || (html = node.outerHTML));
-    if (r) {
-      m = h ? r.exec(h) : url && r.exec(url);
-    } else {
-      m = [""];
-      m[0] = m.input = h || url || rule.g && location.href || "";
-      m.index = 0;
-    }
-    if (!m)
-      continue;
-    if (s === "")
-      return {};
-    if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === "IMG" || tn === "VIDEO"))
-      continue;
-    hasS &= s !== "gallery";
-    const urls = hasS ? runS(node, rule, m) : [m.input];
-    if (urls)
-      return makeInfo(hasS, rule, m, node, skipRules, urls);
-  }
-}
-function makeInfo(hasS, rule, match, node, skipRules, urls) {
-  let info2;
-  let url = `${urls[0]}`;
-  const follow = url && hasS && !rule.q && isFollowableUrl(url, rule);
-  if (url)
-    url = rel2abs(url);
-  else
-    info2 = {};
-  if (follow)
-    info2 = find(url, node, { skipRules: [...skipRules || [], rule] });
-  if (!info2 && (!follow || RX_MEDIA_URL.test(url))) {
-    const xhr = cfg.xhr && rule.xhr;
-    info2 = {
-      match,
-      node,
-      rule,
-      url,
-      urls: urls.length > 1 ? urls.slice(1) : null,
-      gallery: rule.g && makeParser(rule.g),
-      post: isFunction(rule.post) ? rule.post(match) : rule.post,
-      xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol)
-    };
-  }
-  return info2;
-}
-function isFollowableUrl(url, rule) {
-  const f = rule.follow;
-  return isFunction(f) ? f(url) : f;
-}
-
-// src/status.js
-function set2(status) {
-  if (!status && !cfg.globalStatus) {
-    if (ai.node) ai.node.removeAttribute(STATUS_ATTR);
-    return;
-  }
-  const prefix = cfg.globalStatus ? PREFIX : "";
-  const action = status && /^[+-]/.test(status) && status[0];
-  const name = status && `${prefix}${action ? status.slice(1) : status}`;
-  const el = cfg.globalStatus ? doc.documentElement : name === "edge" ? ai.popup : ai.node;
-  if (!el) return;
-  const attr = cfg.globalStatus ? "class" : STATUS_ATTR;
-  const oldValue = (el.getAttribute(attr) || "").trim();
-  const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
-  switch (action) {
-    case "-":
-      cls.delete(name);
-      break;
-    case false:
-      for (const c of cls)
-        if (c.startsWith(prefix) && c !== name)
-          cls.delete(c);
-    // fallthrough to +
-    case "+":
-      if (name)
-        cls.add(name);
-      break;
-  }
-  const newValue = [...cls].join(" ");
-  if (newValue !== oldValue)
-    el.setAttribute(attr, newValue);
-}
-function loading(force) {
-  if (!force) {
-    clearTimeout(ai.timerStatus);
-    ai.timerStatus = setTimeout(loading, SETTLE_TIME, true);
-  } else if (!ai.popupLoaded) {
-    set2("+loading");
-  }
-}
-
-// src/request.js
-function gmXhr(url, opts = {}) {
-  if (ai.req)
-    tryCatch(ai.req.abort);
-  return new Promise((resolve, reject) => {
-    const { anonymous } = ai.rule || {};
-    ai.req = xmlHttpRequest(Object.assign({
-      url,
-      anonymous,
-      withCredentials: !anonymous,
-      method: "GET",
-      timeout: 3e4
-    }, opts, {
-      onload: done,
-      onerror: done,
-      ontimeout() {
-        ai.req = null;
-        reject(`Timeout fetching ${url}`);
-      }
-    }));
-    function done(r) {
-      ai.req = null;
-      if (r.status < 400 && !r.error)
-        resolve(r);
-      else
-        reject(`Server error ${r.status} ${r.error}
-URL: ${url}`);
-    }
-  });
-}
-async function getDoc(url) {
-  if (!url) {
-    return {
-      doc,
-      finalUrl: location.href,
-      responseText: doc.documentElement.outerHTML
-    };
-  }
-  const r = await (!ai.post ? gmXhr(url) : gmXhr(url, {
-    method: "POST",
-    data: ai.post,
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Referer": url
-    }
-  }));
-  r.doc = $parseHtml(r.responseText);
-  return r;
-}
-async function getImage(url, pageUrl, xhr = ai.xhr) {
-  ai.bufBar = false;
-  ai.bufStart = now();
-  const response = await gmXhr(url, {
-    responseType: "blob",
-    headers: {
-      Accept: "image/png,image/*;q=0.8,*/*;q=0.5",
-      Referer: pageUrl || (isFunction(xhr) ? xhr() : url)
+// src/rules.js
+var addBuiltinRules = (rules2) => rules2.push(
+  {
+    e: "iframe",
+    s: (m, node) => embedUrl(node.src) || false,
+    q: embedSource,
+    c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
+  },
+  {
+    r: /[/?=](https?%3A%2F%2F[^&]+)/i,
+    s: "$1",
+    follow: true,
+    onerror: "skip"
+  },
+  {
+    u: [
+      "||500px.com/photo/",
+      "||cl.ly/",
+      "||cweb-pix.com/",
+      "//ibb.co/",
+      "||imgcredit.xyz/image/"
+    ],
+    r: /\.\w+\/.+/,
+    q: 'meta[property="og:image"]'
+  },
+  {
+    u: "attachment.php",
+    r: /attachment\.php.+attachmentid/
+  },
+  {
+    u: "||abload.de/image",
+    q: "#image"
+  },
+  {
+    u: "||deviantart.com/art/",
+    s: (m, node) => /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? "" : m.input,
+    q: [
+      '#download-button[href*=".jpg"]',
+      '#download-button[href*=".jpeg"]',
+      '#download-button[href*=".gif"]',
+      '#download-button[href*=".png"]',
+      "#gmi-ResViewSizer_fullimg",
+      "img.dev-content-full"
+    ]
+  },
+  {
+    u: "||dropbox.com/s",
+    r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
+    q: (text, doc2) => $prop("img.absolute-center", "src", doc2).replace(/(size_mode)=\d+/, "$1=5") || false
+  },
+  {
+    r: /[./]ebay\.[^/]+\/itm\//,
+    q: (text) => text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/, "~~60_57")
+  },
+  {
+    u: "||i.ebayimg.com/",
+    s: (m, node) => $(".zoom_trigger_mask", node.parentNode) ? "" : m.input.replace(/~~60_\d+/, "~~60_57")
+  },
+  {
+    u: "||fastpic.",
+    s: (m, node, rule) => {
+      const a = node.closest("a");
+      const url = decodeURIComponent(findImageUrl(a || node)).replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, "/$2$1").replace(
+        /^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
+        "https://fastpic.org/view$1$2.html"
+      );
+      toggle(rule, "q", url.includes(".html"));
+      return a || url.includes(".png") ? url : [url, url.replace(/\.jpe?g/, ".png")];
     },
-    onprogress: getImageProgress
-  });
-  set(false);
-  const type = guessMimeType(response);
-  let b = response.response;
-  if (!b) throw "Empty response";
-  if (b.type !== type)
-    b = b.slice(0, b.size, type);
-  const res = xhr === "blob" ? ai.blobUrl = URL.createObjectURL(b) : await blobToDataUrl(b);
-  return [res, type.startsWith("video")];
-}
-function getImageProgress(e) {
-  if (!ai.bufBar && now() - ai.bufStart > 3e3 && e.loaded / e.total < 0.5)
-    ai.bufBar = true;
-  if (ai.bufBar) {
-    const pct = e.loaded / e.total * 100 | 0;
-    const size = e.total / 1024 | 0;
-    set(`${pct}% of ${size} kiB`, "xhr");
-  }
-}
-async function findRedirect() {
-  try {
-    const { finalUrl } = await gmXhr(ai.url, {
-      method: "HEAD",
-      headers: {
-        "Referer": location.href.split("#", 1)[0]
+    _q: (text, doc2, n) => (n = $('input[value*="/big/"]', doc2)) && n.value || $prop('a[href*="/big/"]', "href", doc2)
+  },
+  {
+    u: "||flickr.com/photos/",
+    r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
+    s: (m) => m.input.indexOf("/sizes/") < 0 ? `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` : false,
+    q: (text, doc2) => {
+      const links2 = $$(".sizes-list a", doc2);
+      return "https://www.flickr.com" + links2[links2.length - 1].getAttribute("href");
+    },
+    follow: true
+  },
+  {
+    u: "||flickr.com/photos/",
+    r: /\/sizes\//,
+    q: "#allsizes-photo > img"
+  },
+  {
+    u: "||gfycat.com/",
+    r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
+    s: "https://$1$3",
+    q: 'meta[content$=".webm"], #webmsource, source[src$=".webm"], .actual-gif-image'
+  },
+  {
+    u: [
+      "||googleusercontent.com/proxy",
+      "||googleusercontent.com/gadgets/proxy"
+    ],
+    r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
+    s: (m) => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, "w0-h0")
+  },
+  {
+    u: [
+      "||googleusercontent.com/",
+      "||ggpht.com/"
+    ],
+    s: (m) => m.input.includes("webcache.") ? "" : m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, "/s0").replace(/([&?]sz)?=[-\w]+([&#].*)?/, "")
+  },
+  {
+    u: "||gravatar.com/",
+    r: /([a-z0-9]{32})/,
+    s: "https://gravatar.com/avatar/$1?s=200"
+  },
+  {
+    u: "//gyazo.com/",
+    r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
+    s: (m, _, rule) => toggle(rule, "q", !m[1]) ? m.input : `https://i.${m[0]}`,
+    _q: 'link[rel="image_src"]'
+  },
+  {
+    u: "||hostingkartinok.com/show-image.php",
+    q: ".image img"
+  },
+  {
+    u: [
+      "||imagecurl.com/images/",
+      "||imagecurl.com/viewer.php"
+    ],
+    r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
+    s: "https://imagecurl.com/images/$1$2$3"
+  },
+  {
+    u: "||imagebam.com/",
+    r: /^(https:\/\/)thumbs\d+(\.imagebam\.com\/).*?([^/]+)_t\./,
+    s: "$1www$2view/$3",
+    q: "img.main-image"
+  },
+  {
+    u: "||www.imagebam.com/view/",
+    q: "img.main-image"
+  },
+  {
+    u: "||imageban.ru/thumbs",
+    r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
+    s: "$1out$2/$3/$4"
+  },
+  {
+    u: [
+      "||imageban.ru/show",
+      "||imageban.net/show",
+      "||ibn.im/"
+    ],
+    q: "#img_main"
+  },
+  {
+    u: "||imageshack.us/img",
+    r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
+    s: "https://$2/download/$1/$3$4"
+  },
+  {
+    u: "||imageshack.us/i/",
+    q: "#share-dl"
+  },
+  {
+    u: "||imageteam.org/img",
+    q: 'img[alt="image"]'
+  },
+  {
+    u: [
+      "||imagetwist.com/",
+      "||imageshimage.com/"
+    ],
+    r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
+    q: "img.pic",
+    xhr: true
+  },
+  {
+    u: "||imageupper.com/i/",
+    q: "#img",
+    xhr: true
+  },
+  {
+    u: "||imagevenue.com/",
+    q: 'a[data-toggle="full"] img'
+  },
+  {
+    u: "||imagezilla.net/show/",
+    q: "#photo",
+    xhr: true
+  },
+  {
+    u: [
+      "||images-na.ssl-images-amazon.com/images/",
+      "||media-imdb.com/images/"
+    ],
+    r: /images\/.+?\.jpg/,
+    s: "/V1\\.?_.+?\\.//g"
+  },
+  {
+    u: "||imgbox.com/",
+    r: /\.com\/([a-z0-9]+)$/i,
+    q: "#img",
+    xhr: hostname !== "imgbox.com"
+  },
+  {
+    u: "||imgclick.net/",
+    r: /\.net\/(\w+)/,
+    q: "img.pic",
+    xhr: true,
+    post: (m) => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`
+  },
+  {
+    u: ".imgcredit.xyz/",
+    r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
+    s: ["https$1$2", "https$1.png"]
+  },
+  {
+    u: [
+      "||imgflip.com/i/",
+      "||imgflip.com/gif/"
+    ],
+    r: /\/(i|gif)\/([^/?#]+)/,
+    s: (m) => `https://i.imgflip.com/${m[2]}${m[1] === "i" ? ".jpg" : ".mp4"}`
+  },
+  {
+    u: [
+      "||imgur.com/a/",
+      "||imgur.com/gallery/"
+    ],
+    s: "gallery",
+    // suppressing an unused network request for remote `document`
+    async g() {
+      let u = `https://imgur.com/ajaxalbums/getimages/${ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
+      let info2 = tryJSON((await gmXhr(u)).responseText) || 0;
+      let images = (info2.data || 0).images || [];
+      if (!images[0]) {
+        info2 = (await gmXhr(ai.url)).responseText.match(/postDataJSON=(".*?")<|$/)[1];
+        info2 = tryJSON(tryJSON(info2)) || 0;
+        images = info2.media;
       }
-    });
-    const info2 = find(finalUrl, ai.node, { noHtml: true });
-    if (!info2 || !info2.url)
-      throw `Couldn't follow redirection target: ${finalUrl}`;
-    Object.assign(ai, info2);
-    startSingle();
-  } catch (e) {
-    handleError(e);
-  }
-}
-async function saveFile() {
-  const url = ai.popup.src || ai.popup.currentSrc;
-  let name = getFileName(ai.imageUrl || url);
-  if (!name.includes("."))
-    name += ".jpg";
-  if (url.startsWith("blob:") || url.startsWith("data:")) {
-    $new("a", { href: url, download: name }).dispatchEvent(new MouseEvent("click"));
-  } else {
-    set2("+loading");
-    const onload = () => set2("-loading");
-    const gmDL = typeof GM_download === "function";
-    (gmDL ? GM_download : xmlHttpRequest)({
-      url,
-      name,
-      headers: { Referer: url },
-      method: "GET",
-      // polyfilling GM_download
-      responseType: "blob",
-      // polyfilling GM_download
-      overrideMimeType: "application/octet-stream",
-      // polyfilling GM_download
-      onerror: (e) => {
-        set(`Could not download ${name}: ${e.error || e.message || e}.`, "error");
-        onload();
-      },
-      onprogress: getImageProgress,
-      onload({ response }) {
-        onload();
-        if (!gmDL) {
-          const a = Object.assign(document.createElement("a"), {
-            href: URL.createObjectURL(response),
-            download: name
-          });
-          a.dispatchEvent(new MouseEvent("click"));
-          setTimeout(URL.revokeObjectURL, 1e4, a.href);
-        }
+      const items = [];
+      for (const img of images) {
+        const meta = img.metadata || img;
+        items.push({
+          url: img.url || (u = `https://i.imgur.com/${img.hash}`) && (img.ext === ".gif" && img.animated !== false ? [`${u}.webm`, `${u}.mp4`, u] : u + img.ext),
+          desc: [meta.title, meta.description].filter(Boolean).join(" - ")
+        });
       }
-    });
+      if (items[0] && info2.title && !`${items[0].desc || ""}`.includes(info2.title))
+        items.title = info2.title;
+      return items;
+    }
+  },
+  {
+    u: "||imgur.com/",
+    r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+\w*)/,
+    s: "gallery",
+    g: (text, doc2, url, m) => m[2].split(",").map((id) => ({
+      url: `https://i.${m[1]}${id}.jpg`
+    }))
+  },
+  {
+    u: "||imgur.com/",
+    r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.(mp4|[a-z]+))/i,
+    s: (m, node) => {
+      if (/memegen|random|register|search|signin/.test(m.input))
+        return "";
+      const a = node.closest("a");
+      if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
+        return false;
+      const id = m[3].replace(/(.{7})[hlmtbs]$/, "$1");
+      const ext = m[5] ? m[5].replace(/gifv?/, "webm") : "jpg";
+      const u = `https://i.${(m[1] || "").replace("www.", "")}imgur.com/${id}.`;
+      return ext === "webm" ? [`${u}webm`, `${u}mp4`, `${u}gif`] : u + ext;
+    }
+  },
+  {
+    u: ["||instagr.am/", "||instagram.com/"],
+    r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
+    s: (m) => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
+    g: gallery
+  },
+  {
+    u: [
+      "||livememe.com/",
+      "||lvme.me/"
+    ],
+    r: /\.\w+\/([^.]+)$/,
+    s: "http://i.lvme.me/$1.jpg"
+  },
+  {
+    u: "||lostpic.net/image",
+    q: ".image-viewer-image img"
+  },
+  {
+    u: "||makeameme.org/meme/",
+    r: /\/meme\/([^/?#]+)/,
+    s: "https://media.makeameme.org/created/$1.jpg"
+  },
+  {
+    u: "||photobucket.com/",
+    r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
+    s: "https://i$1$3",
+    xhr: !dotDomain.endsWith(".photobucket.com")
+  },
+  {
+    u: "||piccy.info/view3/",
+    r: /(.+?\/view3)\/(.*)\//,
+    s: "$1/$2/orig/",
+    q: "#mainim"
+  },
+  {
+    u: "||pimpandhost.com/image/",
+    r: /(.+?\/image\/[0-9]+)/,
+    s: "$1?size=original",
+    q: "img.original"
+  },
+  {
+    u: [
+      "||pixroute.com/",
+      "||imgspice.com/"
+    ],
+    r: /\.html$/,
+    q: "img[id]",
+    xhr: true
+  },
+  {
+    u: "||postima",
+    r: /postima?ge?\.org\/image\/\w+/,
+    q: [
+      'a[href*="dl="]',
+      "#main-image"
+    ]
+  },
+  {
+    u: [
+      "||prntscr.com/",
+      "||prnt.sc/"
+    ],
+    r: /\.\w+\/.+/,
+    q: 'meta[property="og:image"]',
+    xhr: true
+  },
+  {
+    u: "||radikal.ru/",
+    r: /\.ru\/(fp|.+?\.html)|^(.+?)t\.jpg/,
+    s: (m, node, rule) => m[2] && /radikal\.ru[\w%/]+?(\.\w+)/.test($propUp(node, "href")) ? m[2] + RegExp.$1 : toggle(rule, "q", m[1]) ? m.input : [m[2] + ".jpg", m[2] + ".png"],
+    _q: (text) => text.match(/https?:\/\/\w+\.radikal\.ru[\w/]+\.(jpg|gif|png)/i)[0]
+  },
+  {
+    u: "||tumblr.com",
+    r: /_500\.jpg/,
+    s: ["/_500/_1280/", ""]
+  },
+  {
+    u: "||twimg.com/media/",
+    r: /.+?format=(jpe?g|png|gif)/i,
+    s: "$0&name=orig"
+  },
+  {
+    u: "||twimg.com/media/",
+    r: /.+?\.(jpe?g|png|gif)/i,
+    s: "$0:orig"
+  },
+  {
+    u: "||twimg.com/1/proxy",
+    r: /t=([^&_]+)/i,
+    s: (m) => atob(m[1]).match(/http.+/)
+  },
+  {
+    u: "||twimg.com/",
+    r: /\/profile_images/i,
+    s: "/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g"
+  },
+  {
+    u: "||pic.twitter.com/",
+    r: /\.com\/[a-z0-9]+/i,
+    q: (text) => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
+    follow: true
+  },
+  {
+    u: "||twitpic.com/",
+    r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
+    s: "https://twitpic.com/show/large/$2"
+  },
+  {
+    u: "||wiki",
+    r: /\/(?:thumb|images)\/.+\.(?:jpe?g|gif|png|svg)/i,
+    s: (m) => m.input.replace(/\/(thumb(?=\/)|\d+px[^/]+(?=$|\?))/g, "").replace("//thumb.wikimedia.org/", "//upload.wikimedia.org/").replace(/\/(scale-to-width(-[a-z]+)?\/\d+|(zoom-crop|smart)(\/(width|height)\/\d+)+)/g, "/"),
+    xhr: !hostname.includes("wiki")
+  },
+  {
+    u: "||ytimg.com/vi/",
+    r: /(.+?\/vi\/[^/]+)/,
+    s: "$1/0.jpg",
+    rect: ".video-list-item"
+  },
+  {
+    u: "/viewer.php?file=",
+    r: /(.+?)\/viewer\.php\?file=(.+)/,
+    s: "$1/images/$2",
+    xhr: true
+  },
+  {
+    u: "/thumb_",
+    r: /\/albums.+\/thumb_[^/]/,
+    s: "/thumb_//"
+  },
+  {
+    u: [
+      ".th.jp",
+      ".th.gif",
+      ".th.png"
+    ],
+    r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
+    s: "$1$2",
+    follow: true
+  },
+  {
+    r: RX_MEDIA_URL
   }
-}
-function getFileName(url) {
-  return decodeURIComponent(url).split(/[#?&]/, 1)[0].split("/").pop();
-}
-function blobToDataUrl(blob) {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = reject;
-    fr.readAsDataURL(blob);
-  });
-}
-function guessMimeType({ responseHeaders, finalUrl }) {
-  if (/Content-Type:\s*(\S+)/i.test(responseHeaders) && !RegExp.$1.includes("text/plain"))
-    return RegExp.$1;
-  const ext = extractFileExt(finalUrl) || "jpg";
-  switch (ext.toLowerCase()) {
-    case "bmp":
-      return "image/bmp";
-    case "gif":
-      return "image/gif";
-    case "jpe":
-      return "image/jpeg";
-    case "jpeg":
-      return "image/jpeg";
-    case "jpg":
-      return "image/jpeg";
-    case "mp4":
-      return "video/mp4";
-    case "png":
-      return "image/png";
-    case "svg":
-      return "image/svg+xml";
-    case "tif":
-      return "image/tiff";
-    case "tiff":
-      return "image/tiff";
-    case "webm":
-      return "video/webm";
-    default:
-      return "application/octet-stream";
-  }
-}
-function findImageUrl(n, url) {
-  if (!n) return;
-  let tmp;
-  const path = (
-    // prefer data-* over `src` which is often a small thumbnail or empty pixel
-    Object.values(n.dataset).some((v) => tmp = v.match(RX_IMAGE_URL)[0]) && tmp || n.getAttribute("src") || n.getAttribute("href") || n.getAttribute("content") || (tmp = n.outerHTML).includes("http") && tmp.match(RX_IMAGE_URL)[0]
-  );
-  return !!path && rel2abs(
-    decodeHtmlEntities(path),
-    $prop("base[href]", "href", n.ownerDocument) || url
-  );
+);
+function toggle(rule, prop, condition) {
+  rule[prop] = condition ? rule[`_${prop}`] : null;
+  return condition;
 }
 
 // src/url-matcher.js
@@ -1221,9 +1527,16 @@ function startsDomain(url) {
   return !endSep || end === host.length || end === url.length || endsWithSep(url, end);
 }
 
-// src/rules.js
+// src/ruler.js
 var rules;
-function init() {
+var FN_ARGS = {
+  s: ["m", "node", "rule"],
+  c: ["text", "doc", "node", "rule"],
+  q: ["text", "doc", "node", "rule"],
+  g: ["text", "doc", "url", "m", "rule", "node", "cb"]
+};
+var SYM_U = /* @__PURE__ */ Symbol("u");
+function init2() {
   const errors = /* @__PURE__ */ new Map();
   const src = cfg.hosts || [];
   const uniq = src.filter((r, i, arr) => !i || !deepEqual(r, arr[i - 1]));
@@ -1426,426 +1739,7 @@ function init() {
       });
       break;
   }
-  rulesValue.push(
-    {
-      e: "iframe",
-      s: (m, node) => embedUrl(node.src) || false,
-      q: embedSource,
-      c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
-    },
-    {
-      r: /[/?=](https?%3A%2F%2F[^&]+)/i,
-      s: "$1",
-      follow: true,
-      onerror: "skip"
-    },
-    {
-      u: [
-        "||500px.com/photo/",
-        "||cl.ly/",
-        "||cweb-pix.com/",
-        "//ibb.co/",
-        "||imgcredit.xyz/image/"
-      ],
-      r: /\.\w+\/.+/,
-      q: 'meta[property="og:image"]'
-    },
-    {
-      u: "attachment.php",
-      r: /attachment\.php.+attachmentid/
-    },
-    {
-      u: "||abload.de/image",
-      q: "#image"
-    },
-    {
-      u: "||deviantart.com/art/",
-      s: (m, node) => /\b(film|lit)/.test(node.className) || /in Flash/.test(node.title) ? "" : m.input,
-      q: [
-        '#download-button[href*=".jpg"]',
-        '#download-button[href*=".jpeg"]',
-        '#download-button[href*=".gif"]',
-        '#download-button[href*=".png"]',
-        "#gmi-ResViewSizer_fullimg",
-        "img.dev-content-full"
-      ]
-    },
-    {
-      u: "||dropbox.com/s",
-      r: /com\/sh?\/.+\.(jpe?g|gif|png)/i,
-      q: (text, doc2) => $prop("img.absolute-center", "src", doc2).replace(/(size_mode)=\d+/, "$1=5") || false
-    },
-    {
-      r: /[./]ebay\.[^/]+\/itm\//,
-      q: (text) => text.match(/https?:\/\/i\.ebayimg\.com\/[^.]+\.JPG/i)[0].replace(/~~60_\d+/, "~~60_57")
-    },
-    {
-      u: "||i.ebayimg.com/",
-      s: (m, node) => $(".zoom_trigger_mask", node.parentNode) ? "" : m.input.replace(/~~60_\d+/, "~~60_57")
-    },
-    {
-      u: "||fastpic.",
-      s: (m, node, rule) => {
-        const a = node.closest("a");
-        const url = decodeURIComponent(findImageUrl(a || node)).replace(/\/i(\d+)\.(\w+\.\w+\/)\w+/, "/$2$1").replace(
-          /^\w+:\/\/fastpic[^/]+((?:\/\d+){3})\/\w+(\/\w+\.\w+).*/,
-          "https://fastpic.org/view$1$2.html"
-        );
-        toggle(rule, "q", url.includes(".html"));
-        return a || url.includes(".png") ? url : [url, url.replace(/\.jpe?g/, ".png")];
-      },
-      _q: (text, doc2, n) => (n = $('input[value*="/big/"]', doc2)) && n.value || $prop('a[href*="/big/"]', "href", doc2)
-    },
-    {
-      u: "||flickr.com/photos/",
-      r: /photos\/([0-9]+@N[0-9]+|[a-z0-9_-]+)\/([0-9]+)/,
-      s: (m) => m.input.indexOf("/sizes/") < 0 ? `https://www.flickr.com/photos/${m[1]}/${m[2]}/sizes/sq/` : false,
-      q: (text, doc2) => {
-        const links2 = $$(".sizes-list a", doc2);
-        return "https://www.flickr.com" + links2[links2.length - 1].getAttribute("href");
-      },
-      follow: true
-    },
-    {
-      u: "||flickr.com/photos/",
-      r: /\/sizes\//,
-      q: "#allsizes-photo > img"
-    },
-    {
-      u: "||gfycat.com/",
-      r: /(gfycat\.com\/)(gifs\/detail\/|iframe\/)?([a-z]+)/i,
-      s: "https://$1$3",
-      q: 'meta[content$=".webm"], #webmsource, source[src$=".webm"], .actual-gif-image'
-    },
-    {
-      u: [
-        "||googleusercontent.com/proxy",
-        "||googleusercontent.com/gadgets/proxy"
-      ],
-      r: /\.com\/(proxy|gadgets\/proxy.+?(http.+?)&)/,
-      s: (m) => m[2] ? decodeURIComponent(m[2]) : m.input.replace(/w\d+-h\d+($|-p)/, "w0-h0")
-    },
-    {
-      u: [
-        "||googleusercontent.com/",
-        "||ggpht.com/"
-      ],
-      s: (m) => m.input.includes("webcache.") ? "" : m.input.replace(/\/s\d{2,}-[^/]+|\/w\d+-h\d+/, "/s0").replace(/([&?]sz)?=[-\w]+([&#].*)?/, "")
-    },
-    {
-      u: "||gravatar.com/",
-      r: /([a-z0-9]{32})/,
-      s: "https://gravatar.com/avatar/$1?s=200"
-    },
-    {
-      u: "//gyazo.com/",
-      r: /\bgyazo\.com\/\w{32,}(\.\w+)?/,
-      s: (m, _, rule) => toggle(rule, "q", !m[1]) ? m.input : `https://i.${m[0]}`,
-      _q: 'link[rel="image_src"]'
-    },
-    {
-      u: "||hostingkartinok.com/show-image.php",
-      q: ".image img"
-    },
-    {
-      u: [
-        "||imagecurl.com/images/",
-        "||imagecurl.com/viewer.php"
-      ],
-      r: /(?:images\/(\d+)_thumb|file=(\d+))(\.\w+)/,
-      s: "https://imagecurl.com/images/$1$2$3"
-    },
-    {
-      u: "||imagebam.com/",
-      r: /^(https:\/\/)thumbs\d+(\.imagebam\.com\/).*?([^/]+)_t\./,
-      s: "$1www$2view/$3",
-      q: "img.main-image"
-    },
-    {
-      u: "||www.imagebam.com/view/",
-      q: "img.main-image"
-    },
-    {
-      u: "||imageban.ru/thumbs",
-      r: /(.+?\/)thumbs(\/\d+)\.(\d+)\.(\d+\/.*)/,
-      s: "$1out$2/$3/$4"
-    },
-    {
-      u: [
-        "||imageban.ru/show",
-        "||imageban.net/show",
-        "||ibn.im/"
-      ],
-      q: "#img_main"
-    },
-    {
-      u: "||imageshack.us/img",
-      r: /img(\d+)\.(imageshack\.us)\/img\\1\/\d+\/(.+?)\.th(.+)$/,
-      s: "https://$2/download/$1/$3$4"
-    },
-    {
-      u: "||imageshack.us/i/",
-      q: "#share-dl"
-    },
-    {
-      u: "||imageteam.org/img",
-      q: 'img[alt="image"]'
-    },
-    {
-      u: [
-        "||imagetwist.com/",
-        "||imageshimage.com/"
-      ],
-      r: /(\/\/|^)[^/]+\/[a-z0-9]{8,}/,
-      q: "img.pic",
-      xhr: true
-    },
-    {
-      u: "||imageupper.com/i/",
-      q: "#img",
-      xhr: true
-    },
-    {
-      u: "||imagevenue.com/",
-      q: 'a[data-toggle="full"] img'
-    },
-    {
-      u: "||imagezilla.net/show/",
-      q: "#photo",
-      xhr: true
-    },
-    {
-      u: [
-        "||images-na.ssl-images-amazon.com/images/",
-        "||media-imdb.com/images/"
-      ],
-      r: /images\/.+?\.jpg/,
-      s: "/V1\\.?_.+?\\.//g"
-    },
-    {
-      u: "||imgbox.com/",
-      r: /\.com\/([a-z0-9]+)$/i,
-      q: "#img",
-      xhr: hostname !== "imgbox.com"
-    },
-    {
-      u: "||imgclick.net/",
-      r: /\.net\/(\w+)/,
-      q: "img.pic",
-      xhr: true,
-      post: (m) => `op=view&id=${m[1]}&pre=1&submit=Continue%20to%20image...`
-    },
-    {
-      u: ".imgcredit.xyz/",
-      r: /^https?(:.*\.xyz\/\d[\w/]+)\.md(.+)/,
-      s: ["https$1$2", "https$1.png"]
-    },
-    {
-      u: [
-        "||imgflip.com/i/",
-        "||imgflip.com/gif/"
-      ],
-      r: /\/(i|gif)\/([^/?#]+)/,
-      s: (m) => `https://i.imgflip.com/${m[2]}${m[1] === "i" ? ".jpg" : ".mp4"}`
-    },
-    {
-      u: [
-        "||imgur.com/a/",
-        "||imgur.com/gallery/"
-      ],
-      s: "gallery",
-      // suppressing an unused network request for remote `document`
-      async g() {
-        let u = `https://imgur.com/ajaxalbums/getimages/${ai.url.split(/[/?#]/)[4]}/hit.json?all=true`;
-        let info2 = tryJSON((await gmXhr(u)).responseText) || 0;
-        let images = (info2.data || 0).images || [];
-        if (!images[0]) {
-          info2 = (await gmXhr(ai.url)).responseText.match(/postDataJSON=(".*?")<|$/)[1];
-          info2 = tryJSON(tryJSON(info2)) || 0;
-          images = info2.media;
-        }
-        const items = [];
-        for (const img of images) {
-          const meta = img.metadata || img;
-          items.push({
-            url: img.url || (u = `https://i.imgur.com/${img.hash}`) && (img.ext === ".gif" && img.animated !== false ? [`${u}.webm`, `${u}.mp4`, u] : u + img.ext),
-            desc: [meta.title, meta.description].filter(Boolean).join(" - ")
-          });
-        }
-        if (items[0] && info2.title && !`${items[0].desc || ""}`.includes(info2.title))
-          items.title = info2.title;
-        return items;
-      }
-    },
-    {
-      u: "||imgur.com/",
-      r: /((?:[a-z]{2,}\.)?imgur\.com\/)((?:\w+,)+\w*)/,
-      s: "gallery",
-      g: (text, doc2, url, m) => m[2].split(",").map((id) => ({
-        url: `https://i.${m[1]}${id}.jpg`
-      }))
-    },
-    {
-      u: "||imgur.com/",
-      r: /([a-z]{2,}\.)?imgur\.com\/(r\/[a-z]+\/|[a-z0-9]+#)?([a-z0-9]{5,})($|\?|\.(mp4|[a-z]+))/i,
-      s: (m, node) => {
-        if (/memegen|random|register|search|signin/.test(m.input))
-          return "";
-        const a = node.closest("a");
-        if (a && a !== node && /(i\.([a-z]+\.)?)?imgur\.com\/(a\/|gallery\/)?/.test(a.href))
-          return false;
-        const id = m[3].replace(/(.{7})[hlmtbs]$/, "$1");
-        const ext = m[5] ? m[5].replace(/gifv?/, "webm") : "jpg";
-        const u = `https://i.${(m[1] || "").replace("www.", "")}imgur.com/${id}.`;
-        return ext === "webm" ? [`${u}webm`, `${u}mp4`, `${u}gif`] : u + ext;
-      }
-    },
-    {
-      u: ["||instagr.am/", "||instagram.com/"],
-      r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
-      s: (m) => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
-      g: gallery
-    },
-    {
-      u: [
-        "||livememe.com/",
-        "||lvme.me/"
-      ],
-      r: /\.\w+\/([^.]+)$/,
-      s: "http://i.lvme.me/$1.jpg"
-    },
-    {
-      u: "||lostpic.net/image",
-      q: ".image-viewer-image img"
-    },
-    {
-      u: "||makeameme.org/meme/",
-      r: /\/meme\/([^/?#]+)/,
-      s: "https://media.makeameme.org/created/$1.jpg"
-    },
-    {
-      u: "||photobucket.com/",
-      r: /(\d+\.photobucket\.com\/.+\/)(\?[a-z=&]+=)?(.+\.(jpe?g|png|gif))/,
-      s: "https://i$1$3",
-      xhr: !dotDomain.endsWith(".photobucket.com")
-    },
-    {
-      u: "||piccy.info/view3/",
-      r: /(.+?\/view3)\/(.*)\//,
-      s: "$1/$2/orig/",
-      q: "#mainim"
-    },
-    {
-      u: "||pimpandhost.com/image/",
-      r: /(.+?\/image\/[0-9]+)/,
-      s: "$1?size=original",
-      q: "img.original"
-    },
-    {
-      u: [
-        "||pixroute.com/",
-        "||imgspice.com/"
-      ],
-      r: /\.html$/,
-      q: "img[id]",
-      xhr: true
-    },
-    {
-      u: "||postima",
-      r: /postima?ge?\.org\/image\/\w+/,
-      q: [
-        'a[href*="dl="]',
-        "#main-image"
-      ]
-    },
-    {
-      u: [
-        "||prntscr.com/",
-        "||prnt.sc/"
-      ],
-      r: /\.\w+\/.+/,
-      q: 'meta[property="og:image"]',
-      xhr: true
-    },
-    {
-      u: "||radikal.ru/",
-      r: /\.ru\/(fp|.+?\.html)|^(.+?)t\.jpg/,
-      s: (m, node, rule) => m[2] && /radikal\.ru[\w%/]+?(\.\w+)/.test($propUp(node, "href")) ? m[2] + RegExp.$1 : toggle(rule, "q", m[1]) ? m.input : [m[2] + ".jpg", m[2] + ".png"],
-      _q: (text) => text.match(/https?:\/\/\w+\.radikal\.ru[\w/]+\.(jpg|gif|png)/i)[0]
-    },
-    {
-      u: "||tumblr.com",
-      r: /_500\.jpg/,
-      s: ["/_500/_1280/", ""]
-    },
-    {
-      u: "||twimg.com/media/",
-      r: /.+?format=(jpe?g|png|gif)/i,
-      s: "$0&name=orig"
-    },
-    {
-      u: "||twimg.com/media/",
-      r: /.+?\.(jpe?g|png|gif)/i,
-      s: "$0:orig"
-    },
-    {
-      u: "||twimg.com/1/proxy",
-      r: /t=([^&_]+)/i,
-      s: (m) => atob(m[1]).match(/http.+/)
-    },
-    {
-      u: "||twimg.com/",
-      r: /\/profile_images/i,
-      s: "/_(reasonably_small|normal|bigger|\\d+x\\d+)\\././g"
-    },
-    {
-      u: "||pic.twitter.com/",
-      r: /\.com\/[a-z0-9]+/i,
-      q: (text) => text.match(/https?:\/\/twitter\.com\/[^/]+\/status\/\d+\/photo\/\d+/i)[0],
-      follow: true
-    },
-    {
-      u: "||twitpic.com/",
-      r: /\.com(\/show\/[a-z]+)?\/([a-z0-9]+)($|#)/i,
-      s: "https://twitpic.com/show/large/$2"
-    },
-    {
-      u: "||wiki",
-      r: /\/(?:thumb|images)\/.+\.(?:jpe?g|gif|png|svg)/i,
-      s: (m) => m.input.replace(/\/(thumb(?=\/)|\d+px[^/]+(?=$|\?))/g, "").replace("//thumb.wikimedia.org/", "//upload.wikimedia.org/").replace(/\/(scale-to-width(-[a-z]+)?\/\d+|(zoom-crop|smart)(\/(width|height)\/\d+)+)/g, "/"),
-      xhr: !hostname.includes("wiki")
-    },
-    {
-      u: "||ytimg.com/vi/",
-      r: /(.+?\/vi\/[^/]+)/,
-      s: "$1/0.jpg",
-      rect: ".video-list-item"
-    },
-    {
-      u: "/viewer.php?file=",
-      r: /(.+?)\/viewer\.php\?file=(.+)/,
-      s: "$1/images/$2",
-      xhr: true
-    },
-    {
-      u: "/thumb_",
-      r: /\/albums.+\/thumb_[^/]/,
-      s: "/thumb_//"
-    },
-    {
-      u: [
-        ".th.jp",
-        ".th.gif",
-        ".th.png"
-      ],
-      r: /(.+?\.)th\.(jpe?g?|gif|png|svg|webm)$/i,
-      s: "$1$2",
-      follow: true
-    },
-    {
-      r: RX_MEDIA_URL
-    }
-  );
+  addBuiltinRules(rulesValue);
 }
 function format(rule, { expand } = {}) {
   const s = stringify(rule, null, " ");
@@ -1988,79 +1882,396 @@ function substituteSingle(s, m) {
   }
   return s;
 }
-function toggle(rule, prop, condition) {
-  rule[prop] = condition ? rule[`_${prop}`] : null;
-  return condition;
+
+// src/rule-matcher.js
+function adaptiveFind(node, opts) {
+  const tn = node.tagName;
+  const src = node.currentSrc || node.src || "";
+  const isPic = tn === "IMG" || tn === "VIDEO" && isVideoUrlExt(src);
+  let a, info2, url;
+  if (tn !== "A") {
+    url = isPic && !src.startsWith("data:") && rel2abs(src);
+    info2 = find(url, node, opts);
+  }
+  if (!info2 && (a = node.closest("A"))) {
+    const ds = a.dataset;
+    url = ds.expandedUrl || ds.fullUrl || ds.url || a.href || "";
+    url = url.includes("//t.co/") ? "https://" + a.textContent : url;
+    url = !url.startsWith("data:") && url;
+    info2 = find(url, a, opts);
+  }
+  if (!info2 && isPic)
+    info2 = { node, rule: {}, url: src };
+  return info2;
+}
+function find(url, node, { noHtml, rules: rules2, skipRules } = {}) {
+  let tn, isPic, html, h;
+  for (const rule of rules2 || rules) {
+    let e, m;
+    if (skipRules && skipRules.includes(rule) || rule.u && (!url || !runU(rule, url)) || !rules2 && (e = rule.e) && !(m = typeof e === "string" ? node.matches(e) : runE(rule, e, node)))
+      continue;
+    if (m && m.url)
+      return m;
+    const { r, s } = rule;
+    let hasS = s != null;
+    h = !(noHtml && rule === ai.rule) && (r || hasS) && rule.html && (html || (html = node.outerHTML));
+    if (r) {
+      m = h ? r.exec(h) : url && r.exec(url);
+    } else {
+      m = [""];
+      m[0] = m.input = h || url || rule.g && location.href || "";
+      m.index = 0;
+    }
+    if (!m)
+      continue;
+    if (s === "")
+      return {};
+    if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === "IMG" || tn === "VIDEO"))
+      continue;
+    hasS &= s !== "gallery";
+    const urls = hasS ? runS(node, rule, m) : [m.input];
+    if (urls)
+      return makeInfo(hasS, rule, m, node, skipRules, urls);
+  }
+}
+function makeInfo(hasS, rule, match, node, skipRules, urls) {
+  let info2;
+  let url = `${urls[0]}`;
+  const follow = url && hasS && !rule.q && isFollowableUrl(url, rule);
+  if (url)
+    url = rel2abs(url);
+  else
+    info2 = {};
+  if (follow)
+    info2 = find(url, node, { skipRules: [...skipRules || [], rule] });
+  if (!info2 && (!follow || RX_MEDIA_URL.test(url))) {
+    const xhr = cfg.xhr && rule.xhr;
+    info2 = {
+      match,
+      node,
+      rule,
+      url,
+      urls: urls.length > 1 ? urls.slice(1) : null,
+      gallery: rule.g && makeParser(rule.g),
+      post: isFunction(rule.post) ? rule.post(match) : rule.post,
+      xhr: xhr != null ? xhr : isSecureContext && !url.startsWith(location.protocol)
+    };
+  }
+  return info2;
+}
+function isFollowableUrl(url, rule) {
+  const f = rule.follow;
+  return isFunction(f) ? f(url) : f;
 }
 
-// src/csp.js
-var busy;
-var csp = null;
-var init2 = function() {
-  busy = new Promise((resolve) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", location);
-    xhr.timeout = Math.max(2e3, (performance.timing.responseEnd - performance.timeOrigin) * 2);
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState >= xhr.HEADERS_RECEIVED) {
-        csp = _parse([
-          xhr.getResponseHeader("content-security-policy"),
-          $prop('meta[http-equiv="Content-Security-Policy"]', "content")
-        ].filter(Boolean).join(","));
-        init2 = busy = xhr.onreadystatechange = null;
-        xhr.abort();
-        resolve();
+// src/status.js
+function set2(status) {
+  if (!status && !cfg.globalStatus) {
+    if (ai.node) ai.node.removeAttribute(STATUS_ATTR);
+    return;
+  }
+  const prefix = cfg.globalStatus ? "mpiv-" : "";
+  const action = status && /^[+-]/.test(status) && status[0];
+  const name = status && `${prefix}${action ? status.slice(1) : status}`;
+  const el = cfg.globalStatus ? doc.documentElement : name === "edge" ? ai.popup : ai.node;
+  if (!el) return;
+  const attr = cfg.globalStatus ? "class" : STATUS_ATTR;
+  const oldValue = (el.getAttribute(attr) || "").trim();
+  const cls = new Set(oldValue ? oldValue.split(/\s+/) : []);
+  switch (action) {
+    case "-":
+      cls.delete(name);
+      break;
+    case false:
+      for (const c of cls)
+        if (c.startsWith(prefix) && c !== name)
+          cls.delete(c);
+    // fallthrough to +
+    case "+":
+      if (name)
+        cls.add(name);
+      break;
+  }
+  const newValue = [...cls].join(" ");
+  if (newValue !== oldValue)
+    el.setAttribute(attr, newValue);
+}
+function loading(force) {
+  if (!force) {
+    clearTimeout(ai.timerStatus);
+    ai.timerStatus = setTimeout(loading, SETTLE_TIME, true);
+  } else if (!ai.popupLoaded) {
+    set2("+loading");
+  }
+}
+
+// src/request.js
+var RX_IMAGE_URL;
+function gmXhr(url, opts = {}) {
+  if (ai.req)
+    tryCatch(ai.req.abort);
+  return new Promise((resolve, reject) => {
+    const { anonymous } = ai.rule || {};
+    ai.req = xmlHttpRequest(Object.assign({
+      url,
+      anonymous,
+      withCredentials: !anonymous,
+      method: "GET",
+      timeout: 3e4
+    }, opts, {
+      onload: done,
+      onerror: done,
+      ontimeout() {
+        ai.req = null;
+        reject(`Timeout fetching ${url}`);
       }
-    };
-    xhr.send();
+    }));
+    function done(r) {
+      ai.req = null;
+      if (r.status < 400 && !r.error)
+        resolve(r);
+      else
+        reject(`Server error ${r.status} ${r.error}
+URL: ${url}`);
+    }
   });
-};
-async function check(url, allowInit) {
-  if (allowInit && init2) init2();
-  if (busy) await busy;
-  const isVideo2 = isVideoUrl(url);
-  let mode;
-  if (csp) {
-    const src = csp[isVideo2 ? "media" : "img"] || csp.default;
-    if (!src.some(_srcMatches, url))
-      mode = [mode, "blob", "data"].find((m) => src.includes(`${m}:`));
-  }
-  return [mode || ai.xhr, isVideo2];
 }
-function _parse(cspValue) {
-  if (!cspValue) return;
-  const src = {};
-  const rx = /(?:^|[;,])\s*(?:(default|img|media|script)-src|require-(trusted)-types-for) ([^;,]+)/g;
-  for (let m; m = rx.exec(cspValue); )
-    src[m[1] || m[2]] = m[3].trim().split(/\s+/);
-  if ((src.script || []).find((s) => /^'nonce-(.+)'$/.test(s)))
-    setNonce(RegExp.$1);
-  if ((src.trusted || []).includes("'script'"))
-    setNOP(() => {
+async function getDoc(url) {
+  if (!url) {
+    return {
+      doc,
+      finalUrl: location.href,
+      responseText: doc.documentElement.outerHTML
+    };
+  }
+  const r = await (!ai.post ? gmXhr(url) : gmXhr(url, {
+    method: "POST",
+    data: ai.post,
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Referer": url
+    }
+  }));
+  r.doc = $parseHtml(r.responseText);
+  return r;
+}
+async function getImage(url, pageUrl, xhr = ai.xhr) {
+  ai.bufBar = false;
+  ai.bufStart = now();
+  const response = await gmXhr(url, {
+    responseType: "blob",
+    headers: {
+      Accept: "image/png,image/*;q=0.8,*/*;q=0.5",
+      Referer: pageUrl || (isFunction(xhr) ? xhr() : url)
+    },
+    onprogress: getImageProgress
+  });
+  set(false);
+  const type = guessMimeType(response);
+  let b = response.response;
+  if (!b) throw "Empty response";
+  if (b.type !== type)
+    b = b.slice(0, b.size, type);
+  const res = xhr === "blob" ? ai.blobUrl = URL.createObjectURL(b) : await blobToDataUrl(b);
+  return [res, type.startsWith("video")];
+}
+function getImageProgress(e) {
+  if (!ai.bufBar && now() - ai.bufStart > 3e3 && e.loaded / e.total < 0.5)
+    ai.bufBar = true;
+  if (ai.bufBar) {
+    const pct = e.loaded / e.total * 100 | 0;
+    const size = e.total / 1024 | 0;
+    set(`${pct}% of ${size} kiB`, "xhr");
+  }
+}
+async function findRedirect() {
+  try {
+    const { finalUrl } = await gmXhr(ai.url, {
+      method: "HEAD",
+      headers: {
+        "Referer": location.href.split("#", 1)[0]
+      }
     });
-  for (const set3 of /* @__PURE__ */ new Set([src.img || src.default, src.media || src.default])) {
-    set3.forEach((item, i) => {
-      if (item !== "*" && item.includes("*")) {
-        set3[i] = new RegExp(
-          (/^\w+:/.test(item) ? "^" : "^\\w+://") + item.replace(/[.+?^$|()[\]{}]/g, "\\$&").replace(/(\\\.)?(\*)(\\\.)?/g, (_, a, b, c) => `${a ? "\\.?" : ""}[^:/]*${c ? "\\.?" : ""}`).replace(/[^/]$/, "$&/")
-        );
+    const info2 = find(finalUrl, ai.node, { noHtml: true });
+    if (!info2 || !info2.url)
+      throw `Couldn't follow redirection target: ${finalUrl}`;
+    Object.assign(ai, info2);
+    startSingle();
+  } catch (e) {
+    handleError(e);
+  }
+}
+async function saveFile() {
+  const url = ai.popup.src || ai.popup.currentSrc;
+  let name = getFileName(ai.imageUrl || url);
+  if (!name.includes("."))
+    name += ".jpg";
+  if (url.startsWith("blob:") || url.startsWith("data:")) {
+    $new("a", { href: url, download: name }).dispatchEvent(new MouseEvent("click"));
+  } else {
+    set2("+loading");
+    const onload = () => set2("-loading");
+    const gmDL = typeof GM_download === "function";
+    (gmDL ? GM_download : xmlHttpRequest)({
+      url,
+      name,
+      headers: { Referer: url },
+      method: "GET",
+      // polyfilling GM_download
+      responseType: "blob",
+      // polyfilling GM_download
+      overrideMimeType: "application/octet-stream",
+      // polyfilling GM_download
+      onerror: (e) => {
+        set(`Could not download ${name}: ${e.error || e.message || e}.`, "error");
+        onload();
+      },
+      onprogress: getImageProgress,
+      onload({ response }) {
+        onload();
+        if (!gmDL) {
+          const a = Object.assign(document.createElement("a"), {
+            href: URL.createObjectURL(response),
+            download: name
+          });
+          a.dispatchEvent(new MouseEvent("click"));
+          setTimeout(URL.revokeObjectURL, 1e4, a.href);
+        }
       }
     });
   }
-  return src;
 }
-function _srcMatches(src) {
-  return src instanceof RegExp ? src.test(this) : src === "*" || src && this.startsWith(src) && (src.endsWith("/") || this[src.length] === "/") || src === "'self'" && this.startsWith(location.origin + "/");
+function getFileName(url) {
+  return decodeURIComponent(url).split(/[#?&]/, 1)[0].split("/").pop();
+}
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(blob);
+  });
+}
+function guessMimeType({ responseHeaders, finalUrl }) {
+  if (/Content-Type:\s*(\S+)/i.test(responseHeaders) && !RegExp.$1.includes("text/plain"))
+    return RegExp.$1;
+  const ext = extractFileExt(finalUrl) || "jpg";
+  switch (ext.toLowerCase()) {
+    case "bmp":
+      return "image/bmp";
+    case "gif":
+      return "image/gif";
+    case "jpe":
+      return "image/jpeg";
+    case "jpeg":
+      return "image/jpeg";
+    case "jpg":
+      return "image/jpeg";
+    case "mp4":
+      return "video/mp4";
+    case "png":
+      return "image/png";
+    case "svg":
+      return "image/svg+xml";
+    case "tif":
+      return "image/tiff";
+    case "tiff":
+      return "image/tiff";
+    case "webm":
+      return "video/webm";
+    default:
+      return "application/octet-stream";
+  }
+}
+function findImageUrl(n, url) {
+  if (!n) return;
+  RX_IMAGE_URL || (RX_IMAGE_URL = /https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i);
+  let tmp;
+  const path = (
+    // prefer data-* over `src` which is often a small thumbnail or empty pixel
+    Object.values(n.dataset).some((v) => tmp = v.match(RX_IMAGE_URL)[0]) && tmp || n.getAttribute("src") || n.getAttribute("href") || n.getAttribute("content") || (tmp = n.outerHTML).includes("http") && tmp.match(RX_IMAGE_URL)[0]
+  );
+  return !!path && rel2abs(
+    decodeHtmlEntities(path),
+    $prop("base[href]", "href", n.ownerDocument) || url
+  );
+}
+
+// src/gallery.js
+function makeParser(g) {
+  return isFunction(g) ? g : defaultParser;
+}
+function findIndex(gUrl) {
+  return Math.max(
+    0,
+    ai.gItems.findIndex(({ url }) => isArray(url) ? url.includes(gUrl) : url === gUrl)
+  );
+}
+function next(dir) {
+  if (dir) ai.gIndex = nextIndex(dir);
+  const item = ai.gItem = ai.gItems[ai.gIndex];
+  if (isArray(item.url)) {
+    ai.urls = item.url.slice(1);
+    ai.url = item.url[0];
+  } else {
+    ai.urls = null;
+    ai.url = item.url;
+  }
+  ai.gItemNext = ai.gItems[nextIndex(dir || 1)];
+  ai.committed = false;
+  startSingle();
+  updateName();
+  if (dir) show(0);
+}
+function nextIndex(dir) {
+  return (ai.gIndex + dir + ai.gNum) % ai.gNum;
+}
+function defaultParser(text, doc2, docUrl, m, rule) {
+  const { g } = rule;
+  const gi = g.index;
+  const qEntry = g.entry;
+  const qCaption = ensureArray(g.caption);
+  const qImage = g.image || "img";
+  const qTitle = g.title;
+  const fix = (typeof g.fix === "string" ? newFunction("s", "isURL", g.fix) : g.fix) || ((s) => s.trim());
+  const elems = [...$$(qEntry || qImage, doc2)];
+  const items = elems.map(processEntry).filter(Boolean);
+  items.title = processTitle();
+  items.index = RX_HAS_CODE.test(gi) ? newFunction("items", "node", gi)(items, ai.node) : typeof gi === "string" ? findImageUrl(tryCatch($, gi, doc2), docUrl) : gi == null ? Math.max(0, elems.indexOf(ai.node)) : gi;
+  return items;
+  function processEntry(entry) {
+    const item = {};
+    try {
+      const img = qEntry ? $(qImage, entry) : entry;
+      item.url = fix(findImageUrl(img, docUrl), true);
+      item.desc = qCaption.map(processCaption, entry).filter(Boolean).join(" - ");
+    } catch (e) {
+    }
+    return item.url && item;
+  }
+  function processCaption(sel) {
+    const el = !sel ? this : $(sel, this) || $orSelf(sel, this.previousElementSibling) || $orSelf(sel, this.nextElementSibling);
+    return el && fix(runCHandler.default(el) || el.textContent);
+  }
+  function processTitle() {
+    const el = $(qTitle, doc2);
+    return el && fix(el.getAttribute("content") || el.textContent) || "";
+  }
+  function $orSelf(selector, el) {
+    if (el && !el.matches(qEntry))
+      return el.matches(selector) ? el : $(selector, el);
+  }
 }
 
 // src/popup-video.js
-function create(volume) {
+var ACtx;
+function create2(volume) {
   ai.bufBar = false;
   ai.bufStart = now();
   return $new("video", {
     autoplay: ai.preloadStart !== -1,
     controls: true,
-    muted: cfg.mute || new AudioContext().state === "suspended",
+    muted: cfg.mute || new (ACtx || (ACtx = window.AudioContext || create2))().state === "suspended",
     loop: true,
     volume: clamp(+volume || 0.5, 0, 1),
     onprogress: progress,
@@ -2078,7 +2289,7 @@ function progress() {
 }
 function progressDone() {
   this.onprogress = this.oncanplaythrough = null;
-  if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
+  if (ai.bar && ai.bar.classList.contains("mpiv-xhr"))
     set(false);
   onLoad.call(this);
 }
@@ -2087,7 +2298,7 @@ function rememberVolume() {
 }
 
 // src/popup.js
-async function create2(src, pageUrl, error) {
+async function create3(src, pageUrl, error) {
   let p = ai.popup, blank;
   const inGallery = p && !cfg.uiFadeinGallery && ai.gItems && !ai.zooming;
   if (inGallery && p === document.fullscreenElement) {
@@ -2114,17 +2325,17 @@ async function create2(src, pageUrl, error) {
   if (ai !== myAi || !src || isVideo2 && (vol = await getValue("volume"), ai !== myAi))
     return;
   if (p) {
-    p.src = blank = BLANK_PIXEL;
-    p.classList.remove(PREFIX + "show");
+    p.src = blank = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    p.classList.remove("mpiv-show");
     p.removeAttribute("style");
     ai.popupShown = null;
     ai.popupLoaded = false;
-  } else p = ai.popup = isVideo2 ? create(vol) : $new("img");
-  p.id = `${PREFIX}popup`;
+  } else p = ai.popup = isVideo2 ? create2(vol) : $new("img");
+  p.id = "mpiv-popup";
   p.src = src;
   p.addEventListener("error", handleError);
   if (ai.night = ai.night != null ? ai.night : cfg.night)
-    p.classList.add(`${PREFIX}night`);
+    p.classList.add("mpiv-night");
   if (ai.zooming)
     p.addEventListener("transitionend", onZoom);
   $dataset(p, "galleryFlip", inGallery ? "" : null);
@@ -2216,7 +2427,7 @@ function onLoad() {
   }
 }
 function onZoom() {
-  this.classList.remove(`${PREFIX}zooming`);
+  this.classList.remove("mpiv-zooming");
 }
 async function preload(p, item, u = item.url, el = $new("img")) {
   ai.gItemNext = null;
@@ -2237,284 +2448,18 @@ async function preload(p, item, u = item.url, el = $new("img")) {
     }
   }
 }
-
-// src/events.js
-var ctrl = false;
-var hoverData = null;
-var hoverTimer = 0;
-var ignoreKeyHeld = false;
-var setCtrl = (val) => ctrl = val;
-function onMouseOver(e) {
-  if (relayEmbedEvent(e)) return;
-  let node = e.target;
-  ignoreKeyHeld = e.shiftKey;
-  if (!isEnabled || e.shiftKey || ai.zoomed || node === ai.popup || node === doc.body || node === doc.documentElement || node === elSetup || ai.gallery && ai.rectHovered || !canClose())
+function toggleZoom({ keepScale } = {}) {
+  const p = ai.popup;
+  if (!p || !ai.scales || ai.scales.length < 2)
     return;
-  if (node.shadowRoot)
-    node = pierceShadow(node, e.clientX, e.clientY);
-  hoverData = { e, node, start: now() };
-  hoverTimer = hoverTimer || setTimeout(onMouseOverThrottled, SETTLE_TIME);
-  node.addEventListener("mouseout", onMouseOutThrottled);
-}
-function onMouseOverThrottled(force) {
-  const { start: start2, e, node, nodeOut } = hoverData || {};
-  if (!node || node === nodeOut && (hoverData = null, 1))
-    return;
-  const wait = force ? 0 : start2 + SETTLE_TIME - now();
-  const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
-  if (t)
-    return;
-  hoverData = null;
-  if (!rules)
-    init();
-  const info2 = adaptiveFind(node);
-  if (info2 && info2.url && info2.node !== ai.node)
-    activate(info2, e);
-}
-function onMouseOut(e) {
-  if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && canClose())
-    deactivate();
-}
-function onMouseOutThrottled() {
-  const d = hoverData;
-  if (d) d.nodeOut = this;
-  this.removeEventListener("mouseout", onMouseOutThrottled);
-  hoverTimer = 0;
-}
-function onMouseOutShadow(e) {
-  const root = e.target.shadowRoot;
-  if (root) {
-    root.removeEventListener("mouseover", onMouseOver);
-    root.removeEventListener("mouseout", onMouseOutShadow);
-  }
-}
-function onMouseMove(e) {
-  trackMouse(e);
-  if (e.shiftKey)
-    return;
-  if (!ai.zoomed && !ai.rectHovered && canClose()) {
-    deactivate();
-  } else if (ai.zoomed) {
-    move();
-    const { cx, cy, view: { w, h } } = ai;
-    const bx = w / 6;
-    const by = h / 6;
-    const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
-    set2(`${onEdge ? "+" : "-"}edge`);
-  }
-}
-function onMouseDown({ shiftKey, button, target }) {
-  if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !canClose())) {
-    ai.controlled = ai.zoomed = true;
-  } else if (button === 2 || shiftKey) {
-  } else {
-    deactivate({ wait: true });
-    doc.addEventListener("mouseup", enable, { once: true });
-  }
-}
-function onMouseScroll(e) {
-  const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
-  if (ai.zoomed) {
-    zoomInOut(dir);
-  } else if (ai.gNum > 1 && ai.popup) {
-    next(-dir);
-  } else if (cfg.zoom === "wheel" && dir > 0 && ai.popup) {
-    toggleZoom();
-  } else if (canClose()) {
-    deactivate();
-    return;
-  }
-  dropEvent(e);
-}
-function onKeyDown(e) {
-  const key = describeKey(e);
-  const p = ai.popupShown;
-  if (!p && key === "^Control") {
-    addEventListener("keyup", onKeyUp, true);
-    ctrl = true;
-  }
-  if (!p && key === "^ContextMenu")
-    return onContext.call(this, e);
-  if (!p || e.repeat)
-    return;
-  switch (key) {
-    case "+Shift":
-      if (ai.shiftKeyTime)
-        return;
-      ai.shiftKeyTime = now();
-      set2("+shift");
-      if (cfg.uiInfo)
-        show(1);
-      if (isVideo(p))
-        p.controls = true;
-      return;
-    case "KeyA":
-      p.toggleAttribute(NOAA_ATTR);
-      break;
-    case "ArrowRight":
-    case "KeyJ":
-      next(1);
-      break;
-    case "ArrowLeft":
-    case "KeyK":
-      next(-1);
-      break;
-    case "KeyC":
-      if (ai.bar.firstChild) {
-        setText("");
-        hide(0);
-      } else {
-        setText(ai.barText);
-        show(2);
-      }
-      break;
-    case "KeyD":
-      saveFile();
-      break;
-    case "KeyF":
-      if (p !== document.fullscreenElement) p.requestFullscreen();
-      else document.exitFullscreen();
-      break;
-    case "KeyH":
-    // flip horizontally
-    case "KeyV":
-    // flip vertically
-    case "KeyL":
-    // rotate left
-    case "KeyR":
-      if (!p)
-        return;
-      if (key === "KeyH" || key === "KeyV") {
-        const side = !!(ai.rotate % 180) ^ key === "KeyH" ? "flipX" : "flipY";
-        ai[side] = !ai[side];
-      } else {
-        ai.rotate = ((ai.rotate || 0) + 90 * (key === "KeyL" ? -1 : 1) + 360) % 360;
-      }
-      updateDetails();
-      move();
-      break;
-    case "KeyI":
-      (ai.barShown ? hide : show)(2);
-      break;
-    case "KeyM":
-      if (isVideo(p))
-        p.muted = !p.muted;
-      break;
-    case "KeyN":
-      ai.night = p.classList.toggle(`${PREFIX}night`);
-      break;
-    case "KeyT":
-      openInTab(tabFixUrl() || p.src);
-      deactivate();
-      break;
-    case "Minus":
-    case "NumpadSubtract":
-      if (ai.zoomed) {
-        zoomInOut(-1);
-      } else {
-        toggleZoom();
-      }
-      break;
-    case "Equal":
-    case "NumpadAdd":
-      if (ai.zoomed) {
-        zoomInOut(1);
-      } else {
-        toggleZoom();
-      }
-      break;
-    case "Escape":
-      deactivate({ wait: true });
-      break;
-    case "!Alt":
-      return;
-    default:
-      deactivate({ wait: true });
-      return;
-  }
-  dropEvent(e);
-}
-function onKeyUp(e) {
-  const p = ai.popupShown || false;
-  if (e.key === "Control") {
-    if (!p) removeEventListener("keyup", onKeyUp, true);
-    setTimeout(() => ctrl = false);
-  }
-  if (p && e.key === "Shift" && ai.shiftKeyTime) {
-    set2("-shift");
-    if (cfg.uiInfo)
-      hide(1);
-    if (p.controls)
-      p.controls = false;
-    if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
-      ai.controlled = false;
-    else if (p && (ai.zoomed || ai.rectHovered !== false))
-      toggleZoom();
-    else
-      deactivate({ wait: true });
-    ai.shiftKeyTime = 0;
-  } else if (describeKey(e) === "Control" && !p && !ignoreKeyHeld && (cfg.start === "ctrl" || cfg.start === "context" || ai.rule.manual)) {
-    dropEvent(e);
-    if (hoverData) {
-      hoverData.e = e;
-      onMouseOverThrottled(true);
-    }
-    if (ai.node) {
-      ai.force = true;
-      start();
-    }
-  }
-}
-function onContext(e) {
-  if (ignoreKeyHeld)
-    return;
-  const p = ai.popupShown;
-  if (cfg.zoom === "context" && p && toggleZoom()) {
-    dropEvent(e);
-  } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (cfg.start === "context" || cfg.start === "contextMK" || cfg.start === "contextM" && e.button === 2 || cfg.start === "contextK" && e.button !== 2 || cfg.start === "auto" && ai.rule.manual)) {
-    if (!ai.node) {
-      if (!hoverData)
-        onMouseOver(e);
-      onMouseOverThrottled(true);
-    }
-    if (ai.node) {
-      ai.force = true;
-      start();
-      dropEvent(e);
-    }
-  } else if (p) {
-    setTimeout(deactivate, SETTLE_TIME, { wait: true });
-  }
-}
-function onVisibility() {
-  ctrl = false;
-}
-function pierceShadow(node, x, y) {
-  for (let root; root = node.shadowRoot; ) {
-    root.addEventListener("mouseover", onMouseOver, { passive: true });
-    root.addEventListener("mouseout", onMouseOutShadow);
-    const inner = root.elementFromPoint(x, y);
-    if (!inner || inner === node)
-      break;
-    node = inner;
-  }
-  return node;
-}
-function toggle2(enable2) {
-  const onOff = enable2 ? "addEventListener" : "removeEventListener";
-  const passive = { passive: true, capture: true };
-  window[onOff]("mousemove", onMouseMove, passive);
-  window[onOff]("mouseout", onMouseOut, passive);
-  window[onOff]("mousedown", onMouseDown, passive);
-  window[onOff]("keyup", onKeyUp, true);
-  window[onOff](WHEEL_EVENT, onMouseScroll, { passive: false, capture: true });
-  ai.node.removeEventListener("mouseout", onMouseOutThrottled);
-}
-function trackMouse(e) {
-  const cx = ai.cx = e.clientX;
-  const cy = ai.cy = e.clientY;
-  const r = ai.rect || (ai.rect = rect());
-  ai.rectHovered = !r ? false : cx > r.left - 2 && cx < r.right + 2 && cy > r.top - 2 && cy < r.bottom + 2;
+  ai.zoomed = !ai.zoomed;
+  ai.scale = ai.zoomed && scaleForFirstZoom(keepScale) || ai.scales[0];
+  if (ai.zooming)
+    p.classList.add("mpiv-zooming");
+  move();
+  updateDetails();
+  set2(ai.zoomed ? "zoom" : false);
+  return ai.zoomed;
 }
 function zoomInOut(dir) {
   const i = scaleIndex(dir);
@@ -2531,521 +2476,46 @@ function zoomInOut(dir) {
     }
     ai.zoomed = zo !== "unzoom";
   } else {
-    ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
+    ai.popup.classList.toggle("mpiv-zoom-max", ai.scale >= 4 && i >= n - 1);
   }
   if (ai.zooming)
-    ai.popup.classList.add(`${PREFIX}zooming`);
+    ai.popup.classList.add("mpiv-zooming");
   move();
   updateDetails();
 }
 
-// src/styles.js
-function createGlobalStyle() {
-  setGlobalStyle((String.raw`
-#\mpiv-bar {
-  position: fixed;
-  z-index: 2147483647;
-  top: 0;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-family: sans-serif;
-  font-size: 15px;
-  font-weight: bold;
-  background: #0005;
-  color: white;
-  padding: 4px 10px;
-  text-shadow: .5px .5px 2px #000;
-  transition: opacity 1s ease .25s;
-  opacity: 0;
-}
-#\mpiv-bar[data-force] {
-  transition: none;
-}
-#\mpiv-bar.\mpiv-show {
-  opacity: 1;
-}
-#\mpiv-bar[data-zoom][data-prefix]::before {
-  content: "[" attr(data-prefix) "] ";
-  color: gold;
-}
-#\mpiv-bar[data-zoom]:not(:empty)::after {
-  content: " (" attr(data-zoom) ")";
-  opacity: .8;
-}
-#\mpiv-bar[data-zoom]:empty::after {
-  content: attr(data-zoom);
-}
-#\mpiv-popup.\mpiv-show {
-  display: inline;
-}
-#\mpiv-popup {
-  display: none;
-  cursor: none;
-  box-shadow: none;
-${cfg.uiFadein ? String.raw`
-  animation: .2s \mpiv-fadein both;
-  transition: box-shadow .25s, background-color .25s;
-  ` : ""}
-${setPopupStyleBase(`
-  border: none;
-  box-sizing: border-box;
-  background-size: cover;
-  position: fixed;
-  z-index: 2147483647;
-  padding: 0;
-  margin: 0;
-  top: 0;
-  left: 0;
-  width: auto;
-  height: auto;
-  transform-origin: center;
-  max-width: none;
-  max-height: none;
-`)}
-}
-#\mpiv-popup.\mpiv-show {
-  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${color("Border")};` : ""}
-  ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ""}
-  ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ""}
-}
-#\mpiv-popup.\mpiv-show${cfg.uiShadowOnLoad ? "[loaded]" : ""} {
-  background-color: ${color("Background")};
-  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${color("Shadow")};` : ""}
-}
-#\mpiv-popup[data-gallery-flip] {
-  animation: none;
-  transition: none;
-}
-#\mpiv-popup[${NOAA_ATTR}],
-#\mpiv-popup.\mpiv-zoom-max {
-  image-rendering: pixelated;
-}
-#\mpiv-popup.\mpiv-night:not(#\\0) {
-  box-shadow: 0 0 0 ${Math.max(screen.width, screen.height)}px #000;
-}
-body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
-  background: #000;
-}
-#\mpiv-setup {
-}
-@keyframes \mpiv-fadein {
-  from {
-    opacity: 0;
-    border-color: transparent;
-  }
-  to {
-    opacity: 1;
-  }
-}
-` + (cfg.globalStatus ? String.raw`
-:root.\mpiv-loading:not(.\mpiv-preloading) *:hover {
-  cursor: progress !important;
-}
-:root.\mpiv-edge #\mpiv-popup {
-  cursor: default;
-}
-:root.\mpiv-error *:hover {
-  cursor: not-allowed !important;
-}
-:root.\mpiv-ready *:hover,
-:root.\mpiv-large *:hover {
-  cursor: zoom-in !important;
-}
-:root.\mpiv-shift *:hover {
-  cursor: default !important;
-}
-` : String.raw`
-[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]):hover {
-  cursor: progress;
-}
-[\mpiv-status~="edge"]:hover {
-  cursor: default;
-}
-[\mpiv-status~="error"]:hover {
-  cursor: not-allowed;
-}
-[\mpiv-status~="ready"]:hover,
-[\mpiv-status~="large"]:hover {
-  cursor: zoom-in;
-}
-[\mpiv-status~="shift"]:hover {
-  cursor: default;
-}
-`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX));
-  setPopupStyleBase(popupStyleBase.replace(/;/g, "!important;"));
-  return globalStyle;
-}
-
-// src/app.js
-var isEnabled = true;
-var isImageTab = false;
-var globalStyle = "";
-var popupStyleBase = "";
-var NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {
-});
-var setGlobalStyle = (val) => globalStyle = val;
-var setNOP = (val) => NOP = val;
-var setIsImageTab = (val) => isImageTab = val;
-var setIsEnabled = (val) => isEnabled = val;
-var setPopupStyleBase = (val) => popupStyleBase = val;
-var tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
-function activate(info2, event) {
-  const { match, node, rule, url } = info2;
-  const auto = cfg.start === "auto";
-  const vidCtrl = cfg.videoCtrl && isVideo(node);
-  if (elSetup) console.info({ node, rule, url, match });
-  if (auto && vidCtrl && !ctrl)
+// src/menu.js
+var curAltName = "";
+var unreg = unregisterMenuCommand;
+var makeAltName = () => unreg ? `MPIV: auto-start is ${cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start";
+function register() {
+  if (window !== top || !registerMenuCommand)
     return;
-  if (ai.node) deactivate();
-  setAi(info2);
-  ai.force = ctrl;
-  ai.gNum = 0;
-  ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
-  if (auto) suppressTooltip();
-  updateViewSize();
-  setCtrl(false);
-  toggle2(true);
-  trackMouse(event);
-  if (ai.force && (auto || cfg.start === "ctrl" || cfg.start === "context")) {
-    start();
-  } else if ((auto || cfg.preload) && !vidCtrl && !rule.manual) {
-    belate(auto);
+  registerMenuCommand("MPIV: configure", setup);
+  registerAlt();
+}
+function registerAlt() {
+  if (cfg.startAltShown) {
+    curAltName = makeAltName();
+    registerMenuCommand(curAltName, onAltToggled);
+  }
+}
+function reRegisterAlt() {
+  const old = curAltName;
+  if (old && unreg) unreg(old);
+  if (!old || unreg) registerAlt();
+}
+function onAltToggled() {
+  var _a;
+  const wasAuto = cfg.start === "auto";
+  if (wasAuto) {
+    cfg.start = (_a = cfg).startAlt || (_a.startAlt = "context");
   } else {
-    set2("ready");
+    cfg.startAlt = cfg.start;
+    cfg.start = "auto";
   }
+  reRegisterAlt();
 }
-function belate(auto) {
-  if (cfg.preload) {
-    ai.preloadStart = auto ? now() : -1;
-    start();
-    set2("+preloading");
-  } else {
-    ai.timer = setTimeout(start, cfg.delay);
-  }
-}
-function checkProgress({ start: startValue } = {}) {
-  const p = ai.popup;
-  if (!p || ai.committed)
-    return;
-  const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
-  const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
-  if (h)
-    return canCommit(w, h);
-  if (startValue) {
-    clearInterval(timerProgress);
-    setTimerProgress(setInterval(checkProgress, 150));
-  }
-}
-var canClose = (p = ai.popup) => !p || (isVideo(p) ? !cfg.keepVids : document.fullscreenElement !== p);
-function canCommit(w, h) {
-  if (!ai.force && ai.rect && !ai.gItems && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1)) < cfg.scale) {
-    deactivate();
-    return false;
-  }
-  stopTimers();
-  let wait = ai.preloadStart;
-  if (wait < 0 && !ai.force || !ai.popup)
-    return;
-  if (wait > 0 && (wait += cfg.delay - now()) > 0) {
-    ai.timer = setTimeout(checkProgress, wait);
-  } else if ((!w || !h) && (ai.urls || []).length) {
-    handleError({ type: "error" });
-  } else {
-    commit();
-    ai.committed = true;
-  }
-  return true;
-}
-async function commit() {
-  const p = ai.popupShown = ai.popup;
-  const isDecoded = cfg.waitLoad && isFunction(p.decode);
-  if (isDecoded) {
-    await p.decode();
-    if (p !== ai.popup)
-      return;
-  }
-  set2("-preloading");
-  updateStyles();
-  measurePopup();
-  const willZoom = cfg.zoom === "auto" || isImageTab && cfg.imgtab;
-  const willMove = !willZoom || toggleZoom({ keepScale: true }) === void 0;
-  if (willMove)
-    move();
-  updateName();
-  updateDetails();
-  set2(!ai.popupLoaded && "loading");
-  ai.large = ai.nwidth > p.clientWidth + ai.extras.w || ai.nheight > p.clientHeight + ai.extras.h;
-  if (ai.large) {
-    set2("+large");
-    if (isFF && p.complete && !isDecoded)
-      p.style.backgroundImage = `url('${p.src}')`;
-  }
-  if (ai.preloadStart < 0 && isFunction(p.play))
-    p.play().catch(now);
-}
-function deactivate({ wait } = {}) {
-  stopTimers(true);
-  if (ai.req)
-    tryCatch(ai.req.abort);
-  if (ai.tooltip)
-    ai.tooltip.node.title = ai.tooltip.text;
-  set2(false);
-  set(false);
-  toggle2(false);
-  destroy();
-  if (wait) {
-    isEnabled = false;
-    setTimeout(enable, 200);
-  }
-  setAi({ rule: {} });
-}
-function enable() {
-  isEnabled = true;
-}
-function handleError(e, rule = ai.rule) {
-  if (rule && rule.onerror === "skip")
-    return;
-  if (ai.imageUrl && !ai.xhr && !ai.imageUrl.startsWith(location.origin + "/") && location.protocol === "https:" && init2) {
-    create2(ai.imageUrl, ai.pageUrl, e);
-    return;
-  }
-  const fe = formatError(e, rule);
-  if (!rule || !ai.urls || !ai.urls.length)
-    console.warn(...fe);
-  if (ai.urls && ai.urls.length) {
-    ai.url = ai.urls.shift();
-    if (ai.url) {
-      ai.committed = false;
-      stopTimers();
-      startSingle();
-    } else {
-      deactivate();
-    }
-  } else if (ai.node) {
-    set2("error");
-    set(fe.message, "error");
-  }
-}
-function onMessage(e) {
-  if (onEmbedMessage(e)) return;
-  if (typeof e.data === "string" && e.data === MSG.getViewSize) {
-    e.stopImmediatePropagation();
-    for (const el of doc.getElementsByTagName("iframe")) {
-      if (el.contentWindow === e.source) {
-        const s = frameSize(el, window).join(":");
-        e.source.postMessage(`${MSG.viewSize}:${s}`, "*");
-        return;
-      }
-    }
-  }
-}
-function onMessageChild(e) {
-  if (e.source === parent && typeof e.data === "string" && e.data.startsWith(MSG.viewSize)) {
-    e.stopImmediatePropagation();
-    removeEventListener("message", onMessageChild, true);
-    const [w, h, x, y] = e.data.split(":").slice(1).map(parseFloat);
-    if (w && h) ai.view = { w, h, x, y };
-  }
-}
-function start() {
-  updateStyles();
-  if (ai.gallery)
-    startGallery();
-  else
-    startSingle();
-}
-function startSingle() {
-  loading();
-  if (ai.force && ai.preloadStart < 0) {
-    commit();
-    return;
-  }
-  ai.imageUrl = null;
-  if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
-    findRedirect();
-  } else if (ai.rule.q && !isArray(ai.urls)) {
-    startFromQ();
-  } else {
-    create2(ai.url);
-    runC();
-  }
-}
-async function startFromQ() {
-  try {
-    const { responseText, doc: doc2, finalUrl } = await getDoc(ai.url);
-    const url = runQ(responseText, doc2, finalUrl);
-    if (!url) {
-      handleError(['The "q" rule did not produce any URL.', "\nRemote doc: %o", doc2]);
-      return;
-    }
-    if (isFollowableUrl(url, ai.rule)) {
-      const info2 = find(url, ai.node, { noHtml: true });
-      if (!info2 || !info2.url)
-        throw `Couldn't follow URL: ${url}`;
-      Object.assign(ai, info2);
-      startSingle();
-    } else {
-      create2(url, finalUrl);
-      runC(responseText, doc2);
-    }
-  } catch (e) {
-    handleError(e);
-  }
-}
-async function startGallery() {
-  loading();
-  try {
-    const startUrl = ai.url;
-    const p = await getDoc(ai.rule.s !== "gallery" && startUrl);
-    const items = await new Promise((cb) => {
-      const res = ai.gallery(
-        p.responseText,
-        p.doc,
-        p.finalUrl,
-        ai.match,
-        ai.rule,
-        ai.node,
-        cb
-      );
-      if (res !== void 0) cb(res);
-    });
-    if (ai.url !== startUrl) return;
-    ai.gNum = items.length;
-    ai.gItems = items.length && items;
-    if (ai.gItems) {
-      const i = items.index;
-      ai.gIndex = i >= 0 && items[i] ? +i : findIndex(typeof i === "string" ? i : ai.url);
-      setTimeout(next);
-    } else {
-      throw "Empty gallery";
-    }
-  } catch (e) {
-    handleError(e);
-  }
-}
-function stopTimers(bar) {
-  for (const timer of ["timer", "timerStatus", bar && "timerBar"])
-    clearTimeout(ai[timer]);
-  clearInterval(timerProgress);
-}
-function toggleZoom({ keepScale } = {}) {
-  const p = ai.popup;
-  if (!p || !ai.scales || ai.scales.length < 2)
-    return;
-  ai.zoomed = !ai.zoomed;
-  ai.scale = ai.zoomed && scaleForFirstZoom(keepScale) || ai.scales[0];
-  if (ai.zooming)
-    p.classList.add(`${PREFIX}zooming`);
-  move();
-  updateDetails();
-  set2(ai.zoomed ? "zoom" : false);
-  return ai.zoomed;
-}
-function updateStyles() {
-  addStyle("global", (globalStyle || createGlobalStyle()) + getCss(cfg));
-  addStyle("rule", ai.rule.css || "");
-}
-
-// src/config.js
-function create3({ data: c, save }) {
-  if (typeof c === "string")
-    c = tryJSON(c);
-  if (typeof c !== "object" || !c)
-    c = {};
-  c.fit = ["all", "large", "no", ""].includes(c.fit) ? c.fit : !(c.scales || 0).length || `${c.scales}` === `${DEFAULTS.scales}` ? "large" : "";
-  if (c.version !== DEFAULTS.version) {
-    if (typeof c.hosts === "string")
-      c.hosts = c.hosts.split("\n").map((s) => tryJSON(s) || s).filter(Boolean);
-    if (c.close === true || c.close === false)
-      c.zoomOut = c.close ? "auto" : "stay";
-    for (const key in DEFAULTS)
-      if (typeof c[key] !== typeof DEFAULTS[key])
-        c[key] = DEFAULTS[key];
-    if (c.version === 3 && c.scales[0] === 0)
-      c.scales[0] = "0!";
-    for (const key in c)
-      if (!(key in DEFAULTS))
-        delete c[key];
-    c.version = DEFAULTS.version;
-    if (save)
-      setValue("cfg", c);
-  }
-  if (Object.keys(cfg || {}).some((k) => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
-    setGlobalStyle("");
-  if (!isArray(c.scales))
-    c.scales = [];
-  c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));
-  return Object.assign({}, DEFAULTS, c);
-}
-async function load(opts) {
-  opts.data = await getValue("cfg");
-  return create3(opts);
-}
-function getCss({ css }) {
-  return css.includes("{") ? css : `#${PREFIX}-popup {${css}}`;
-}
-var DEFAULTS = (
-  /** @type mpiv.Config */
-  {
-    __proto__: null,
-    center: false,
-    css: "",
-    delay: 500,
-    fit: "",
-    globalStatus: false,
-    // prefer ' inside rules because " will be displayed as \"
-    // example: "img[src*='icon']"
-    hosts: [{
-      name: "No popup for YouTube thumbnails",
-      d: "www.youtube.com",
-      e: "ytd-rich-item-renderer *, ytd-thumbnail *",
-      s: ""
-    }, {
-      name: "No popup for SVG/PNG icons",
-      d: "",
-      e: "img[src*='icon']",
-      r: "//[^/]+/.*\\bicons?\\b.*\\.(?:png|svg)",
-      s: ""
-    }],
-    imgtab: false,
-    keepOnBlur: false,
-    keepVids: false,
-    mute: false,
-    night: false,
-    preload: false,
-    scale: 1.05,
-    scales: ["0!", 0.125, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 16],
-    start: "auto",
-    startAlt: "context",
-    startAltShown: false,
-    uiBackgroundColor: "#ffffff",
-    uiBackgroundOpacity: 100,
-    uiBorderColor: "#000000",
-    uiBorderOpacity: 100,
-    uiBorder: 0,
-    uiFadein: true,
-    uiFadeinGallery: true,
-    // some computers show white background while loading so fading hides it
-    uiInfo: true,
-    uiInfoCaption: true,
-    uiInfoHide: 3,
-    uiInfoOnce: true,
-    uiShadowColor: "#000000",
-    uiShadowOpacity: 80,
-    uiShadow: 20,
-    uiShadowOnLoad: true,
-    uiPadding: 0,
-    uiMargin: 0,
-    version: 6,
-    videoCtrl: true,
-    waitLoad: false,
-    xhr: true,
-    zoom: "context",
-    zoomOut: "auto",
-    zoomStep: 133
-  }
-);
 
 // src/setup-view.js
 var CSS_SETUP_X = 20;
@@ -3407,7 +2877,7 @@ function createSetupElement() {
   return [
     $new("style#_cssSetup", CSS_SETUP),
     $new("style#_css"),
-    $new(`main#${PREFIX}setup`, [
+    $new(`main#${"mpiv-"}setup`, [
       $new("#_mover"),
       $new("#_x", "x"),
       $new("ul#_ul.column", [
@@ -3658,6 +3128,8 @@ function createSetupElement() {
 }
 
 // src/setup.js
+var elSetup;
+var setElSetup = (val) => elSetup = val;
 async function setup({ rule } = {}) {
   if (!isFunction(doc.body.attachShadow)) {
     alert("Cannot show MPIV config dialog: the browser is probably too old.\nYou can edit the script's storage directly in your userscript manager.");
@@ -3676,7 +3148,7 @@ async function setup({ rule } = {}) {
   if (!elSetup)
     build();
   if (elSetup.parentElement !== doc.body) {
-    init3(await load({ save: true }));
+    init4(await load({ save: true }));
     doc.body.append(elSetup);
   }
   if (rule)
@@ -3687,7 +3159,7 @@ async function setup({ rule } = {}) {
     root.append(...createSetupElement());
     initEvents();
   }
-  function init3(data) {
+  function init4(data) {
     uiCfg = data;
     renderAll();
     renderVolatiles();
@@ -3723,7 +3195,7 @@ async function setup({ rule } = {}) {
       dropEvent(e);
       const s = prompt("Paste settings:");
       if (s)
-        init3(create3({ data: s }));
+        init4(create({ data: s }));
     };
     UI._install.onclick = setupRuleInstaller;
     const cssApp = UI._cssApp;
@@ -3740,7 +3212,7 @@ async function setup({ rule } = {}) {
       }
     };
     UI.start.onchange = function() {
-      UI[PREFIX + "setup"].dataset.start = this.value;
+      UI["mpiv-setup"].dataset.start = this.value;
     };
     UI.xhr.onclick = ({ target: el }) => el.checked || confirm($propUp(el, "title"));
     for (const el of $$('[type="color"]', root)) {
@@ -3775,7 +3247,7 @@ async function setup({ rule } = {}) {
     function colorOnInput() {
       this.elSwatch.style.setProperty(
         "--color",
-        color(this.value, this.elOpacity.valueAsNumber)
+        getUiColor(this.value, this.elOpacity.valueAsNumber)
       );
     }
     for (const el of $$('[type="range"]', root)) {
@@ -3825,7 +3297,7 @@ async function setup({ rule } = {}) {
     const isApply = this.id === "_apply";
     if (event && (this.id === "_ok" || isApply)) {
       setCfg(uiCfg = collectConfig({ save: true, clone: isApply }));
-      init();
+      init2();
       reRegisterAlt();
       if (isApply)
         return renderVolatiles();
@@ -3846,7 +3318,7 @@ async function setup({ rule } = {}) {
     });
     if (clone)
       data = JSON.parse(stringify(data));
-    return create3({ data, save });
+    return create({ data, save });
   }
   function collectRules() {
     return [...UI._rules.children].map((el) => [el.value.trim(), el[RULE]]).sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0).map(([s, json]) => json || s).filter(Boolean);
@@ -4033,48 +3505,440 @@ async function setupRuleInstaller(e) {
   }
 }
 
-// src/menu.js
-var curAltName = "";
-var enabled = window === top && !!registerMenuCommand;
-var unreg = unregisterMenuCommand;
-var makeAltName = () => unreg ? `MPIV: auto-start is ${cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start";
-function register() {
-  if (!enabled) return;
-  registerMenuCommand("MPIV: configure", setup);
-  registerAlt();
+// src/events.js
+var ctrl = false;
+var hoverData = null;
+var hoverTimer = 0;
+var ignoreKeyHeld = false;
+var setCtrl = (val) => ctrl = val;
+var SETTLE_TIME = 50;
+var WHEEL_EVENT = "onwheel" in doc ? "wheel" : "mousewheel";
+function onMouseOver(e) {
+  if (relayEmbedEvent(e)) return;
+  let node = e.target;
+  ignoreKeyHeld = e.shiftKey;
+  if (!isEnabled || e.shiftKey || ai.zoomed || node === ai.popup || node === doc.body || node === doc.documentElement || node === elSetup || ai.gallery && ai.rectHovered || !canClose())
+    return;
+  if (node.shadowRoot)
+    node = pierceShadow(node, e.clientX, e.clientY);
+  hoverData = { e, node, start: now() };
+  hoverTimer = hoverTimer || setTimeout(onMouseOverThrottled, SETTLE_TIME);
+  node.addEventListener("mouseout", onMouseOutThrottled);
 }
-function registerAlt() {
-  if (cfg.startAltShown) {
-    curAltName = makeAltName();
-    registerMenuCommand(curAltName, onAltToggled);
+function onMouseOverThrottled(force) {
+  const { start: start2, e, node, nodeOut } = hoverData || {};
+  if (!node || node === nodeOut && (hoverData = null, 1))
+    return;
+  const wait = force ? 0 : start2 + SETTLE_TIME - now();
+  const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
+  if (t)
+    return;
+  hoverData = null;
+  if (!rules)
+    init2();
+  const info2 = adaptiveFind(node);
+  if (info2 && info2.url && info2.node !== ai.node)
+    activate(info2, e);
+}
+function onMouseOut(e) {
+  if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && canClose())
+    deactivate();
+}
+function onMouseOutThrottled() {
+  const d = hoverData;
+  if (d) d.nodeOut = this;
+  this.removeEventListener("mouseout", onMouseOutThrottled);
+  hoverTimer = 0;
+}
+function onMouseOutShadow(e) {
+  const root = e.target.shadowRoot;
+  if (root) {
+    root.removeEventListener("mouseover", onMouseOver);
+    root.removeEventListener("mouseout", onMouseOutShadow);
   }
 }
-function reRegisterAlt() {
-  const old = curAltName;
-  if (old && unreg) unreg(old);
-  if (!old || unreg) registerAlt();
+function onMouseMove(e) {
+  trackMouse(e);
+  if (e.shiftKey)
+    return;
+  if (!ai.zoomed && !ai.rectHovered && canClose()) {
+    deactivate();
+  } else if (ai.zoomed) {
+    move();
+    const { cx, cy, view: { w, h } } = ai;
+    const bx = w / 6;
+    const by = h / 6;
+    const onEdge = cx < bx || cx > w - bx || cy < by || cy > h - by;
+    set2(`${onEdge ? "+" : "-"}edge`);
+  }
 }
-function onAltToggled() {
-  const wasAuto = cfg.start === "auto";
-  if (wasAuto) {
-    cfg.start = cfg.startAlt || (cfg.startAlt = "context");
+function onMouseDown({ shiftKey, button, target }) {
+  if (!button && target === ai.popup && ai.popup.controls && (shiftKey || !canClose())) {
+    ai.controlled = ai.zoomed = true;
+  } else if (button === 2 || shiftKey) {
   } else {
-    cfg.startAlt = cfg.start;
-    cfg.start = "auto";
+    deactivate({ wait: true });
+    doc.addEventListener("mouseup", enable, { once: true });
   }
-  reRegisterAlt();
+}
+function onMouseScroll(e) {
+  const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
+  if (ai.zoomed) {
+    zoomInOut(dir);
+  } else if (ai.gNum > 1 && ai.popup) {
+    next(-dir);
+  } else if (cfg.zoom === "wheel" && dir > 0 && ai.popup) {
+    toggleZoom();
+  } else if (canClose()) {
+    deactivate();
+    return;
+  }
+  dropEvent(e);
+}
+function onKeyDown(e) {
+  const key = describeKey(e);
+  const p = ai.popupShown;
+  if (!p && key === "^Control") {
+    addEventListener("keyup", onKeyUp, true);
+    ctrl = true;
+  }
+  if (!p && key === "^ContextMenu")
+    return onContext.call(this, e);
+  if (!p || e.repeat)
+    return;
+  switch (key) {
+    case "+Shift":
+      if (ai.shiftKeyTime)
+        return;
+      ai.shiftKeyTime = now();
+      set2("+shift");
+      if (cfg.uiInfo)
+        show(1);
+      if (isVideo(p))
+        p.controls = true;
+      return;
+    case "KeyA":
+      p.toggleAttribute(NOAA_ATTR);
+      break;
+    case "ArrowRight":
+    case "KeyJ":
+      next(1);
+      break;
+    case "ArrowLeft":
+    case "KeyK":
+      next(-1);
+      break;
+    case "KeyC":
+      if (ai.bar.firstChild) {
+        setText("");
+        hide(0);
+      } else {
+        setText(ai.barText);
+        show(2);
+      }
+      break;
+    case "KeyD":
+      saveFile();
+      break;
+    case "KeyF":
+      if (p !== document.fullscreenElement) p.requestFullscreen();
+      else document.exitFullscreen();
+      break;
+    case "KeyH":
+    // flip horizontally
+    case "KeyV":
+    // flip vertically
+    case "KeyL":
+    // rotate left
+    case "KeyR":
+      if (!p)
+        return;
+      if (key === "KeyH" || key === "KeyV") {
+        const side = !!(ai.rotate % 180) ^ key === "KeyH" ? "flipX" : "flipY";
+        ai[side] = !ai[side];
+      } else {
+        ai.rotate = ((ai.rotate || 0) + 90 * (key === "KeyL" ? -1 : 1) + 360) % 360;
+      }
+      updateDetails();
+      move();
+      break;
+    case "KeyI":
+      (ai.barShown ? hide : show)(2);
+      break;
+    case "KeyM":
+      if (isVideo(p))
+        p.muted = !p.muted;
+      break;
+    case "KeyN":
+      ai.night = p.classList.toggle("mpiv-night");
+      break;
+    case "KeyT":
+      openInTab(tabFixUrl() || p.src);
+      deactivate();
+      break;
+    case "Minus":
+    case "NumpadSubtract":
+      if (ai.zoomed) {
+        zoomInOut(-1);
+      } else {
+        toggleZoom();
+      }
+      break;
+    case "Equal":
+    case "NumpadAdd":
+      if (ai.zoomed) {
+        zoomInOut(1);
+      } else {
+        toggleZoom();
+      }
+      break;
+    case "Escape":
+      deactivate({ wait: true });
+      break;
+    case "!Alt":
+      return;
+    default:
+      deactivate({ wait: true });
+      return;
+  }
+  dropEvent(e);
+}
+function onKeyUp(e) {
+  const p = ai.popupShown || false;
+  if (e.key === "Control") {
+    if (!p) removeEventListener("keyup", onKeyUp, true);
+    setTimeout(() => ctrl = false);
+  }
+  if (p && e.key === "Shift" && ai.shiftKeyTime) {
+    set2("-shift");
+    if (cfg.uiInfo)
+      hide(1);
+    if (p.controls)
+      p.controls = false;
+    if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
+      ai.controlled = false;
+    else if (p && (ai.zoomed || ai.rectHovered !== false))
+      toggleZoom();
+    else
+      deactivate({ wait: true });
+    ai.shiftKeyTime = 0;
+  } else if (describeKey(e) === "Control" && !p && !ignoreKeyHeld && (cfg.start === "ctrl" || cfg.start === "context" || ai.rule.manual)) {
+    dropEvent(e);
+    if (hoverData) {
+      hoverData.e = e;
+      onMouseOverThrottled(true);
+    }
+    if (ai.node) {
+      ai.force = true;
+      start();
+    }
+  }
+}
+function onContext(e) {
+  if (ignoreKeyHeld)
+    return;
+  const p = ai.popupShown;
+  if (cfg.zoom === "context" && p && toggleZoom()) {
+    dropEvent(e);
+  } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (cfg.start === "context" || cfg.start === "contextMK" || cfg.start === "contextM" && e.button === 2 || cfg.start === "contextK" && e.button !== 2 || cfg.start === "auto" && ai.rule.manual)) {
+    if (!ai.node) {
+      if (!hoverData)
+        onMouseOver(e);
+      onMouseOverThrottled(true);
+    }
+    if (ai.node) {
+      ai.force = true;
+      start();
+      dropEvent(e);
+    }
+  } else if (p) {
+    setTimeout(deactivate, SETTLE_TIME, { wait: true });
+  }
+}
+function onVisibility() {
+  ctrl = false;
+}
+function pierceShadow(node, x, y) {
+  for (let root; root = node.shadowRoot; ) {
+    root.addEventListener("mouseover", onMouseOver, { passive: true });
+    root.addEventListener("mouseout", onMouseOutShadow);
+    const inner = root.elementFromPoint(x, y);
+    if (!inner || inner === node)
+      break;
+    node = inner;
+  }
+  return node;
+}
+function toggle2(enable2) {
+  const onOff = enable2 ? "addEventListener" : "removeEventListener";
+  const passive = { passive: true, capture: true };
+  window[onOff]("mousemove", onMouseMove, passive);
+  window[onOff]("mouseout", onMouseOut, passive);
+  window[onOff]("mousedown", onMouseDown, passive);
+  window[onOff]("keyup", onKeyUp, true);
+  window[onOff](WHEEL_EVENT, onMouseScroll, { passive: false, capture: true });
+  ai.node.removeEventListener("mouseout", onMouseOutThrottled);
+}
+function trackMouse(e) {
+  var _a;
+  const cx = ai.cx = e.clientX;
+  const cy = ai.cy = e.clientY;
+  const r = (_a = ai).rect || (_a.rect = rect());
+  ai.rectHovered = !r ? false : cx > r.left - 2 && cx < r.right + 2 && cy > r.top - 2 && cy < r.bottom + 2;
 }
 
-// src/index.js
-(async () => {
-  setCfg(await load({ save: true }));
-  if (!doc.body) {
-    await new Promise((resolve) => new MutationObserver((_, mo) => doc.body && (mo.disconnect(), resolve())).observe(document, { subtree: true, childList: true }));
+// src/app.js
+var ai = { rule: {} };
+var cfg;
+var isEnabled = true;
+var isImageTab = false;
+var timerProgress;
+var setCfg = (val) => cfg = val;
+function activate(info2, event) {
+  const { match, node, rule, url } = info2;
+  const auto = cfg.start === "auto";
+  const vidCtrl = cfg.videoCtrl && isVideo(node);
+  if (elSetup) console.info({ node, rule, url, match });
+  if (auto && vidCtrl && !ctrl)
+    return;
+  if (ai.node) deactivate();
+  ai = info2;
+  ai.force = ctrl;
+  ai.gNum = 0;
+  ai.zooming = cfg.css.includes("mpiv-zooming");
+  if (auto) suppressTooltip();
+  updateViewSize();
+  setCtrl(false);
+  toggle2(true);
+  trackMouse(event);
+  if (ai.force && (auto || cfg.start === "ctrl" || cfg.start === "context")) {
+    start();
+  } else if ((auto || cfg.preload) && !vidCtrl && !rule.manual) {
+    belate(auto);
+  } else {
+    set2("ready");
   }
-  const el = doc.body.firstElementChild;
+}
+function belate(auto) {
+  if (cfg.preload) {
+    ai.preloadStart = auto ? now() : -1;
+    start();
+    set2("+preloading");
+  } else {
+    ai.timer = setTimeout(start, cfg.delay);
+  }
+}
+function checkProgress({ start: startValue } = {}) {
+  const p = ai.popup;
+  if (!p || ai.committed)
+    return;
+  const w = ai.nwidth = p.naturalWidth || p.videoWidth || ai.popupLoaded && innerWidth / 2;
+  const h = ai.nheight = p.naturalHeight || p.videoHeight || ai.popupLoaded && innerHeight / 2;
+  if (h)
+    return canCommit(w, h);
+  if (startValue) {
+    clearInterval(timerProgress);
+    timerProgress = setInterval(checkProgress, 150);
+  }
+}
+var canClose = (p = ai.popup) => !p || (isVideo(p) ? !cfg.keepVids : document.fullscreenElement !== p);
+function canCommit(w, h) {
+  if (!ai.force && ai.rect && !ai.gItems && Math.max(w / (ai.rect.width || 1), h / (ai.rect.height || 1)) < cfg.scale) {
+    deactivate();
+    return false;
+  }
+  stopTimers();
+  let wait = ai.preloadStart;
+  if (wait < 0 && !ai.force || !ai.popup)
+    return;
+  if (wait > 0 && (wait += cfg.delay - now()) > 0) {
+    ai.timer = setTimeout(checkProgress, wait);
+  } else if ((!w || !h) && (ai.urls || []).length) {
+    handleError({ type: "error" });
+  } else {
+    commit();
+    ai.committed = true;
+  }
+  return true;
+}
+async function commit() {
+  const p = ai.popupShown = ai.popup;
+  const isDecoded = cfg.waitLoad && isFunction(p.decode);
+  if (isDecoded) {
+    await p.decode();
+    if (p !== ai.popup)
+      return;
+  }
+  set2("-preloading");
+  updateStyles();
+  measurePopup();
+  const willZoom = cfg.zoom === "auto" || isImageTab && cfg.imgtab;
+  const willMove = !willZoom || toggleZoom({ keepScale: true }) === void 0;
+  if (willMove)
+    move();
+  updateName();
+  updateDetails();
+  set2(!ai.popupLoaded && "loading");
+  ai.large = ai.nwidth > p.clientWidth + ai.extras.w || ai.nheight > p.clientHeight + ai.extras.h;
+  if (ai.large) {
+    set2("+large");
+    if (isFF && p.complete && !isDecoded)
+      p.style.backgroundImage = `url('${p.src}')`;
+  }
+  if (ai.preloadStart < 0 && isFunction(p.play))
+    p.play().catch(now);
+}
+function deactivate({ wait } = {}) {
+  stopTimers(true);
+  if (ai.req)
+    tryCatch(ai.req.abort);
+  if (ai.tooltip)
+    ai.tooltip.node.title = ai.tooltip.text;
+  set2(false);
+  set(false);
+  toggle2(false);
+  destroy();
+  if (wait) {
+    isEnabled = false;
+    setTimeout(enable, 200);
+  }
+  ai = { rule: {} };
+}
+function enable() {
+  isEnabled = true;
+}
+function handleError(e, rule = ai.rule) {
+  if (rule && rule.onerror === "skip")
+    return;
+  if (ai.imageUrl && !ai.xhr && !ai.imageUrl.startsWith(location.origin + "/") && location.protocol === "https:" && init) {
+    create3(ai.imageUrl, ai.pageUrl, e);
+    return;
+  }
+  const fe = formatError(e, rule);
+  if (!rule || !ai.urls || !ai.urls.length)
+    console.warn(...fe);
+  if (ai.urls && ai.urls.length) {
+    ai.url = ai.urls.shift();
+    if (ai.url) {
+      ai.committed = false;
+      stopTimers();
+      startSingle();
+    } else {
+      deactivate();
+    }
+  } else if (ai.node) {
+    set2("error");
+    set(fe.message, "error");
+  }
+}
+async function init3() {
+  setCfg(await load({ save: true }));
+  let { body } = doc;
+  if (!body) await new Promise((resolve) => new MutationObserver((_, mo) => (body = doc.body) && resolve(mo.disconnect())).observe(document, { subtree: true, childList: true }));
+  const el = body.firstElementChild;
   if (el) {
-    setIsImageTab(el === doc.body.lastElementChild && el.matches("img, video"));
-    setIsEnabled(cfg.imgtab || !isImageTab);
+    isImageTab = el === body.lastElementChild && el.matches("img, video");
+    isEnabled = cfg.imgtab || !isImageTab;
   }
   register();
   initEmbed();
@@ -4086,16 +3950,127 @@ function onAltToggled() {
   if (["greasyfork.org", "github.com"].includes(hostname))
     addEventListener("click", setupClickedRule, true);
   addEventListener("message", onMessage, true);
-})();
-if (window.trustedTypes) {
-  const TT = window.trustedTypes;
-  const CP = "createPolicy";
-  const createPolicy = TT[CP];
-  TT[CP] = function ovr(name, opts) {
-    let fn;
-    const p = createPolicy.call(TT, name, opts);
-    if ((trustedHTML || opts[fn = "createHTML"] && setTrustedHTML(p[fn].bind(p))) && (trustedScript || opts[fn = "createScript"] && setTrustedScript(p[fn].bind(p))) && TT[CP] === ovr)
-      delete TT[CP];
-    return p;
-  };
 }
+function onMessage(e) {
+  let { data } = e;
+  if (typeof data !== "string")
+    return;
+  if (data === getViewSize) {
+    e.stopImmediatePropagation();
+    for (const el of doc.getElementsByTagName("iframe")) {
+      if (el.contentWindow === e.source) {
+        const s = frameSize(el, window).join(":");
+        e.source.postMessage(`${viewSize}:${s}`, "*");
+        return;
+      }
+    }
+  } else if (data.startsWith(instaEmbed) && (data = tryJSON(data.slice(instaEmbed.length))) && data.width > 0 && data.height > 0) {
+    onEmbedMessage(e, data);
+  }
+}
+function onMessageChild(e) {
+  if (e.source === parent && typeof e.data === "string" && e.data.startsWith(viewSize)) {
+    e.stopImmediatePropagation();
+    removeEventListener("message", onMessageChild, true);
+    const [w, h, x, y] = e.data.split(":").slice(1).map(parseFloat);
+    if (w && h) ai.view = { w, h, x, y };
+  }
+}
+function start() {
+  updateStyles();
+  if (ai.gallery)
+    startGallery();
+  else
+    startSingle();
+}
+function startSingle() {
+  loading();
+  if (ai.force && ai.preloadStart < 0) {
+    commit();
+    return;
+  }
+  ai.imageUrl = null;
+  if (ai.rule.follow && !ai.rule.q && !ai.rule.s) {
+    findRedirect();
+  } else if (ai.rule.q && !isArray(ai.urls)) {
+    startFromQ();
+  } else {
+    create3(ai.url);
+    runC();
+  }
+}
+async function startFromQ() {
+  try {
+    const { responseText, doc: doc2, finalUrl } = await getDoc(ai.url);
+    const url = runQ(responseText, doc2, finalUrl);
+    if (!url) {
+      handleError(['The "q" rule did not produce any URL.', "\nRemote doc: %o", doc2]);
+      return;
+    }
+    if (isFollowableUrl(url, ai.rule)) {
+      const info2 = find(url, ai.node, { noHtml: true });
+      if (!info2 || !info2.url)
+        throw `Couldn't follow URL: ${url}`;
+      Object.assign(ai, info2);
+      startSingle();
+    } else {
+      create3(url, finalUrl);
+      runC(responseText, doc2);
+    }
+  } catch (e) {
+    handleError(e);
+  }
+}
+async function startGallery() {
+  loading();
+  try {
+    const startUrl = ai.url;
+    const p = await getDoc(ai.rule.s !== "gallery" && startUrl);
+    const items = await new Promise((cb) => {
+      const res = ai.gallery(
+        p.responseText,
+        p.doc,
+        p.finalUrl,
+        ai.match,
+        ai.rule,
+        ai.node,
+        cb
+      );
+      if (res !== void 0) cb(res);
+    });
+    if (ai.url !== startUrl) return;
+    ai.gNum = items.length;
+    ai.gItems = items.length && items;
+    if (ai.gItems) {
+      const i = items.index;
+      ai.gIndex = i >= 0 && items[i] ? +i : findIndex(typeof i === "string" ? i : ai.url);
+      setTimeout(next);
+    } else {
+      throw "Empty gallery";
+    }
+  } catch (e) {
+    handleError(e);
+  }
+}
+function stopTimers(bar) {
+  for (const timer of ["timer", "timerStatus", bar && "timerBar"])
+    clearTimeout(ai[timer]);
+  clearInterval(timerProgress);
+}
+function suppressTooltip() {
+  for (const node of [
+    ai.node.parentNode,
+    ai.node,
+    ai.node.firstElementChild
+  ]) {
+    const t = (node || 0).title;
+    if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
+      ai.tooltip = { node, text: t };
+      node.title = "";
+      break;
+    }
+  }
+}
+
+// src/index.js
+init3();

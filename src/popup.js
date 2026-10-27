@@ -1,12 +1,14 @@
-import {ai, cfg} from './state.js';
+import {ai, cfg, checkProgress, deactivate, handleError} from './app.js';
+import * as Bar from './bar.js';
+import * as Calc from './calc.js';
 import * as CspSniffer from './csp.js';
-import * as App from './app.js';
-import * as Req from './request.js';
+import {$, $css, $dataset, $new, doc} from './dom.js';
+import {SETTLE_TIME} from './events.js';
 import * as GM from './gm.js';
-import {BLANK_PIXEL, PREFIX, doc, SETTLE_TIME, isArray} from './constants.js';
 import * as PopupVideo from './popup-video.js';
-import {$new, $dataset, $, $css, isFunction, clamp} from './helpers.js';
+import * as Req from './request.js';
 import * as Status from './status.js';
+import {clamp, isArray, isFunction} from './util.js';
 
 export async function create(src, pageUrl, error) {
   let p = ai.popup, blank;
@@ -25,27 +27,27 @@ export async function create(src, pageUrl, error) {
   if (ai !== myAi)
     return;
   if (!xhr && error) {
-    App.handleError(error);
+    handleError(error);
     return;
   }
   Object.assign(ai, {pageUrl, xhr});
   if (xhr)
-    [src, isVideo] = await Req.getImage(src, pageUrl, xhr).catch(App.handleError) || [];
+    [src, isVideo] = await Req.getImage(src, pageUrl, xhr).catch(handleError) || [];
   let vol;
   if (ai !== myAi || !src || isVideo && (vol = await GM.getValue('volume'), ai !== myAi))
     return;
   if (p) {
-    p.src = blank = BLANK_PIXEL;
+    p.src = blank = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     p.classList.remove(PREFIX + 'show');
     p.removeAttribute('style');
     ai.popupShown = null;
     ai.popupLoaded = false;
   } else p = ai.popup = isVideo ? PopupVideo.create(vol) : $new('img');
-  p.id = `${PREFIX}popup`;
+  p.id = PREFIX + 'popup';
   p.src = src;
-  p.addEventListener('error', App.handleError);
+  p.addEventListener('error', handleError);
   if ((ai.night = (ai.night != null ? ai.night : cfg.night)))
-    p.classList.add(`${PREFIX}night`);
+    p.classList.add(PREFIX + 'night');
   if (ai.zooming)
     p.addEventListener('transitionend', onZoom);
   $dataset(p, 'galleryFlip', inGallery ? '' : null);
@@ -57,7 +59,7 @@ export async function create(src, pageUrl, error) {
     doc.body.insertBefore(p,
       ai.bar && ai.bar.parentElement === doc.body && ai.bar || null);
   await 0;
-  if (ai.popup !== p || App.checkProgress({start: true}) === false)
+  if (ai.popup !== p || checkProgress({start: true}) === false)
     return;
   if (!blank && p.complete)
     onLoad.call(p);
@@ -69,7 +71,7 @@ export function destroy() {
   const p = ai.popup;
   if (!p) return;
   p.removeEventListener('load', onLoad);
-  p.removeEventListener('error', App.handleError);
+  p.removeEventListener('error', handleError);
   if (ai.popover) {
     ai.popover.style.removeProperty('opacity');
     ai.popover = null;
@@ -138,7 +140,7 @@ export function onLoad() {
     this.setAttribute('loaded', '');
     ai.popupLoaded = true;
     Status.set('-loading');
-    App.checkProgress();
+    checkProgress();
     let i = ai.gItem;
     if (i) i.url = this.src;
     if ((i = ai.gItemNext))
@@ -147,7 +149,7 @@ export function onLoad() {
 }
 
 export function onZoom() {
-  this.classList.remove(`${PREFIX}zooming`);
+  this.classList.remove(PREFIX + 'zooming');
 }
 
 export async function preload(p, item, u = item.url, el = $new('img')) {
@@ -168,4 +170,41 @@ export async function preload(p, item, u = item.url, el = $new('img')) {
       break;
     }
   }
+}
+
+export function toggleZoom({keepScale} = {}) {
+  const p = ai.popup;
+  if (!p || !ai.scales || ai.scales.length < 2)
+    return;
+  ai.zoomed = !ai.zoomed;
+  ai.scale = ai.zoomed && Calc.scaleForFirstZoom(keepScale) || ai.scales[0];
+  if (ai.zooming)
+    p.classList.add(PREFIX + 'zooming');
+  move();
+  Bar.updateDetails();
+  Status.set(ai.zoomed ? 'zoom' : false);
+  return ai.zoomed;
+}
+
+export function zoomInOut(dir) {
+  const i = Calc.scaleIndex(dir);
+  const n = ai.scales.length;
+  if (i >= 0 && i < n)
+    ai.scale = ai.scales[i];
+  const zo = cfg.zoomOut;
+  if (i <= 0 && zo !== 'stay') {
+    if (ai.scaleFit < ai.scale * .99) {
+      ai.scales.unshift(ai.scale = ai.scaleFit);
+    } else if ((i <= 0 && zo === 'close' || i < 0 && !ai.rectHovered) && ai.gNum < 2) {
+      deactivate({wait: true});
+      return;
+    }
+    ai.zoomed = zo !== 'unzoom';
+  } else {
+    ai.popup.classList.toggle(PREFIX + 'zoom-max', ai.scale >= 4 && i >= n - 1);
+  }
+  if (ai.zooming)
+    ai.popup.classList.add(PREFIX + 'zooming');
+  move();
+  Bar.updateDetails();
 }

@@ -1,11 +1,11 @@
-import {ai, setNonce} from './state.js';
-import {$prop} from './helpers.js';
-import * as Util from './util.js';
-import * as App from './app.js';
+import {ai} from './app.js';
+import {$prop} from './dom.js';
+import {isVideoUrl, setNOP} from './util.js';
 
 export let busy;
 /** @type {?Object<string,string[]>} */
 export let csp = null;
+export let nonce;
 
 // will be null when done
 export let init = function () {
@@ -28,10 +28,12 @@ export let init = function () {
   });
 };
 
+export const setNonce = val => (nonce = val);
+
 export async function check(url, allowInit) {
   if (allowInit && init) init();
   if (busy) await busy;
-  const isVideo = Util.isVideoUrl(url);
+  const isVideo = isVideoUrl(url);
   let mode;
   if (csp) {
     const src = csp[isVideo ? 'media' : 'img'] || csp.default;
@@ -48,9 +50,9 @@ export function _parse(cspValue) {
   for (let m; (m = rx.exec(cspValue));)
     src[m[1] || m[2]] = m[3].trim().split(/\s+/);
   if ((src.script || []).find(s => /^'nonce-(.+)'$/.test(s)))
-    setNonce(RegExp.$1);
+    nonce = RegExp.$1;
   if ((src.trusted || []).includes("'script'"))
-    App.setNOP(() => {});
+    setNOP(() => {});
   for (const set of new Set([src.img || src.default, src.media || src.default])) {
     set.forEach((item, i) => {
       if (item !== '*' && item.includes('*')) {

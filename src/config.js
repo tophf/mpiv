@@ -1,8 +1,7 @@
-import {cfg} from './state.js';
-import {tryJSON} from './helpers.js';
+import {cfg} from './app.js';
 import * as GM from './gm.js';
-import * as App from './app.js';
-import {isArray, PREFIX} from './constants.js';
+import {setGlobalStyle} from './styles.js';
+import {isArray, tryJSON} from './util.js';
 
 export function create({data: c, save}) {
   if (typeof c === 'string')
@@ -32,7 +31,7 @@ export function create({data: c, save}) {
       GM.setValue('cfg', c);
   }
   if (Object.keys(cfg || {}).some(k => /^ui|^(css|globalStatus)$/.test(k) && cfg[k] !== c[k]))
-    App.setGlobalStyle('');
+    setGlobalStyle('');
   if (!isArray(c.scales))
     c.scales = [];
   c.scales = [...new Set(c.scales)].sort((a, b) => parseFloat(a) - parseFloat(b));

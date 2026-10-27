@@ -1,6 +1,5 @@
+import {$new} from './dom.js';
 import * as GM from './gm.js';
-import {$new} from './helpers.js';
-import {PREFIX} from './constants.js';
 
 export const CSS_SETUP_X = 20;
 export const CSS_SETUP_MAX_Y = 200;

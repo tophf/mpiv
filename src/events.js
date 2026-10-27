@@ -1,18 +1,21 @@
-import {ai, elSetup, cfg} from './state.js';
-import * as Instagram from './instagram.js';
 import * as App from './app.js';
-import {doc, SETTLE_TIME, NOAA_ATTR, PREFIX, isFF, WHEEL_EVENT} from './constants.js';
-import {now, dropEvent, describeKey, isVideo} from './helpers.js';
-import * as Ruler from './rules.js';
-import * as RuleMatcher from './rule-matcher.js';
-import * as Popup from './popup.js';
-import * as Status from './status.js';
-import * as Gallery from './gallery.js';
+import {ai, cfg} from './app.js';
 import * as Bar from './bar.js';
-import * as Req from './request.js';
-import * as GM from './gm.js';
-import * as Util from './util.js';
 import * as Calc from './calc.js';
+import {doc} from './dom.js';
+import * as Gallery from './gallery.js';
+import * as GM from './gm.js';
+import * as Instagram from './instagram.js';
+import * as Popup from './popup.js';
+import {toggleZoom} from './popup.js';
+import * as Req from './request.js';
+import * as RuleMatcher from './rule-matcher.js';
+import * as Ruler from './ruler.js';
+import {elSetup} from './setup.js';
+import * as Status from './status.js';
+import {NOAA_ATTR} from './styles.js';
+import {describeKey, dropEvent, isVideo, now, tabFixUrl} from './util.js';
+import {isFF} from './vars.js';
 
 export let ctrl = false;
 export let hoverData = null;
@@ -20,6 +23,10 @@ export let hoverTimer = 0;
 export let ignoreKeyHeld = false;
 
 export const setCtrl = val => (ctrl = val);
+/** time for volatile things to settle down meanwhile we postpone action
+ * examples: loading image from cache, quickly moving mouse over one element to another */
+export const SETTLE_TIME = 50;
+const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 
 export function onMouseOver(e) {
   if (Instagram.relayEmbedEvent(e)) return;
@@ -111,11 +118,11 @@ export function onMouseDown({shiftKey, button, target}) {
 export function onMouseScroll(e) {
   const dir = (e.deltaY || -e.wheelDelta) < 0 ? 1 : -1;
   if (ai.zoomed) {
-    zoomInOut(dir);
+    Popup.zoomInOut(dir);
   } else if (ai.gNum > 1 && ai.popup) {
     Gallery.next(-dir);
   } else if (cfg.zoom === 'wheel' && dir > 0 && ai.popup) {
-    App.toggleZoom();
+    toggleZoom();
   } else if (App.canClose()) {
     App.deactivate();
     return;
@@ -196,26 +203,26 @@ export function onKeyDown(e) {
         p.muted = !p.muted;
       break;
     case 'KeyN':
-      ai.night = p.classList.toggle(`${PREFIX}night`);
+      ai.night = p.classList.toggle(PREFIX + 'night');
       break;
     case 'KeyT':
-      GM.openInTab(Util.tabFixUrl() || p.src);
+      GM.openInTab(tabFixUrl() || p.src);
       App.deactivate();
       break;
     case 'Minus':
     case 'NumpadSubtract':
       if (ai.zoomed) {
-        zoomInOut(-1);
+        Popup.zoomInOut(-1);
       } else {
-        App.toggleZoom();
+        toggleZoom();
       }
       break;
     case 'Equal':
     case 'NumpadAdd':
       if (ai.zoomed) {
-        zoomInOut(1);
+        Popup.zoomInOut(1);
       } else {
-        App.toggleZoom();
+        toggleZoom();
       }
       break;
     case 'Escape':
@@ -246,7 +253,7 @@ export function onKeyUp(e) {
     if (ai.controlled || !isFF && now() - ai.shiftKeyTime > 500)
       ai.controlled = false;
     else if (p && (ai.zoomed || ai.rectHovered !== false))
-      App.toggleZoom();
+      toggleZoom();
     else
       App.deactivate({wait: true});
     ai.shiftKeyTime = 0;
@@ -270,7 +277,7 @@ export function onContext(e) {
   if (ignoreKeyHeld)
     return;
   const p = ai.popupShown;
-  if (cfg.zoom === 'context' && p && App.toggleZoom()) {
+  if (cfg.zoom === 'context' && p && toggleZoom()) {
     dropEvent(e);
   } else if (!p && (!cfg.videoCtrl || !isVideo(ai.node) || ctrl) && (
     cfg.start === 'context' ||
@@ -325,31 +332,8 @@ export function toggle(enable) {
 export function trackMouse(e) {
   const cx = ai.cx = e.clientX;
   const cy = ai.cy = e.clientY;
-  const r = ai.rect || (ai.rect = Calc.rect());
+  const r = ai.rect ||= Calc.rect();
   ai.rectHovered = !r ? false :
     cx > r.left - 2 && cx < r.right + 2 &&
     cy > r.top - 2 && cy < r.bottom + 2;
-}
-
-export function zoomInOut(dir) {
-  const i = Calc.scaleIndex(dir);
-  const n = ai.scales.length;
-  if (i >= 0 && i < n)
-    ai.scale = ai.scales[i];
-  const zo = cfg.zoomOut;
-  if (i <= 0 && zo !== 'stay') {
-    if (ai.scaleFit < ai.scale * .99) {
-      ai.scales.unshift(ai.scale = ai.scaleFit);
-    } else if ((i <= 0 && zo === 'close' || i < 0 && !ai.rectHovered) && ai.gNum < 2) {
-      App.deactivate({wait: true});
-      return;
-    }
-    ai.zoomed = zo !== 'unzoom';
-  } else {
-    ai.popup.classList.toggle(`${PREFIX}zoom-max`, ai.scale >= 4 && i >= n - 1);
-  }
-  if (ai.zooming)
-    ai.popup.classList.add(`${PREFIX}zooming`);
-  Popup.move();
-  Bar.updateDetails();
 }

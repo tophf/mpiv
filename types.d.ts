@@ -4,6 +4,8 @@ Can be loaded into various IDE so you would see hints and info.
 https://definitelytyped.org/directory/tools.html
  */
 
+var PREFIX = 'mpiv-';
+
 declare namespace mpiv {
 
   type Config = {

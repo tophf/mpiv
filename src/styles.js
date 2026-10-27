@@ -1,11 +1,20 @@
-import {cfg} from './state.js';
-import * as App from './app.js';
-import * as Util from './util.js';
-import {NOAA_ATTR, STATUS_ATTR, PREFIX} from './constants.js';
+import {ai, cfg} from './app.js';
+import * as Config from './config.js';
+import {$new, doc} from './dom.js';
+import {getUiColor} from './util.js';
 
-export function createGlobalStyle() {
-  App.setGlobalStyle((String.raw`
-#\mpiv-bar {
+export let globalStyle = '';
+export let popupStyleBase = '';
+
+export const NOAA_ATTR = 'data-no-aa';
+export const STATUS_ATTR = PREFIX + 'status';
+export const setGlobalStyle = val => (globalStyle = val);
+
+const styles = {__proto__: null};
+
+function createGlobalStyle() {
+  globalStyle = /*language=CSS*/(String.raw`
+#mpiv-bar {
   position: fixed;
   z-index: 2147483647;
   top: 0;
@@ -22,35 +31,35 @@ export function createGlobalStyle() {
   transition: opacity 1s ease .25s;
   opacity: 0;
 }
-#\mpiv-bar[data-force] {
+#mpiv-bar[data-force] {
   transition: none;
 }
-#\mpiv-bar.\mpiv-show {
+#mpiv-bar.mpiv-show {
   opacity: 1;
 }
-#\mpiv-bar[data-zoom][data-prefix]::before {
+#mpiv-bar[data-zoom][data-prefix]::before {
   content: "[" attr(data-prefix) "] ";
   color: gold;
 }
-#\mpiv-bar[data-zoom]:not(:empty)::after {
+#mpiv-bar[data-zoom]:not(:empty)::after {
   content: " (" attr(data-zoom) ")";
   opacity: .8;
 }
-#\mpiv-bar[data-zoom]:empty::after {
+#mpiv-bar[data-zoom]:empty::after {
   content: attr(data-zoom);
 }
-#\mpiv-popup.\mpiv-show {
+#mpiv-popup.mpiv-show {
   display: inline;
 }
-#\mpiv-popup {
+#mpiv-popup {
   display: none;
   cursor: none;
   box-shadow: none;
 ${cfg.uiFadein ? String.raw`
-  animation: .2s \mpiv-fadein both;
+  animation: .2s mpiv-fadein both;
   transition: box-shadow .25s, background-color .25s;
   ` : ''}
-${App.setPopupStyleBase(`
+${popupStyleBase = `
   border: none;
   box-sizing: border-box;
   background-size: cover;
@@ -65,34 +74,34 @@ ${App.setPopupStyleBase(`
   transform-origin: center;
   max-width: none;
   max-height: none;
-`)}
+`}
 }
-#\mpiv-popup.\mpiv-show {
-  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${Util.color('Border')};` : ''}
+#mpiv-popup.mpiv-show {
+  ${cfg.uiBorder ? `border: ${cfg.uiBorder}px solid ${getUiColor('Border')};` : ''}
   ${cfg.uiPadding ? `padding: ${cfg.uiPadding}px;` : ''}
   ${cfg.uiMargin ? `margin: ${cfg.uiMargin}px;` : ''}
 }
-#\mpiv-popup.\mpiv-show${cfg.uiShadowOnLoad ? '[loaded]' : ''} {
-  background-color: ${Util.color('Background')};
-  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${Util.color('Shadow')};` : ''}
+#mpiv-popup.mpiv-show${cfg.uiShadowOnLoad ? '[loaded]' : ''} {
+  background-color: ${getUiColor('Background')};
+  ${cfg.uiShadow ? `box-shadow: 2px 4px ${cfg.uiShadow}px 4px ${getUiColor('Shadow')};` : ''}
 }
-#\mpiv-popup[data-gallery-flip] {
+#mpiv-popup[data-gallery-flip] {
   animation: none;
   transition: none;
 }
-#\mpiv-popup[${NOAA_ATTR}],
-#\mpiv-popup.\mpiv-zoom-max {
+#mpiv-popup[${NOAA_ATTR}],
+#mpiv-popup.mpiv-zoom-max {
   image-rendering: pixelated;
 }
-#\mpiv-popup.\mpiv-night:not(#\\0) {
+#mpiv-popup.mpiv-night:not(#\\0) {
   box-shadow: 0 0 0 ${Math.max(screen.width, screen.height)}px #000;
 }
-body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
+body:has(#mpiv-popup.mpiv-night)::-webkit-scrollbar {
   background: #000;
 }
-#\mpiv-setup {
+#mpiv-setup {
 }
-@keyframes \mpiv-fadein {
+@keyframes mpiv-fadein {
   from {
     opacity: 0;
     border-color: transparent;
@@ -102,40 +111,57 @@ body:has(#\mpiv-popup.\mpiv-night)::-webkit-scrollbar {
   }
 }
 ` + (cfg.globalStatus ? String.raw`
-:root.\mpiv-loading:not(.\mpiv-preloading) *:hover {
+:root.mpiv-loading:not(.mpiv-preloading) *:hover {
   cursor: progress !important;
 }
-:root.\mpiv-edge #\mpiv-popup {
+:root.mpiv-edge #mpiv-popup {
   cursor: default;
 }
-:root.\mpiv-error *:hover {
+:root.mpiv-error *:hover {
   cursor: not-allowed !important;
 }
-:root.\mpiv-ready *:hover,
-:root.\mpiv-large *:hover {
+:root.mpiv-ready *:hover,
+:root.mpiv-large *:hover {
   cursor: zoom-in !important;
 }
-:root.\mpiv-shift *:hover {
+:root.mpiv-shift *:hover {
   cursor: default !important;
 }
 ` : String.raw`
-[\mpiv-status~="loading"]:not([\mpiv-status~="preloading"]):hover {
+[mpiv-status~="loading"]:not([mpiv-status~="preloading"]):hover {
   cursor: progress;
 }
-[\mpiv-status~="edge"]:hover {
+[mpiv-status~="edge"]:hover {
   cursor: default;
 }
-[\mpiv-status~="error"]:hover {
+[mpiv-status~="error"]:hover {
   cursor: not-allowed;
 }
-[\mpiv-status~="ready"]:hover,
-[\mpiv-status~="large"]:hover {
+[mpiv-status~="ready"]:hover,
+[mpiv-status~="large"]:hover {
   cursor: zoom-in;
 }
-[\mpiv-status~="shift"]:hover {
+[mpiv-status~="shift"]:hover {
   cursor: default;
 }
-`)).replace(/\\mpiv-status/g, STATUS_ATTR).replace(/\\mpiv-/g, PREFIX));
-  App.setPopupStyleBase(App.popupStyleBase.replace(/;/g, '!important;'));
-  return App.globalStyle;
+`)).replace(/mpiv-status/g, STATUS_ATTR);
+  popupStyleBase = popupStyleBase.replace(/;/g, '!important;');
+}
+
+function updateStyle(name, css) {
+  const el = styles[name] || css && (
+    styles[name] = typeof GM_addStyle === 'function'
+      ? GM_addStyle(css)
+      : doc.head.appendChild($new('style', css))
+  );
+  if (!el) return;
+  if (el.textContent !== css)
+    el.textContent = css;
+  return el;
+}
+
+export function updateStyles() {
+  if (!globalStyle) createGlobalStyle();
+  updateStyle('global', globalStyle + Config.getCss(cfg));
+  updateStyle('rule', ai.rule.css || '');
 }

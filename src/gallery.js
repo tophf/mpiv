@@ -1,11 +1,10 @@
-import {ai} from './state.js';
-import {isFunction, ensureArray, $$, tryCatch, $} from './helpers.js';
-import {isArray, RX_HAS_CODE} from './constants.js';
-import * as App from './app.js';
+import {ai, startSingle} from './app.js';
 import * as Bar from './bar.js';
-import * as Util from './util.js';
+import {$, $$} from './dom.js';
 import * as Req from './request.js';
-import * as Ruler from './rules.js';
+import * as Ruler from './ruler.js';
+import {ensureArray, isArray, isFunction, newFunction, tryCatch} from './util.js';
+import {RX_HAS_CODE} from './vars.js';
 
 export function makeParser(g) {
   return isFunction(g) ? g : defaultParser;
@@ -28,7 +27,7 @@ export function next(dir) {
   }
   ai.gItemNext = ai.gItems[nextIndex(dir || 1)];
   ai.committed = false;
-  App.startSingle();
+  startSingle();
   Bar.updateName();
   if (dir) Bar.show(0);
 }
@@ -45,13 +44,13 @@ export function defaultParser(text, doc, docUrl, m, rule) {
   const qImage = g.image || 'img';
   const qTitle = g.title;
   const fix =
-    (typeof g.fix === 'string' ? Util.newFunction('s', 'isURL', g.fix) : g.fix) ||
+    (typeof g.fix === 'string' ? newFunction('s', 'isURL', g.fix) : g.fix) ||
     (s => s.trim());
   const elems = [...$$(qEntry || qImage, doc)];
   const items = elems.map(processEntry).filter(Boolean);
   items.title = processTitle();
   items.index =
-    RX_HAS_CODE.test(gi) ? Util.newFunction('items', 'node', gi)(items, ai.node) :
+    RX_HAS_CODE.test(gi) ? newFunction('items', 'node', gi)(items, ai.node) :
       typeof gi === 'string' ? Req.findImageUrl(tryCatch($, gi, doc), docUrl) :
         gi == null ? Math.max(0, elems.indexOf(ai.node)) :
           gi;

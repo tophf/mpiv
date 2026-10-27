@@ -1,24 +1,27 @@
-import {cfg, setElSetup, elSetup, setCfg} from './state.js';
-import {
-  isFunction, $new, clamp, eventModifiers, $css, dropEvent, $propUp, $$, $remove,
-} from './helpers.js';
-import {doc, PREFIX, hostname} from './constants.js';
+import {cfg, setCfg} from './app.js';
 import * as Config from './config.js';
-import {createSetupElement, CSS_SETUP_X, CSS_SETUP_MAX_Y} from './setup-view.js';
+import {$$, $css, $new, $propUp, $remove, doc} from './dom.js';
 import * as GM from './gm.js';
-import * as Util from './util.js';
-import * as App from './app.js';
-import * as Ruler from './rules.js';
 import * as Menu from './menu.js';
 import * as Req from './request.js';
+import * as Ruler from './ruler.js';
+import {createSetupElement, CSS_SETUP_MAX_Y, CSS_SETUP_X} from './setup-view.js';
+import {globalStyle, updateStyles} from './styles.js';
+import * as Util from './util.js';
+import {clamp, deepEqual, dropEvent, eventModifiers, isFunction, stringify} from './util.js';
+import {hostname} from './vars.js';
 
-async function setup({rule} = {}) {
+/** @type {Element} */
+export let elSetup;
+export const setElSetup = val => (elSetup = val);
+
+export async function setup({rule} = {}) {
   if (!isFunction(doc.body.attachShadow)) {
     alert('Cannot show MPIV config dialog: the browser is probably too old.\n' +
           'You can edit the script\'s storage directly in your userscript manager.');
     return;
   }
-  const RULE = setup.RULE || (setup.RULE = Symbol('rule'));
+  const RULE = setup.RULE ||= Symbol('rule');
   let uiCfg;
   let root = (elSetup || 0).shadowRoot;
   let {blankRuleElement} = setup;
@@ -74,7 +77,7 @@ async function setup({rule} = {}) {
     UI._apply.onclick = UI._cancel.onclick = UI._ok.onclick = UI._x.onclick = closeSetup;
     UI._export.onclick = e => {
       dropEvent(e);
-      GM.setClipboard(Util.stringify(collectConfig(), null, '  '));
+      GM.setClipboard(stringify(collectConfig(), null, '  '));
       UI._exportNotification.hidden = false;
       setTimeout(() => (UI._exportNotification.hidden = true), 1000);
     };
@@ -91,8 +94,8 @@ async function setup({rule} = {}) {
       cssApp.hidden = !cssApp.hidden;
       if (!cssApp.hidden) {
         if (!cssApp.value) {
-          App.updateStyles();
-          cssApp.value = App.globalStyle.trim();
+          updateStyles();
+          cssApp.value = globalStyle.trim();
           cssApp.setSelectionRange(0, 0);
         }
         cssApp.focus();
@@ -131,7 +134,7 @@ async function setup({rule} = {}) {
     }
     function colorOnInput() {
       this.elSwatch.style.setProperty('--color',
-        Util.color(this.value, this.elOpacity.valueAsNumber));
+        Util.getUiColor(this.value, this.elOpacity.valueAsNumber));
     }
     // range
     for (const el of $$('[type="range"]', root)) {
@@ -209,7 +212,7 @@ async function setup({rule} = {}) {
         .filter(x => !isNaN(parseFloat(x))),
     });
     if (clone)
-      data = JSON.parse(Util.stringify(data));
+      data = JSON.parse(stringify(data));
     return Config.create({data, save});
   }
 
@@ -261,7 +264,7 @@ async function setup({rule} = {}) {
 
   function installRule(rule) {
     const inputs = UI._rules.children;
-    let el = [...inputs].find(el => Util.deepEqual(el[RULE], rule));
+    let el = [...inputs].find(el => deepEqual(el[RULE], rule));
     if (!el) {
       el = inputs[0];
       el[RULE] = rule;
@@ -329,7 +332,7 @@ async function setup({rule} = {}) {
   }
 }
 
-function setupClickedRule(event) {
+export function setupClickedRule(event) {
   let rule;
   const el = event.target.closest('blockquote, code, pre');
   if (el && !event.button && !eventModifiers(event) && (rule = Ruler.fromElement(el))) {
@@ -339,7 +342,7 @@ function setupClickedRule(event) {
 }
 
 /** @this {HTMLButtonElement} */
-async function setupRuleInstaller(e) {
+export async function setupRuleInstaller(e) {
   dropEvent(e);
   const parent = setup.UI._rules2;
   this.disabled = true;
@@ -432,7 +435,3 @@ async function setupRuleInstaller(e) {
       setup({rule: rules[e.currentTarget.selectedIndex][1]});
   }
 }
-
-export {
-  setup, setupClickedRule, setupRuleInstaller,
-};

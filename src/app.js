@@ -1,33 +1,31 @@
-import {cfg, ai, setAi, elSetup, setTimerProgress, timerProgress} from './state.js';
-import * as Config from './config.js';
-import {dotDomain, PREFIX, isFF, MSG, doc, isArray} from './constants.js';
-import {isVideo, now, isFunction, tryCatch} from './helpers.js';
-import * as Events from './events.js';
-import * as Util from './util.js';
-import * as Calc from './calc.js';
-import * as Status from './status.js';
-import * as Popup from './popup.js';
 import * as Bar from './bar.js';
+import * as Calc from './calc.js';
+import * as Config from './config.js';
 import * as CspSniffer from './csp.js';
-import * as Instagram from './instagram.js';
-import * as Req from './request.js';
-import * as Ruler from './rules.js';
-import * as RuleMatcher from './rule-matcher.js';
+import {doc} from './dom.js';
+import * as Events from './events.js';
 import * as Gallery from './gallery.js';
-import {createGlobalStyle} from './styles.js';
+import * as Instagram from './instagram.js';
+import * as Menu from './menu.js';
+import * as MSG from './msg.js';
+import * as Popup from './popup.js';
+import * as Req from './request.js';
+import * as RuleMatcher from './rule-matcher.js';
+import * as Ruler from './ruler.js';
+import {elSetup, setupClickedRule} from './setup.js';
+import * as Status from './status.js';
+import {updateStyles} from './styles.js';
+import {formatError, isArray, isFunction, isVideo, now, tryCatch, tryJSON} from './util.js';
+import {hostname, isFF} from './vars.js';
 
+/** @type {Partial<mpiv.AppInfo>} */
+export let ai = {rule: {}};
+/** @type {mpiv.Config} */
+export let cfg;
 export let isEnabled = true;
 export let isImageTab = false;
-export let globalStyle = '';
-export let popupStyleBase = '';
-export let NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) &&
-  (() => {});
-export const setGlobalStyle = val => (globalStyle = val);
-export const setNOP = val => (NOP = val);
-export const setIsImageTab = val => (isImageTab = val);
-export const setIsEnabled = val => (isEnabled = val);
-export const setPopupStyleBase = val => (popupStyleBase = val);
-export const tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain);
+export let timerProgress;
+export const setCfg = val => (cfg = val);
 
 export function activate(info, event) {
   const {match, node, rule, url} = info;
@@ -37,11 +35,11 @@ export function activate(info, event) {
   if (auto && vidCtrl && !Events.ctrl)
     return;
   if (ai.node) deactivate();
-  setAi(info);
+  ai = info;
   ai.force = Events.ctrl;
   ai.gNum = 0;
-  ai.zooming = cfg.css.includes(`${PREFIX}zooming`);
-  if (auto) Util.suppressTooltip();
+  ai.zooming = cfg.css.includes(PREFIX + 'zooming');
+  if (auto) suppressTooltip();
   Calc.updateViewSize();
   Events.setCtrl(false);
   Events.toggle(true);
@@ -77,7 +75,7 @@ export function checkProgress({start: startValue} = {}) {
     return canCommit(w, h);
   if (startValue) {
     clearInterval(timerProgress);
-    setTimerProgress(setInterval(checkProgress, 150));
+    timerProgress = setInterval(checkProgress, 150);
   }
 }
 
@@ -121,7 +119,7 @@ export async function commit() {
   updateStyles();
   Calc.measurePopup();
   const willZoom = cfg.zoom === 'auto' || isImageTab && cfg.imgtab;
-  const willMove = !willZoom || toggleZoom({keepScale: true}) === undefined;
+  const willMove = !willZoom || Popup.toggleZoom({keepScale: true}) === undefined;
   if (willMove)
     Popup.move();
   Bar.updateName();
@@ -153,7 +151,7 @@ export function deactivate({wait} = {}) {
     isEnabled = false;
     setTimeout(enable, 200);
   }
-  setAi({rule: {}});
+  ai = {rule: {}};
 }
 
 export function enable() {
@@ -171,7 +169,7 @@ export function handleError(e, rule = ai.rule) {
     Popup.create(ai.imageUrl, ai.pageUrl, e);
     return;
   }
-  const fe = Util.formatError(e, rule);
+  const fe = formatError(e, rule);
   if (!rule || !ai.urls || !ai.urls.length)
     console.warn(...fe);
   if (ai.urls && ai.urls.length) {
@@ -189,10 +187,35 @@ export function handleError(e, rule = ai.rule) {
   }
 }
 
+export async function init() {
+  setCfg(await Config.load({save: true}));
+  let {body} = doc;
+  if (!body) await new Promise(resolve =>
+    new MutationObserver((_, mo) => (body = doc.body) && resolve(mo.disconnect()))
+      .observe(document, {subtree: true, childList: true}));
+  const el = body.firstElementChild;
+  if (el) {
+    isImageTab = el === body.lastElementChild && el.matches('img, video');
+    isEnabled = cfg.imgtab || !isImageTab;
+  }
+  Menu.register();
+  Instagram.initEmbed();
+  addEventListener('mouseover', Events.onMouseOver, true);
+  addEventListener('contextmenu', Events.onContext, true);
+  addEventListener('keydown', Events.onKeyDown, true);
+  addEventListener('visibilitychange', Events.onVisibility, true);
+  addEventListener('blur', Events.onVisibility, true);
+  if (['greasyfork.org', 'github.com'].includes(hostname))
+    addEventListener('click', setupClickedRule, true);
+  addEventListener('message', onMessage, true);
+}
+
 /** @param {MessageEvent} e */
-export function onMessage(e) {
-  if (Instagram.onEmbedMessage(e)) return;
-  if (typeof e.data === 'string' && e.data === MSG.getViewSize) {
+function onMessage(e) {
+  let {data} = e;
+  if (typeof data !== 'string')
+    return;
+  if (data === MSG.getViewSize) {
     e.stopImmediatePropagation();
     for (const el of doc.getElementsByTagName('iframe')) {
       if (el.contentWindow === e.source) {
@@ -201,6 +224,10 @@ export function onMessage(e) {
         return;
       }
     }
+  } else if (data.startsWith(MSG.instaEmbed)
+  && (data = tryJSON(data.slice(MSG.instaEmbed.length)))
+  && data.width > 0 && data.height > 0) {
+    Instagram.onEmbedMessage(e, data);
   }
 }
 
@@ -295,21 +322,17 @@ export function stopTimers(bar) {
   clearInterval(timerProgress);
 }
 
-export function toggleZoom({keepScale} = {}) {
-  const p = ai.popup;
-  if (!p || !ai.scales || ai.scales.length < 2)
-    return;
-  ai.zoomed = !ai.zoomed;
-  ai.scale = ai.zoomed && Calc.scaleForFirstZoom(keepScale) || ai.scales[0];
-  if (ai.zooming)
-    p.classList.add(`${PREFIX}zooming`);
-  Popup.move();
-  Bar.updateDetails();
-  Status.set(ai.zoomed ? 'zoom' : false);
-  return ai.zoomed;
-}
-
-export function updateStyles() {
-  Util.addStyle('global', (globalStyle || createGlobalStyle()) + Config.getCss(cfg));
-  Util.addStyle('rule', ai.rule.css || '');
+function suppressTooltip() {
+  for (const node of [
+    ai.node.parentNode,
+    ai.node,
+    ai.node.firstElementChild,
+  ]) {
+    const t = (node || 0).title;
+    if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
+      ai.tooltip = {node, text: t};
+      node.title = '';
+      break;
+    }
+  }
 }

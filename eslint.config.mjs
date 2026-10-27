@@ -3,10 +3,11 @@ import globals from 'globals';
 export default [{
   files: ['src/**/*.js'],
   languageOptions: {
-    ecmaVersion: 2018,
+    ecmaVersion: 'latest',
     globals: {
       ...globals.browser,
-      ...globals.es2018,
+      ...globals.es2020,
+      PREFIX: false,
       GM: false,
       GM_addElement: false,
       GM_addStyle: false,

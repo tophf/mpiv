@@ -1,25 +1,23 @@
 'use strict';
 
+global.PREFIX = 'mpiv-';
+
 const assert = require('node:assert/strict');
 const {build} = require('esbuild');
 const path = require('node:path');
 const {before, test} = require('node:test');
 const vm = require('node:vm');
+const MSG = require('../src/msg.js');
 
 let source;
 before(async () => {
   source = (await build({
     absWorkingDir: path.resolve(__dirname, '..'),
-    stdin: {
-      contents: `
-        export * as Instagram from './src/instagram.js';
-        export * as Ruler from './src/rules.js';
-        export * as RuleMatcher from './src/rule-matcher.js';
-        export * as State from './src/state.js';
-      `,
-      resolveDir: path.resolve(__dirname, '..'),
-    },
+    entryPoints: [__dirname + '/instagram.mock.js'],
     bundle: true, format: 'iife', globalName: 'api', write: false,
+    define: {
+      PREFIX: '"mpiv-"',
+    },
     plugins: [{
       name: 'embed-event-spies',
       setup(builder) {
@@ -94,16 +92,24 @@ function setup(hostname = 'www.instagram.com', path = '/', globals = {}) {
     console, URL, URLSearchParams, performance,
     window: pageWindow, top: pageWindow,
     document: doc, CSS: {supports: () => false},
-    GM: {getValue() {}, setValue() {}, openInTab() {}, setClipboard() {}, xmlHttpRequest() {}},
+    GM: {
+      info: {script: {}},
+      getValue() {},
+      setValue() {},
+      openInTab() {},
+      setClipboard() {},
+      xmlHttpRequest() {},
+    },
     location: new URL('https://' + hostname + path), isSecureContext: true,
     ...globals,
   });
   vm.runInContext(source, context);
-  context.api.State.setCfg({hosts: [], xhr: true});
-  context.api.State.setAi(globals.ai || {rule: {}});
-  context.api.State.setNonce('');
-  context.api.Ruler.init();
-  return context.api;
+  const {api} = context;
+  api.setAi(globals.ai || {rule: {}});
+  api.setCfg({hosts: [], xhr: true});
+  api.setNonce('');
+  api.Ruler.init();
+  return api;
 }
 
 test('largest srcset candidate wins regardless of order; signed query is preserved', () => {
@@ -342,11 +348,16 @@ test('a MediaSource player in the feed requests video from its own post embed', 
     element('html'), player, rule), 'https://cdn.example/movie.mp4');
 });
 
-function message(source, action = 'mouseover', origin = 'https://s9e.github.io') {
-  return {source, origin, data: {
-    type: 'mpiv-instagram-embed', action, clientX: 20, clientY: 30,
+function message(ctx, source, action = 'mouseover', origin = 'https://s9e.github.io', data) {
+  ctx.Instagram.onEmbedMessage({source, origin}, {
+    action, clientX: 20, clientY: 30,
     width: 540, height: 725, shiftKey: false, ctrlKey: false,
-  }};
+    ...data,
+  });
+}
+
+function collectMessage(messages, data) {
+  return messages.push(JSON.parse(data.slice(MSG.instaEmbed.length)));
 }
 
 test('forum receives hover only from its real embed and translates coordinates', () => {
@@ -354,19 +365,16 @@ test('forum receives hover only from its real embed and translates coordinates',
   const frame = element('iframe', {src: s9eSrc, contentWindow: child,
     rect: {...rect, left: 100, top: 200, width: 540, height: 725}});
   const hovers = [];
-  const {Instagram} = setup('forum.example', '/', {
+  const ctx = setup('forum.example', '/', {
     doc: element('html', {}, [frame]), Events: {onMouseOver: e => hovers.push(e)},
   });
-  Instagram.onEmbedMessage(message(child));
+  message(ctx, child);
   assert.equal(hovers.length, 1);
   assert.equal(hovers[0].target, frame);
   assert.equal(hovers[0].clientX, 120);
   assert.equal(hovers[0].clientY, 230);
-  Instagram.onEmbedMessage(message({}));
-  Instagram.onEmbedMessage(message(child, 'mouseover', 'https://evil.example'));
-  const bad = message(child);
-  bad.data.width = 0;
-  Instagram.onEmbedMessage(bad);
+  message(ctx, {});
+  message(ctx, child, 'mouseover', 'https://evil.example');
   assert.equal(hovers.length, 1);
 });
 
@@ -375,12 +383,12 @@ test('s9e relays the nested Instagram hover to the forum', () => {
   const frame = element('iframe', {src: embedSrc, contentWindow: child,
     rect: {...rect, width: 540, height: 725}});
   const messages = [];
-  const {Instagram} = setup('s9e.github.io', '/iframe/2/instagram.min.html#DeehMyFiD_7', {
+  const ctx = setup('s9e.github.io', '/iframe/2/instagram.min.html#DeehMyFiD_7', {
     window: {}, top: {}, innerWidth: 540, innerHeight: 725,
     doc: element('html', {}, [frame]),
-    parent: {postMessage: data => messages.push(data)},
+    parent: {postMessage: data => collectMessage(messages, data)},
   });
-  Instagram.onEmbedMessage(message(child, 'mouseover', 'https://www.instagram.com'));
+  message(ctx, child, 'mouseover', 'https://www.instagram.com');
   assert.equal(messages.length, 1);
   assert.equal(messages[0].clientX, 20);
   assert.equal(messages[0].clientY, 30);
@@ -391,7 +399,7 @@ test('embed sends media hover/leave while ignoring profile and caption areas', (
   const messages = [];
   const {Instagram} = setup('www.instagram.com', '/p/DeehMyFiD_7/embed/captioned/', {
     window: {}, top: {}, innerWidth: 540, innerHeight: 725,
-    addEventListener() {}, parent: {postMessage: data => messages.push(data)},
+    addEventListener() {}, parent: {postMessage: data => collectMessage(messages, data)},
   });
   Instagram.initEmbed();
   const img = element('img');
@@ -411,16 +419,14 @@ test('embed exit cancels pending hover and active preview; Shift preserves it', 
   const child = {};
   const frame = element('iframe', {src: s9eSrc, contentWindow: child});
   let cancelled = 0, closed = 0;
-  const {Instagram} = setup('forum.example', '/', {
+  const ctx = setup('forum.example', '/', {
     doc: element('html', {}, [frame]), ai: {node: frame},
     Events: {hoverData: {node: frame}, onMouseOutThrottled() { cancelled++; }},
     App: {canClose: () => true, deactivate() { closed++; }},
   });
-  Instagram.onEmbedMessage(message(child, 'mouseout'));
+  message(ctx, child, 'mouseout');
   assert.equal(cancelled, 1);
   assert.equal(closed, 1);
-  const shift = message(child, 'mouseout');
-  shift.data.shiftKey = true;
-  Instagram.onEmbedMessage(shift);
+  message(ctx, child, 'mouseout', undefined, {shiftKey: true});
   assert.equal(closed, 1);
 });

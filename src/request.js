@@ -1,12 +1,12 @@
-import {ai} from './state.js';
-import {tryCatch, $parseHtml, now, isFunction, $new, $prop} from './helpers.js';
-import * as GM from './gm.js';
-import {doc, RX_IMAGE_URL} from './constants.js';
+import {ai, handleError, startSingle} from './app.js';
 import * as Bar from './bar.js';
+import {$new, $parseHtml, $prop, doc} from './dom.js';
+import * as GM from './gm.js';
 import * as RuleMatcher from './rule-matcher.js';
-import * as App from './app.js';
 import * as Status from './status.js';
-import * as Util from './util.js';
+import {decodeHtmlEntities, extractFileExt, isFunction, now, rel2abs, tryCatch} from './util.js';
+
+let RX_IMAGE_URL;
 
 export function gmXhr(url, opts = {}) {
   if (ai.req)
@@ -105,9 +105,9 @@ export async function findRedirect() {
     if (!info || !info.url)
       throw `Couldn't follow redirection target: ${finalUrl}`;
     Object.assign(ai, info);
-    App.startSingle();
+    startSingle();
   } catch (e) {
-    App.handleError(e);
+    handleError(e);
   }
 }
 
@@ -167,7 +167,7 @@ export function guessMimeType({responseHeaders, finalUrl}) {
   if (/Content-Type:\s*(\S+)/i.test(responseHeaders) &&
       !RegExp.$1.includes('text/plain'))
     return RegExp.$1;
-  const ext = Util.extractFileExt(finalUrl) || 'jpg';
+  const ext = extractFileExt(finalUrl) || 'jpg';
   switch (ext.toLowerCase()) {
     case 'bmp': return 'image/bmp';
     case 'gif': return 'image/gif';
@@ -186,6 +186,7 @@ export function guessMimeType({responseHeaders, finalUrl}) {
 
 export function findImageUrl(n, url) {
   if (!n) return;
+  RX_IMAGE_URL ||= /https?:\/\/[^\s"<>]+?\.(jpe?g|gif|png|svg|web[mp]|mp4)[^\s"<>]*|$/i;
   let tmp;
   const path =
     // prefer data-* over `src` which is often a small thumbnail or empty pixel
@@ -194,6 +195,6 @@ export function findImageUrl(n, url) {
     n.getAttribute('href') ||
     n.getAttribute('content') ||
     (tmp = n.outerHTML).includes('http') && tmp.match(RX_IMAGE_URL)[0];
-  return !!path && Util.rel2abs(Util.decodeHtmlEntities(path),
+  return !!path && rel2abs(decodeHtmlEntities(path),
     $prop('base[href]', 'href', n.ownerDocument) || url);
 }

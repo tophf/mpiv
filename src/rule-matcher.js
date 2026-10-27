@@ -1,19 +1,18 @@
-import {ai, cfg} from './state.js';
-import * as Util from './util.js';
-import * as Ruler from './rules.js';
-import {RX_MEDIA_URL} from './constants.js';
+import {ai, cfg} from './app.js';
 import * as Gallery from './gallery.js';
-import {isFunction} from './helpers.js';
+import * as Ruler from './ruler.js';
+import {isFunction, isVideoUrlExt, rel2abs} from './util.js';
+import {RX_MEDIA_URL} from './vars.js';
 
 /** @returns {Object} */
 export function adaptiveFind(node, opts) {
   const tn = node.tagName;
   const src = node.currentSrc || node.src || '';
-  const isPic = tn === 'IMG' || tn === 'VIDEO' && Util.isVideoUrlExt(src);
+  const isPic = tn === 'IMG' || tn === 'VIDEO' && isVideoUrlExt(src);
   let a, info, url;
   // note that data URLs aren't passed to rules as those may have fatally ineffective regexps
   if (tn !== 'A') {
-    url = isPic && !src.startsWith('data:') && Util.rel2abs(src);
+    url = isPic && !src.startsWith('data:') && rel2abs(src);
     info = find(url, node, opts);
   }
   if (!info && (a = node.closest('A'))) {
@@ -34,16 +33,16 @@ export function find(url, node, {noHtml, rules, skipRules} = {}) {
   for (const rule of rules || Ruler.rules) {
     let e, m;
     if (skipRules && skipRules.includes(rule) ||
-        rule.u && (!url || !Ruler.runU(rule, url)) ||
-        !rules && (e = rule.e) &&
-          !(m = typeof e === 'string' ? node.matches(e) : Ruler.runE(rule, e, node)))
+      rule.u && (!url || !Ruler.runU(rule, url)) ||
+      !rules && (e = rule.e) &&
+      !(m = typeof e === 'string' ? node.matches(e) : Ruler.runE(rule, e, node)))
       continue;
     if (m && m.url)
       return m;
     const {r, s} = rule;
     let hasS = s != null;
     h = !(noHtml && rule === ai.rule) && (r || hasS) && rule.html &&
-      (html || (html = node.outerHTML));
+      (html ||= node.outerHTML);
     if (r) {
       m = h ? r.exec(h) : url && r.exec(url);
     } else {
@@ -57,7 +56,8 @@ export function find(url, node, {noHtml, rules, skipRules} = {}) {
       return {};
     // a rule with follow:true for the currently hovered IMG produced a URL,
     // but we'll only allow it to match rules without 's' in the nested find call
-    if (!hasS && !skipRules && (tn ? isPic : isPic = (tn = node.tagName) === 'IMG' || tn === 'VIDEO'))
+    if (!hasS && !skipRules &&
+      (tn ? isPic : isPic = (tn = node.tagName) === 'IMG' || tn === 'VIDEO'))
       continue;
     hasS &= s !== 'gallery';
     const urls = hasS ? Ruler.runS(node, rule, m) : [m.input];
@@ -72,7 +72,7 @@ export function makeInfo(hasS, rule, match, node, skipRules, urls) {
   let url = `${urls[0]}`;
   const follow = url && hasS && !rule.q && isFollowableUrl(url, rule);
   if (url)
-    url = Util.rel2abs(url);
+    url = rel2abs(url);
   else
     info = {};
   if (follow)

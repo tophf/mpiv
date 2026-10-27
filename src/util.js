@@ -1,26 +1,69 @@
-import {cfg, ai, trustedScript} from './state.js';
-import {doc, isArray, RX_MEDIA_URL, isFF, RX_EVAL_BLOCKED} from './constants.js';
-import {$new, $, pick, flattenHtml} from './helpers.js';
-import * as App from './app.js';
+import {ai, cfg} from './app.js';
+import {$, doc} from './dom.js';
+import {dotDomain, isFF, RX_EVAL_BLOCKED, RX_MEDIA_URL, TT} from './vars.js';
 
-export const styles = {__proto__: null};
+export const setNOP = val => (NOP = val);
+export const {from: arrayFrom, isArray} = Array;
 
-export function addStyle(name, css) {
-  const el = styles[name] || css && (
-    styles[name] = typeof GM_addStyle === 'function'
-      ? GM_addStyle(css)
-      : doc.head.appendChild($new('style', css))
-  );
-  if (!el) return;
-  if (el.textContent !== css)
-    el.textContent = css;
-  return el;
-}
+export const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 
-export function color(colorValue, opacity = cfg[`ui${colorValue}Opacity`]) {
-  return (colorValue.startsWith('#') ? colorValue : cfg[`ui${colorValue}Color`]) +
-         (0x100 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
-}
+export const compareNumbers = (a, b) => a - b;
+
+/** @param {KeyboardEvent} e */
+export const describeKey = e => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
+
+export const dropEvent = e => ((e.preventDefault(), e.stopPropagation()));
+
+export const ensureArray = v => isArray(v) ? v : [v];
+
+/** @param {KeyboardEvent} e */
+export const eventModifiers = e =>
+  (e.altKey ? '!' : '') +
+  (e.ctrlKey ? '^' : '') +
+  (e.metaKey ? '#' : '') +
+  (e.shiftKey ? '+' : '');
+
+export const extractFileExt = url => (url = RX_MEDIA_URL.exec(url)) && url[1];
+
+export const flattenHtml = str => str.trim().replace(/\n\s*/g, '');
+
+export const getUiColor = (colorValue, opacity = cfg[`ui${colorValue}Opacity`]) =>
+  (colorValue.startsWith('#') ? colorValue : cfg[`ui${colorValue}Color`]) +
+  (0x100 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
+
+export const isFunction = val => typeof val === 'function';
+
+export const isVideo = el => el && el.tagName === 'VIDEO';
+export const isVideoUrl = url => url.startsWith('data:video') || isVideoUrlExt(url);
+export const isVideoUrlExt = url => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
+
+export const now = performance.now.bind(performance);
+
+export const pick = (obj, path, fn) => {
+  if (obj && path)
+    for (const p of path.split('.'))
+      if (obj) obj = obj[p]; else break;
+  return fn && obj !== undefined ? fn(obj) : obj;
+};
+
+export const sumProps = (...props) => {
+  let sum = 0;
+  for (const p of props)
+    sum += parseFloat(p) || 0;
+  return sum;
+};
+
+export const tryCatch = (fn, ...args) => {
+  try {
+    return fn(...args);
+  } catch (e) {}
+};
+
+export const tryJSON = str => tryCatch(JSON.parse, str);
+
+export let NOP = /\.(facebook|instagram|chrome|google)\.com$/.test(dotDomain) && (() => {});
+export let trustedHTML;
+export let trustedScript;
 
 export function decodeHtmlEntities(s) {
   return s
@@ -53,8 +96,6 @@ export function deepEqual(a, b) {
   return keys.length === Object.keys(b).length &&
     keys.every(k => deepEqual(a[k], b[k]));
 }
-
-export const extractFileExt = url => (url = RX_MEDIA_URL.exec(url)) && url[1];
 
 export function forceLayout(node) {
   // eslint-disable-next-line no-unused-expressions
@@ -93,13 +134,9 @@ export function getReactChildren(el, path) {
       return (el = el[k].children) && (path ? pick(el, path) : el);
 }
 
-export const isVideoUrl = url => url.startsWith('data:video') || isVideoUrlExt(url);
-
-export const isVideoUrlExt = url => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
-
 export function newFunction(...args) {
   try {
-    return App.NOP || (trustedScript
+    return NOP || (trustedScript
       // eslint-disable-next-line no-eval
       ? window.eval(trustedScript(`(function anonymous(${args.slice(0, -1).join(',')}){${args.slice(-1)[0]}})`))
       : new Function(...args) // eslint-disable-line no-new-func
@@ -107,8 +144,8 @@ export function newFunction(...args) {
   } catch (e) {
     if (!RX_EVAL_BLOCKED.test(e.message))
       throw e;
-    App.setNOP(() => {});
-    return App.NOP;
+    setNOP(() => {});
+    return NOP;
   }
 }
 
@@ -130,23 +167,8 @@ export function stringify(...args) {
   return res;
 }
 
-export function suppressTooltip() {
-  for (const node of [
-    ai.node.parentNode,
-    ai.node,
-    ai.node.firstElementChild,
-  ]) {
-    const t = (node || 0).title;
-    if (t && t !== node.textContent && !doc.title.includes(t) && !/^https?:\S+$/.test(t)) {
-      ai.tooltip = {node, text: t};
-      node.title = '';
-      break;
-    }
-  }
-}
-
 export function tabFixUrl() {
-  const {tabfix = App.tabfix} = ai.rule;
+  const {tabfix = /\.(dumpoir|greatfon|picuki)\.com$/.test(dotDomain)} = ai.rule;
   return tabfix && ai.popup.tagName === 'IMG' && !ai.xhr &&
          flattenHtml(`data:text/html;charset=utf8,
     <style>
@@ -175,4 +197,18 @@ export function tabFixUrl() {
       <img onclick="document.body.classList.toggle('fit')" src="${ai.popup.src}">
     </body>
   `).replace(/\x20?([:>])\x20/g, '$1').replace(/#/g, '%23');
+}
+
+if (TT) {
+  const CP = 'createPolicy';
+  const createPolicy = TT[CP];
+  TT[CP] = function ovr(name, opts) {
+    let fn;
+    const p = createPolicy.call(TT, name, opts);
+    if ((trustedHTML || opts[fn = 'createHTML'] && (trustedHTML = p[fn].bind(p))) &&
+        (trustedScript || opts[fn = 'createScript'] && (trustedScript = p[fn].bind(p))) &&
+        TT[CP] === ovr)
+      delete TT[CP];
+    return p;
+  };
 }

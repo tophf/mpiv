@@ -1,5 +1,7 @@
-import {cfg, ai} from './state.js';
-import {STATUS_ATTR, PREFIX, doc, SETTLE_TIME} from './constants.js';
+import {ai, cfg} from './app.js';
+import {doc} from './dom.js';
+import {SETTLE_TIME} from './events.js';
+import {STATUS_ATTR} from './styles.js';
 
 export function set(status) {
   if (!status && !cfg.globalStatus) {

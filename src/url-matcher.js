@@ -1,4 +1,4 @@
-import {ensureArray} from './helpers.js';
+import {ensureArray} from './util.js';
 
 // string-to-regexp escaped chars
 const RX_ESCAPE = /[.+*?(){}[\]^$|]/g;

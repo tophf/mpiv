@@ -1,9 +1,11 @@
-import {cfg, ai} from './state.js';
-import {now, $new, clamp} from './helpers.js';
-import {AudioContext, PREFIX} from './constants.js';
+import {ai, cfg} from './app.js';
 import * as Bar from './bar.js';
-import * as Popup from './popup.js';
+import {$new} from './dom.js';
 import * as GM from './gm.js';
+import * as Popup from './popup.js';
+import {clamp, now} from './util.js';
+
+let ACtx;
 
 export function create(volume) {
   ai.bufBar = false;
@@ -11,7 +13,7 @@ export function create(volume) {
   return $new('video', {
     autoplay: ai.preloadStart !== -1,
     controls: true,
-    muted: cfg.mute || new AudioContext().state === 'suspended',
+    muted: cfg.mute || new (ACtx ||= window.AudioContext || create)().state === 'suspended',
     loop: true,
     volume: clamp(+volume || .5, 0, 1),
     onprogress: progress,
@@ -31,7 +33,7 @@ export function progress() {
 
 export function progressDone() {
   this.onprogress = this.oncanplaythrough = null;
-  if (ai.bar && ai.bar.classList.contains(`${PREFIX}xhr`))
+  if (ai.bar && ai.bar.classList.contains(PREFIX + 'xhr'))
     Bar.set(false);
   Popup.onLoad.call(this);
 }

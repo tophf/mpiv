@@ -1,20 +1,24 @@
-import {ai} from './state.js';
-import {hostname, PREFIX, arrayFrom, isArray} from './constants.js';
-import {$$, clamp, $many, $prop, $, isVideo, tryJSON, pick} from './helpers.js';
+import {ai, canClose, deactivate} from './app.js';
+import {$, $$, $many, $prop} from './dom.js';
 import * as Events from './events.js';
-import * as App from './app.js';
-import * as Util from './util.js';
+import * as MSG from './msg.js';
+import {
+  arrayFrom, clamp, isArray, isVideo, isVideoUrlExt, pick, stringify, tryJSON,
+} from './util.js';
+import {hostname} from './vars.js';
 
 let inEmbed = false;
 let embedHovered = false;
 
 export const links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
+const askParent = data => parent.postMessage(MSG.instaEmbed + stringify(data), '*');
+const S9E = 's9e.github.io';
 
 export function embedUrl(src) {
   let url, code;
   try { url = new URL(src); } catch (e) { return ''; }
   if (!/^https?:$/.test(url.protocol)) return '';
-  if (url.hostname === 's9e.github.io' &&
+  if (url.hostname === S9E &&
       /^\/iframe\/(?:\d+\/)?instagram(?:\.min)?\.html$/.test(url.pathname)) {
     code = url.hash.slice(1).split('#')[0];
   } else if (/(^|\.)instagram\.com$/.test(url.hostname)) {
@@ -25,8 +29,9 @@ export function embedUrl(src) {
 }
 
 export function initEmbed() {
-  if (window === top || !embedUrl(location.href)) return;
-  if (hostname === 's9e.github.io') return; // Only relay messages from its Instagram child.
+  // Only relay messages from its Instagram child.
+  if (window === top || !embedUrl(location.href) || hostname === S9E)
+    return;
   inEmbed = true;
   for (const type of ['mousemove', 'mouseout', 'mousedown'])
     addEventListener(type, relayEmbedEvent, {capture: true, passive: true});
@@ -38,55 +43,46 @@ export function relayEmbedEvent(e) {
   if (e.type === 'mouseout' && media && media.contains(e.relatedTarget)) return true;
   const hovered = !!media && e.type !== 'mouseout';
   if (hovered || embedHovered) {
-    parent.postMessage({
-      type: `${PREFIX}instagram-embed`,
+    askParent({
       action: hovered ? e.type : 'mouseout',
       clientX: e.clientX, clientY: e.clientY,
       width: innerWidth, height: innerHeight,
       shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, button: e.button,
-    }, '*');
+    });
   }
   embedHovered = hovered;
   return true; // The forum displays the popup outside the nested iframe.
 }
 
-export function onEmbedMessage(e) {
-  const data = e.data;
-  if (!data || data.type !== `${PREFIX}instagram-embed`) return false;
-  if (!e.source || !['mouseover', 'mousemove', 'mouseout', 'mousedown'].includes(data.action) ||
-      ![data.clientX, data.clientY, data.width, data.height].every(Number.isFinite) ||
-      data.width <= 0 || data.height <= 0) return true;
+export function onEmbedMessage(e, data) {
+  const frame = [...$$('iframe')].find(el => el.contentWindow === e.source);
   // Trust only an actual, supported child frame; never take a media URL from a message.
-  const frame = arrayFrom($$('iframe')).find(el => el.contentWindow === e.source);
-  if (!frame || !embedUrl(frame.src) || new URL(frame.src).origin !== e.origin)
-    return true;
+  const frameUrl = frame && embedUrl(frame.src);
+  if (!frameUrl || new URL(frame.src).origin !== e.origin)
+    return;
   const r = frame.getBoundingClientRect();
   const clientX = r.left + clamp(data.clientX / data.width, 0, 1) * r.width;
   const clientY = r.top + clamp(data.clientY / data.height, 0, 1) * r.height;
-  if (window !== top && hostname === 's9e.github.io' &&
-      embedUrl(location.href) === embedUrl(frame.src)) {
-    parent.postMessage(Object.assign({}, data, {
-      clientX, clientY, width: innerWidth, height: innerHeight,
-    }), '*');
-    return true;
+  if (window !== top && hostname === S9E && embedUrl(location.href) === frameUrl) {
+    askParent(Object.assign(data, {clientX, clientY, width: innerWidth, height: innerHeight}));
+    return;
   }
-  const event = {
-    target: frame, clientX, clientY, button: data.button,
-    shiftKey: !!data.shiftKey, ctrlKey: !!data.ctrlKey,
-  };
-  if (data.action === 'mouseover') {
-    Events.setCtrl(event.ctrlKey);
-    Events.onMouseOver(event);
-  } else if (data.action === 'mousemove') {
-    if (ai.node === frame) Events.onMouseMove(event);
+  const {action} = data;
+  data.target = frame;
+  data.clientX = clientX;
+  data.clientY = clientY;
+  if (action === 'mouseover') {
+    Events.setCtrl(data.ctrlKey);
+    Events.onMouseOver(data);
+  } else if (action === 'mousemove') {
+    if (ai.node === frame) Events.onMouseMove(data);
   } else {
     if (Events.hoverData && Events.hoverData.node === frame)
       Events.onMouseOutThrottled.call(frame);
-    if (ai.node === frame && !event.shiftKey &&
-        (data.action === 'mousedown' || !ai.zoomed && App.canClose()))
-      App.deactivate();
+    if (ai.node === frame && !data.shiftKey &&
+        (action === 'mousedown' || !ai.zoomed && canClose()))
+      deactivate();
   }
-  return true;
 }
 
 export function embedSource(text, doc, node, rule) {
@@ -155,7 +151,7 @@ export function source(media) {
   if (isVideo(media)) {
     // MediaSource blob URLs cannot be played in a second video element.
     return [media.currentSrc, media.src, ...arrayFrom($$('source', media), el => el.src)]
-      .find(url => valid(url) && Util.isVideoUrlExt(url));
+      .find(url => valid(url) && isVideoUrlExt(url));
   }
   const sources = (media.srcset || '').split(',').map(candidate => {
     const [url, size] = candidate.trim().split(/\s+/);

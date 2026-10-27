@@ -112,6 +112,7 @@ test('native ES modules initialize without relying on bundler variable hoisting'
     const listeners = [];
     const window = {};
     Object.assign(globalThis, {
+      PREFIX: 'mpiv-',
       window, top: window, document: {body: {}},
       location: new URL('https://example.com/'), CSS: {supports: () => false},
       addEventListener: type => listeners.push(type),

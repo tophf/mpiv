@@ -1,9 +1,8 @@
-import {cfg, ai, trustedHTML} from './state.js';
-import {$remove, $new, $dataset} from './helpers.js';
-import {PREFIX, doc} from './constants.js';
-import * as App from './app.js';
-import * as Util from './util.js';
+import {ai, cfg} from './app.js';
 import * as Calc from './calc.js';
+import {$dataset, $new, $remove, doc} from './dom.js';
+import {updateStyles} from './styles.js';
+import {forceLayout, trustedHTML} from './util.js';
 
 export function set(label, cls, prefix) {
   let b = ai.bar;
@@ -13,16 +12,16 @@ export function set(label, cls, prefix) {
     return;
   }
   const force = !b && 0;
-  if (!b) b = ai.bar = $new('div', {id: `${PREFIX}bar`, className: `${PREFIX}${cls}`});
+  if (!b) b = ai.bar = $new('div', {id: PREFIX + 'bar', className: PREFIX + cls});
   ai.barText = label;
-  App.updateStyles();
+  updateStyles();
   updateDetails();
   setText(cfg.uiInfoCaption || cls === 'error' || cls === 'xhr' ? label : '');
   $dataset(b, 'prefix', prefix);
   setTimeout(show, 0, force);
   if (!b.parentNode) {
     doc.body.appendChild(b);
-    Util.forceLayout(b);
+    forceLayout(b);
   }
 }
 
