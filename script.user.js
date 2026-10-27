@@ -3,7 +3,7 @@
 // @namespace   https://github.com/tophf
 // @description Shows images and videos behind links and thumbnails.
 //
-// @include     *
+// @match       *://*/*
 // @run-at      document-start
 //
 // @grant       GM_addElement
