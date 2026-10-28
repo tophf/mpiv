@@ -18,7 +18,7 @@ export async function buildUserscript({check = false, watch = false} = {}) {
     bundle: true,
     format: 'esm',
     platform: 'browser',
-    target: 'es2020',
+    target: ['firefox68', 'chrome86'],
     charset: 'utf8',
     legalComments: 'inline',
     banner: {js: "// Generated from src/ by pnpm run build. Do not edit directly.\n'use strict';"},
