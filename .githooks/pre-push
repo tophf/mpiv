@@ -1,2 +1,2 @@
 #!/bin/sh
-pnpm run lint
+pnpm run-p lint test

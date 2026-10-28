@@ -53,19 +53,17 @@ function element(tag, props = {}, children = []) {
     matches(selector) {
       return selector.split(',').some(part => {
         part = part.trim();
-        if (part.startsWith('.') && part.includes(' ')) {
+        if (part.startsWith('.')) {
           const [parent, tag] = part.split(' ');
-          return this.matches(tag) && !!this.parentElement?.closest(parent);
+          return tag
+            ? this.matches(tag) && !!this.parentElement?.closest(parent)
+            : (this.className || '').split(' ').includes(part.slice(1));
         }
-        if (part.startsWith('.')) return (this.className || '').split(' ').includes(part.slice(1));
-        if (/^[a-z]+$/i.test(part)) return this.tagName === part.toUpperCase();
-        if (part.startsWith('a[href*='))
-          return this.tagName === 'A' && this.href.includes(part.match(/"([^"]+)"/)[1]);
-        if (part === '[role="dialog"]') return this.role === 'dialog';
-        if (part.startsWith('meta['))
-          return this.tagName === 'META' && this.property === part.match(/"([^"]+)"/)[1];
-        if (part.startsWith('script[')) return this.tagName === 'SCRIPT';
-        return false;
+        const [, tag, attr, incl, val] = part.match(/^([a-z]+)?(?:\[(\w+)(?:(\*)?="(.+)")?])?$|$/i);
+        return (!tag || this.tagName === tag.toUpperCase()) && (
+          !attr || this[attr] && (
+            !val || (incl ? this[attr].includes(val) : this[attr] === val)
+          ));
       });
     },
     closest(selector) {
@@ -211,7 +209,9 @@ test('embedded modern carousel data keeps image/video order and chooses largest 
       {},
     ],
   }}};
-  const doc = element('html', {}, [element('script', {textContent: JSON.stringify(data)})]);
+  const doc = element('html', {}, [
+    element('script', {textContent: JSON.stringify(data), type: 'application/json'}),
+  ]);
   const items = Instagram.gallery('<html>', doc, '', ['', '', 'ABC']);
   assert.deepEqual(Array.from(items, item => item.url), [
     'https://cdn.example/large.jpg', 'https://cdn.example/video.mp4',
