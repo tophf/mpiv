@@ -3522,6 +3522,7 @@ function onMouseOver(e) {
     node = pierceShadow(node, e.clientX, e.clientY);
   hoverEvent = e;
   hoverNode = node;
+  hoverNodeOut = null;
   hoverStart = now();
   hoverTimer || (hoverTimer = setTimeout(onMouseOverThrottled, SETTLE_TIME));
   node.addEventListener("mouseout", onMouseOutThrottled);
@@ -3535,12 +3536,12 @@ function onMouseOverThrottled(force) {
   const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
   if (t)
     return;
-  clearHoverData();
   if (!rules)
     init2();
   const info2 = adaptiveFind(hoverNode);
   if (info2 && info2.url && info2.node !== ai.node)
     activate(info2, hoverEvent);
+  clearHoverData();
 }
 function onMouseOut(e) {
   if (!e.relatedTarget && !cfg.keepOnBlur && !e.shiftKey && canClose())

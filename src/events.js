@@ -50,6 +50,7 @@ export function onMouseOver(e) {
   // we don't want to process everything in the path of a quickly moving mouse cursor
   hoverEvent = e;
   hoverNode = node;
+  hoverNodeOut = null;
   hoverStart = now();
   hoverTimer ||= setTimeout(onMouseOverThrottled, SETTLE_TIME);
   node.addEventListener('mouseout', onMouseOutThrottled);
@@ -65,12 +66,12 @@ export function onMouseOverThrottled(force) {
   const t = hoverTimer = wait > 10 && setTimeout(onMouseOverThrottled, wait);
   if (t)
     return;
-  clearHoverData();
   if (!Ruler.rules)
     Ruler.init();
   const info = RuleMatcher.adaptiveFind(hoverNode);
   if (info && info.url && info.node !== ai.node)
     App.activate(info, hoverEvent);
+  clearHoverData();
 }
 
 export function onMouseOut(e) {
