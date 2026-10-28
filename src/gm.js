@@ -1,3 +1,4 @@
+/* global GM GM_info GM_getValue GM_setValue GM_openInTab GM_setClipboard GM_xmlhttpRequest GM_registerMenuCommand GM_unregisterMenuCommand */
 export const {
   info = GM_info,
   getValue = GM_getValue, // we use it only with `await` so no need to return a Promise,

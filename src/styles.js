@@ -150,7 +150,7 @@ body:has(#mpiv-popup.mpiv-night)::-webkit-scrollbar {
 
 function updateStyle(name, css) {
   const el = styles[name] || css && (
-    styles[name] = typeof GM_addStyle === 'function'
+    styles[name] = typeof GM_addStyle === 'function' /* global GM_addStyle */
       ? GM_addStyle(css)
       : doc.head.appendChild($new('style', css))
   );

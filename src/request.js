@@ -122,7 +122,7 @@ export async function saveFile() {
   } else {
     Status.set('+loading');
     const onload = () => Status.set('-loading');
-    const gmDL = typeof GM_download === 'function';
+    const gmDL = typeof GM_download === 'function'; /* global GM_download */
     (gmDL ? GM_download : GM.xmlHttpRequest)({
       url,
       name,

@@ -5,6 +5,7 @@ import * as CspSniffer from './csp.js';
 import {doc} from './dom.js';
 import * as Events from './events.js';
 import * as Gallery from './gallery.js';
+import * as GM from './gm.js';
 import * as Instagram from './instagram.js';
 import * as Menu from './menu.js';
 import * as MSG from './msg.js';

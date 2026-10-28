@@ -3943,8 +3943,8 @@ async function init3() {
   }
   if (window !== top) {
     initEmbed();
-  } else if (GM.registerMenuCommand) {
-    GM.registerMenuCommand("MPIV: configure", setup);
+  } else if (registerMenuCommand) {
+    registerMenuCommand("MPIV: configure", setup);
     registerAlt();
   }
   addEventListener("mouseover", onMouseOver, true);

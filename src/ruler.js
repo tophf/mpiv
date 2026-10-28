@@ -38,7 +38,7 @@ export function init() {
     GM.setValue('cfg', cfg);
   /** @type mpiv.HostRule[] */
   rules = uniq.map(parse, errors).filter(Boolean);
-  const hasGMAE = typeof GM_addElement === 'function';
+  const hasGMAE = typeof GM_addElement === 'function'; /* global GM_addElement */
   const canEval = nonce || setNonce(($('script[nonce]') || {}).nonce || '') || hasGMAE;
   const evalId = canEval && `${GM.info.script.name}${Math.random()}`;
   const evalRules = [];
