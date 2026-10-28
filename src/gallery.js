@@ -65,6 +65,7 @@ export function defaultParser(text, doc, docUrl, m, rule) {
     } catch (e) {}
     return item.url && item;
   }
+  /** @this {HTMLElement} */
   function processCaption(sel) {
     const el = !sel ? this
       : $(sel, this) ||

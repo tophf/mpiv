@@ -2,7 +2,7 @@ import {ai} from './app.js';
 import {$prop} from './dom.js';
 import {isVideoUrl, setNOP} from './util.js';
 
-export let busy;
+let busy;
 /** @type {?Object<string,string[]>} */
 export let csp = null;
 export let nonce;
@@ -43,7 +43,7 @@ export async function check(url, allowInit) {
   return [mode || ai.xhr, isVideo];
 }
 
-export function _parse(cspValue) {
+function _parse(cspValue) {
   if (!cspValue) return;
   const src = {};
   const rx = /(?:^|[;,])\s*(?:(default|img|media|script)-src|require-(trusted)-types-for) ([^;,]+)/g;
@@ -70,7 +70,7 @@ export function _parse(cspValue) {
 }
 
 /** @this string */
-export function _srcMatches(src) {
+function _srcMatches(src) {
   return src instanceof RegExp ? src.test(this) :
     src === '*' ||
     src && this.startsWith(src) && (src.endsWith('/') || this[src.length] === '/') ||

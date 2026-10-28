@@ -32,10 +32,10 @@ export const SETTLE_TIME = 50;
 const WHEEL_EVENT = 'onwheel' in doc ? 'wheel' : 'mousewheel';
 
 export function onMouseOver(e) {
-  if (Instagram.relayEmbedEvent(e)) return;
   let node = e.target;
   ignoreKeyHeld = e.shiftKey;
-  if (!App.isEnabled ||
+  if (Instagram.inEmbed && Instagram.relayEmbedEvent(e) ||
+      !App.isEnabled ||
       e.shiftKey ||
       ai.zoomed ||
       node === ai.popup ||

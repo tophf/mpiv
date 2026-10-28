@@ -37,10 +37,10 @@ export function init() {
   if (uniq.length < src.length)
     GM.setValue('cfg', cfg);
   /** @type mpiv.HostRule[] */
-  const rulesValue = rules = uniq.map(parse, errors).filter(Boolean);
+  rules = uniq.map(parse, errors).filter(Boolean);
   const hasGMAE = typeof GM_addElement === 'function';
   const canEval = nonce || setNonce(($('script[nonce]') || {}).nonce || '') || hasGMAE;
-  const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
+  const evalId = canEval && `${GM.info.script.name}${Math.random()}`;
   const evalRules = [];
   const evalCode = [`window[${JSON.stringify(evalId)}]=[`];
   for (const [rule, err] of errors.entries()) {
@@ -50,7 +50,7 @@ export function init() {
     }
     if (canEval) {
       evalCode.push(evalRules.length ? ',' : '',
-        '[', rulesValue.indexOf(rule), ',{',
+        '[', rules.indexOf(rule), ',{',
         ...Object.keys(FN_ARGS)
           .map(k => RX_HAS_CODE.test(rule[k]) && `${k}(${FN_ARGS[k]}){${rule[k]}},`)
           .filter(Boolean),
@@ -66,7 +66,7 @@ export function init() {
         : (tag, {textContent: txt}) => document.head.appendChild(
           Object.assign(document.createElement(tag), {
             textContent: trustedScript ? trustedScript(txt) : txt,
-            nonce: nonce,
+            nonce,
           }));
       evalCode.push(']; document.currentScript.remove();');
       GMAE('script', {textContent: evalCode.join('')});
@@ -75,7 +75,7 @@ export function init() {
     }
     if (result) {
       for (const [index, fns] of result)
-        Object.assign(rulesValue[index], fns);
+        Object.assign(rules[index], fns);
       delete wnd[evalId];
     } else {
       console.warn('Site forbids compiling JS code in these custom rules', evalRules);
@@ -85,13 +85,13 @@ export function init() {
   // optimization: a rule is created only when on domain
   switch (dotDomain.match(/[^.]+(?=\.com?(?:\.[^.]+)?$)|[^.]+\.[^.]+$|$/)[0]) {
 
-    case '4chan.org': rulesValue.push({
+    case '4chan.org': rules.push({
       e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
       q: '.op .fileText a',
       css: '#post-preview{display:none}',
     }); break;
 
-    case 'amazon': rulesValue.push({
+    case 'amazon': rules.push({
       r: /.+?images\/I\/.+?\./,
       s: m => {
         const uh = doc.getElementById('universal-hover');
@@ -100,14 +100,14 @@ export function init() {
       css: '#zoomWindow{display:none!important;}',
     }); break;
 
-    case 'bing': rulesValue.push({
+    case 'bing': rules.push({
       e: 'a[m*="murl"]',
       r: /murl&quot;:&quot;(.+?)&quot;/,
       s: '$1',
       html: true,
     }); break;
 
-    case 'deviantart': rulesValue.push({
+    case 'deviantart': rules.push({
       e: 'a[href*="/art/"] img[src*="/v1/"]',
       r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
       s: ([, base, name, ext, tok], node) => {
@@ -127,25 +127,25 @@ export function init() {
       q: 'link[as=image]',
     }); break;
 
-    case 'discord': rulesValue.push({
+    case 'discord': rules.push({
       u: '||discordapp.net/external/',
       r: /\/https?\/(.+)/,
       s: '//$1',
       follow: true,
     }); break;
 
-    case 'dropbox': rulesValue.push({
+    case 'dropbox': rules.push({
       r: /(.+?&size_mode)=\d+(.*)/,
       s: '$1=5$2',
     }); break;
 
-    case 'facebook': rulesValue.push({
+    case 'facebook': rules.push({
       e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
       s: (m, el) => (m = getReactChildren(el.parentNode)) &&
         pick(m, (m[0] ? '0.props.linkProps' : 'props') + '.passthroughProps.origSrc'),
     }); break;
 
-    case 'flickr': if (pick(unsafeWindow, 'YUI_config.flickr.api.site_key')) rulesValue.push({
+    case 'flickr': if (pick(unsafeWindow, 'YUI_config.flickr.api.site_key')) rules.push({
       r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
       s: m => `https://www.flickr.com/services/rest/?${
         new URLSearchParams({
@@ -159,7 +159,7 @@ export function init() {
       anonymous: true,
     }); break;
 
-    case 'github': rulesValue.push({
+    case 'github': rules.push({
       r: new RegExp([
         /(avatars.+?&s=)\d+/,
         /(raw\.github)(\.com\/.+?\/img\/.+)$/,
@@ -174,7 +174,7 @@ export function init() {
       }`,
     }); break;
 
-    case 'google': if (location.pathname === '/search') rulesValue.push({
+    case 'google': if (location.pathname === '/search') rules.push({
       e: /[&?](sclient=img|udm=2)(&|$)/.test(location.search)
         ? '[data-docid] img'
         : '[jsdata][id] img',
@@ -193,13 +193,13 @@ export function init() {
       },
     }); break;
 
-    case 'instagram': rulesValue.push({
+    case 'instagram': rules.push({
       e: 'img, video, main div, article div, [role="dialog"] div, ' + Instagram.links,
       s: Instagram.preview,
       c: (html, doc, node, rule) => (rule._img || {}).alt || '',
     }); break;
 
-    case 'reddit': rulesValue.push({
+    case 'reddit': rules.push({
       u: '||i.reddituploads.com/',
     }, {
       e: '[data-url*="i.redd.it"] img[src*="thumb"]',
@@ -209,31 +209,31 @@ export function init() {
       s: 'https://i$1',
     }); break;
 
-    case 'stackoverflow': rulesValue.push({
+    case 'stackoverflow': rules.push({
       e: '.post-tag, .post-tag img',
       s: '',
     }); break;
 
-    case 'startpage': rulesValue.push({
+    case 'startpage': rules.push({
       r: /[&?]piurl=([^&]+)/,
       s: '$1',
       follow: true,
     }); break;
 
-    case 'tumblr': rulesValue.push({
+    case 'tumblr': rules.push({
       e: 'div.photo_stage_img, div.photo_stage > canvas',
       s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute('data-img-src'))[0],
       follow: true,
     }); break;
 
-    case 'twitter': rulesValue.push({
+    case 'twitter': rules.push({
       e: '.grid-tweet > .media-overlay',
       s: (m, node) => node.previousElementSibling.src,
       follow: true,
     }); break;
   }
 
-  addBuiltinRules(rulesValue);
+  addBuiltinRules(rules);
 }
 
 export function format(rule, {expand} = {}) {

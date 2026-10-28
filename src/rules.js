@@ -6,12 +6,6 @@ import {tryJSON} from './util.js';
 import {dotDomain, hostname, RX_MEDIA_URL} from './vars.js';
 
 export const addBuiltinRules = rules => rules.push({
-  e: 'iframe',
-  s: (m, node) => Instagram.embedUrl(node.src) || false,
-  q: Instagram.embedSource,
-  c: (text, doc) => $prop('.EmbeddedMediaImage', 'alt', doc),
-},
-{
   r: /[/?=](https?%3A%2F%2F[^&]+)/i,
   s: '$1',
   follow: true,
@@ -305,6 +299,12 @@ export const addBuiltinRules = rules => rules.push({
   r: /^https?:\/\/[^/]+\/(?:[^/?#]+\/)?((?:p|tv|reels?)\/((?!audio(?:[/?#]|$))[\w-]+))(?=[/?#]|$)/,
   s: m => `https://www.instagram.com/p/${m[2]}/embed/captioned/`,
   g: Instagram.gallery,
+},
+{
+  e: 'iframe[src*="instagram"]',
+  s: (m, node) => Instagram.embedUrl(node.src) || false,
+  q: Instagram.embedSource,
+  c: (text, doc) => $prop('.EmbeddedMediaImage', 'alt', doc),
 },
 {
   u: [

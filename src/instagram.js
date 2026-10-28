@@ -7,16 +7,16 @@ import {
 } from './util.js';
 import {hostname} from './vars.js';
 
-let inEmbed = false;
+export let inEmbed = false;
 let embedHovered = false;
 
 export const links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
 const askParent = data => parent.postMessage(MSG.instaEmbed + stringify(data), '*');
 const S9E = 's9e.github.io';
 
-export function embedUrl(src) {
-  let url, code;
-  try { url = new URL(src); } catch (e) { return ''; }
+export function embedUrl(src, url) {
+  let code;
+  if (!url) try { url = new URL(src); } catch (e) { return ''; }
   if (!/^https?:$/.test(url.protocol)) return '';
   if (url.hostname === S9E &&
       /^\/iframe\/(?:\d+\/)?instagram(?:\.min)?\.html$/.test(url.pathname)) {
@@ -30,7 +30,7 @@ export function embedUrl(src) {
 
 export function initEmbed() {
   // Only relay messages from its Instagram child.
-  if (window === top || !embedUrl(location.href) || hostname === S9E)
+  if (hostname === S9E || !embedUrl('', location))
     return;
   inEmbed = true;
   for (const type of ['mousemove', 'mouseout', 'mousedown'])
@@ -38,9 +38,9 @@ export function initEmbed() {
 }
 
 export function relayEmbedEvent(e) {
-  if (!inEmbed) return false;
   const media = e.target.closest && e.target.closest('.EmbeddedMedia, .EmbedFrame');
-  if (e.type === 'mouseout' && media && media.contains(e.relatedTarget)) return true;
+  if (e.type === 'mouseout' && media && media.contains(e.relatedTarget))
+    return true;
   const hovered = !!media && e.type !== 'mouseout';
   if (hovered || embedHovered) {
     askParent({
@@ -63,7 +63,7 @@ export function onEmbedMessage(e, data) {
   const r = frame.getBoundingClientRect();
   const clientX = r.left + clamp(data.clientX / data.width, 0, 1) * r.width;
   const clientY = r.top + clamp(data.clientY / data.height, 0, 1) * r.height;
-  if (window !== top && hostname === S9E && embedUrl(location.href) === frameUrl) {
+  if (window !== top && hostname === S9E && embedUrl('', location) === frameUrl) {
     askParent(Object.assign(data, {clientX, clientY, width: innerWidth, height: innerHeight}));
     return;
   }

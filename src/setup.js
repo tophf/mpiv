@@ -13,7 +13,7 @@ import {hostname} from './vars.js';
 
 /** @type {Element} */
 export let elSetup;
-export const setElSetup = val => (elSetup = val);
+let RULE, UI, blankRuleElement, root, searchValue;
 
 export async function setup({rule} = {}) {
   if (!isFunction(doc.body.attachShadow)) {
@@ -21,17 +21,11 @@ export async function setup({rule} = {}) {
           'You can edit the script\'s storage directly in your userscript manager.');
     return;
   }
-  const RULE = setup.RULE ||= Symbol('rule');
+  RULE ||= Symbol('rule');
   let uiCfg;
-  let root = (elSetup || 0).shadowRoot;
-  let {blankRuleElement} = setup;
   let mover, moveX = 0, moveY = 0, moveBaseX = 0, moveBaseY = 0;
   /** @type {{[id:string]: HTMLElement}} */
-  const UI = setup.UI = new Proxy({}, {
-    get(_, id) {
-      return root.getElementById(id);
-    },
-  });
+  UI ||= new Proxy({}, {get: (_, id) => root.getElementById(id)});
   if (!elSetup)
     build();
   if (elSetup.parentElement !== doc.body) {
@@ -42,7 +36,7 @@ export async function setup({rule} = {}) {
     installRule(rule);
 
   function build() {
-    setElSetup($new('div', {contentEditable: true}));
+    elSetup = $new('div', {contentEditable: true});
     root = elSetup.attachShadow({mode: 'open'});
     root.append(...createSetupElement());
     initEvents();
@@ -191,7 +185,7 @@ export async function setup({rule} = {}) {
         return renderVolatiles();
     }
     $remove(elSetup);
-    setElSetup(null);
+    elSetup = null;
   }
 
   function collectConfig({save, clone} = {}) {
@@ -288,9 +282,7 @@ export async function setup({rule} = {}) {
     rules.addEventListener('input', checkRule);
     rules.addEventListener('focusin', focusRule);
     rules.addEventListener('paste', focusRule);
-    blankRuleElement =
-      setup.blankRuleElement =
-        setup.blankRuleElement || rules.firstElementChild.cloneNode();
+    blankRuleElement ||= rules.firstElementChild.cloneNode();
     if (blankRuleElement.nextElementSibling) {
       rules.textContent = '';
       rules.appendChild(blankRuleElement.cloneNode());
@@ -301,15 +293,14 @@ export async function setup({rule} = {}) {
       rules.appendChild(el);
       checkRule({target: el});
     }
-    const search = UI._search;
+    const search = /**@type{HTMLInputElement}*/ UI._search;
     search.oninput = () => {
-      setup.search = search.value;
+      searchValue = search.value;
       const s = search.value.toLowerCase();
       for (const el of rules.children)
         el.hidden = s && !el.value.toLowerCase().includes(s);
     };
-    search.value = setup.search || '';
-    if (search.value)
+    if ((search.value = searchValue || ''))
       search.oninput();
   }
 
@@ -342,9 +333,9 @@ export function setupClickedRule(event) {
 }
 
 /** @this {HTMLButtonElement} */
-export async function setupRuleInstaller(e) {
+async function setupRuleInstaller(e) {
   dropEvent(e);
-  const parent = setup.UI._rules2;
+  const parent = UI._rules2;
   this.disabled = true;
   this.textContent = 'Loading...';
   let rules;

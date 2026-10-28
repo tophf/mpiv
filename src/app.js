@@ -12,7 +12,7 @@ import * as Popup from './popup.js';
 import * as Req from './request.js';
 import * as RuleMatcher from './rule-matcher.js';
 import * as Ruler from './ruler.js';
-import {elSetup, setupClickedRule} from './setup.js';
+import {elSetup, setup, setupClickedRule} from './setup.js';
 import * as Status from './status.js';
 import {updateStyles} from './styles.js';
 import {formatError, isArray, isFunction, isVideo, now, tryCatch, tryJSON} from './util.js';
@@ -188,7 +188,7 @@ export function handleError(e, rule = ai.rule) {
 }
 
 export async function init() {
-  setCfg(await Config.load({save: true}));
+  cfg = await Config.load({save: true});
   let {body} = doc;
   if (!body) await new Promise(resolve =>
     new MutationObserver((_, mo) => (body = doc.body) && resolve(mo.disconnect()))
@@ -198,8 +198,12 @@ export async function init() {
     isImageTab = el === body.lastElementChild && el.matches('img, video');
     isEnabled = cfg.imgtab || !isImageTab;
   }
-  Menu.register();
-  Instagram.initEmbed();
+  if (window !== top) {
+    Instagram.initEmbed();
+  } else if (GM.registerMenuCommand) {
+    GM.registerMenuCommand('MPIV: configure', setup);
+    Menu.registerAlt();
+  }
   addEventListener('mouseover', Events.onMouseOver, true);
   addEventListener('contextmenu', Events.onContext, true);
   addEventListener('keydown', Events.onKeyDown, true);

@@ -27,15 +27,15 @@ export const extractFileExt = url => (url = RX_MEDIA_URL.exec(url)) && url[1];
 
 export const flattenHtml = str => str.trim().replace(/\n\s*/g, '');
 
-export const getUiColor = (colorValue, opacity = cfg[`ui${colorValue}Opacity`]) =>
-  (colorValue.startsWith('#') ? colorValue : cfg[`ui${colorValue}Color`]) +
+export const getUiColor = (color, opacity = cfg[`ui${color}Opacity`]) =>
+  (color.startsWith('#') ? color : cfg[`ui${color}Color`]) +
   (0x100 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
 
 export const isFunction = val => typeof val === 'function';
 
 export const isVideo = el => el && el.tagName === 'VIDEO';
 export const isVideoUrl = url => url.startsWith('data:video') || isVideoUrlExt(url);
-export const isVideoUrlExt = url => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
+export const isVideoUrlExt = url => /^(webm|mp4)$/i.test(extractFileExt(url));
 
 export const now = performance.now.bind(performance);
 

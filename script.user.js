@@ -79,11 +79,11 @@ var ensureArray = (v) => isArray(v) ? v : [v];
 var eventModifiers = (e) => (e.altKey ? "!" : "") + (e.ctrlKey ? "^" : "") + (e.metaKey ? "#" : "") + (e.shiftKey ? "+" : "");
 var extractFileExt = (url) => (url = RX_MEDIA_URL.exec(url)) && url[1];
 var flattenHtml = (str) => str.trim().replace(/\n\s*/g, "");
-var getUiColor = (colorValue, opacity = cfg[`ui${colorValue}Opacity`]) => (colorValue.startsWith("#") ? colorValue : cfg[`ui${colorValue}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
+var getUiColor = (color, opacity = cfg[`ui${color}Opacity`]) => (color.startsWith("#") ? color : cfg[`ui${color}Color`]) + (256 + Math.round(opacity / 100 * 255)).toString(16).slice(1);
 var isFunction = (val) => typeof val === "function";
 var isVideo = (el) => el && el.tagName === "VIDEO";
 var isVideoUrl = (url) => url.startsWith("data:video") || isVideoUrlExt(url);
-var isVideoUrlExt = (url) => (url = extractFileExt(url)) && /^(webm|mp4)$/i.test(url);
+var isVideoUrlExt = (url) => /^(webm|mp4)$/i.test(extractFileExt(url));
 var now = performance.now.bind(performance);
 var pick = (obj, path, fn) => {
   if (obj && path)
@@ -830,9 +830,9 @@ var embedHovered = false;
 var links = 'a[href*="/p/"], a[href*="/tv/"], a[href*="/reel/"], a[href*="/reels/"]';
 var askParent = (data) => parent.postMessage(instaEmbed + stringify(data), "*");
 var S9E = "s9e.github.io";
-function embedUrl(src) {
-  let url, code;
-  try {
+function embedUrl(src, url) {
+  let code;
+  if (!url) try {
     url = new URL(src);
   } catch (e) {
     return "";
@@ -846,16 +846,16 @@ function embedUrl(src) {
   return code && /^[\w-]+$/.test(code) ? `https://www.instagram.com/p/${code}/embed/captioned/` : "";
 }
 function initEmbed() {
-  if (window === top || !embedUrl(location.href) || hostname === S9E)
+  if (hostname === S9E || !embedUrl("", location))
     return;
   inEmbed = true;
   for (const type of ["mousemove", "mouseout", "mousedown"])
     addEventListener(type, relayEmbedEvent, { capture: true, passive: true });
 }
 function relayEmbedEvent(e) {
-  if (!inEmbed) return false;
   const media = e.target.closest && e.target.closest(".EmbeddedMedia, .EmbedFrame");
-  if (e.type === "mouseout" && media && media.contains(e.relatedTarget)) return true;
+  if (e.type === "mouseout" && media && media.contains(e.relatedTarget))
+    return true;
   const hovered = !!media && e.type !== "mouseout";
   if (hovered || embedHovered) {
     askParent({
@@ -880,7 +880,7 @@ function onEmbedMessage(e, data) {
   const r = frame.getBoundingClientRect();
   const clientX = r.left + clamp(data.clientX / data.width, 0, 1) * r.width;
   const clientY = r.top + clamp(data.clientY / data.height, 0, 1) * r.height;
-  if (window !== top && hostname === S9E && embedUrl(location.href) === frameUrl) {
+  if (window !== top && hostname === S9E && embedUrl("", location) === frameUrl) {
     askParent(Object.assign(data, { clientX, clientY, width: innerWidth, height: innerHeight }));
     return;
   }
@@ -1014,12 +1014,6 @@ function gallery(text, doc2, url, m) {
 
 // src/rules.js
 var addBuiltinRules = (rules2) => rules2.push(
-  {
-    e: "iframe",
-    s: (m, node) => embedUrl(node.src) || false,
-    q: embedSource,
-    c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
-  },
   {
     r: /[/?=](https?%3A%2F%2F[^&]+)/i,
     s: "$1",
@@ -1294,6 +1288,12 @@ var addBuiltinRules = (rules2) => rules2.push(
     g: gallery
   },
   {
+    e: 'iframe[src*="instagram"]',
+    s: (m, node) => embedUrl(node.src) || false,
+    q: embedSource,
+    c: (text, doc2) => $prop(".EmbeddedMediaImage", "alt", doc2)
+  },
+  {
     u: [
       "||livememe.com/",
       "||lvme.me/"
@@ -1542,10 +1542,10 @@ function init2() {
   const uniq = src.filter((r, i, arr) => !i || !deepEqual(r, arr[i - 1]));
   if (uniq.length < src.length)
     setValue("cfg", cfg);
-  const rulesValue = rules = uniq.map(parse, errors).filter(Boolean);
+  rules = uniq.map(parse, errors).filter(Boolean);
   const hasGMAE = typeof GM_addElement === "function";
   const canEval = nonce || setNonce(($("script[nonce]") || {}).nonce || "") || hasGMAE;
-  const evalId = canEval && `${GM_info.script.name}${Math.random()}`;
+  const evalId = canEval && `${info.script.name}${Math.random()}`;
   const evalRules = [];
   const evalCode = [`window[${JSON.stringify(evalId)}]=[`];
   for (const [rule, err] of errors.entries()) {
@@ -1557,7 +1557,7 @@ function init2() {
       evalCode.push(
         evalRules.length ? "," : "",
         "[",
-        rulesValue.indexOf(rule),
+        rules.indexOf(rule),
         ",{",
         ...Object.keys(FN_ARGS).map((k) => RX_HAS_CODE.test(rule[k]) && `${k}(${FN_ARGS[k]}){${rule[k]}},`).filter(Boolean),
         "}]"
@@ -1580,7 +1580,7 @@ function init2() {
     }
     if (result) {
       for (const [index, fns] of result)
-        Object.assign(rulesValue[index], fns);
+        Object.assign(rules[index], fns);
       delete wnd[evalId];
     } else {
       console.warn("Site forbids compiling JS code in these custom rules", evalRules);
@@ -1588,14 +1588,14 @@ function init2() {
   }
   switch (dotDomain.match(/[^.]+(?=\.com?(?:\.[^.]+)?$)|[^.]+\.[^.]+$|$/)[0]) {
     case "4chan.org":
-      rulesValue.push({
+      rules.push({
         e: '.is_catalog .thread a[href*="/thread/"], .catalog-thread a[href*="/thread/"]',
         q: ".op .fileText a",
         css: "#post-preview{display:none}"
       });
       break;
     case "amazon":
-      rulesValue.push({
+      rules.push({
         r: /.+?images\/I\/.+?\./,
         s: (m) => {
           const uh = doc.getElementById("universal-hover");
@@ -1605,7 +1605,7 @@ function init2() {
       });
       break;
     case "bing":
-      rulesValue.push({
+      rules.push({
         e: 'a[m*="murl"]',
         r: /murl&quot;:&quot;(.+?)&quot;/,
         s: "$1",
@@ -1613,7 +1613,7 @@ function init2() {
       });
       break;
     case "deviantart":
-      rulesValue.push({
+      rules.push({
         e: 'a[href*="/art/"] img[src*="/v1/"]',
         r: /^(.+)\/v1\/\w+\/[^/]+\/(.+)-\d+.(\.\w+)(\?.+)/,
         s: ([, base, name, ext, tok], node) => {
@@ -1632,7 +1632,7 @@ function init2() {
       });
       break;
     case "discord":
-      rulesValue.push({
+      rules.push({
         u: "||discordapp.net/external/",
         r: /\/https?\/(.+)/,
         s: "//$1",
@@ -1640,19 +1640,19 @@ function init2() {
       });
       break;
     case "dropbox":
-      rulesValue.push({
+      rules.push({
         r: /(.+?&size_mode)=\d+(.*)/,
         s: "$1=5$2"
       });
       break;
     case "facebook":
-      rulesValue.push({
+      rules.push({
         e: 'a[href^="/photo/?"], a[href^="https://www.facebook.com/photo"]',
         s: (m, el) => (m = getReactChildren(el.parentNode)) && pick(m, (m[0] ? "0.props.linkProps" : "props") + ".passthroughProps.origSrc")
       });
       break;
     case "flickr":
-      if (pick(unsafeWindow, "YUI_config.flickr.api.site_key")) rulesValue.push({
+      if (pick(unsafeWindow, "YUI_config.flickr.api.site_key")) rules.push({
         r: /flickr\.com\/photos\/[^/]+\/(\d+)/,
         s: (m) => `https://www.flickr.com/services/rest/?${new URLSearchParams({
           photo_id: m[1],
@@ -1666,7 +1666,7 @@ function init2() {
       });
       break;
     case "github":
-      rulesValue.push({
+      rules.push({
         r: new RegExp([
           /(avatars.+?&s=)\d+/,
           /(raw\.github)(\.com\/.+?\/img\/.+)$/,
@@ -1676,7 +1676,7 @@ function init2() {
       });
       break;
     case "google":
-      if (location.pathname === "/search") rulesValue.push({
+      if (location.pathname === "/search") rules.push({
         e: /[&?](sclient=img|udm=2)(&|$)/.test(location.search) ? "[data-docid] img" : "[jsdata][id] img",
         s: (m, el, rule) => {
           el = el.closest(rule.e.split(" ")[0]);
@@ -1694,14 +1694,14 @@ function init2() {
       });
       break;
     case "instagram":
-      rulesValue.push({
+      rules.push({
         e: 'img, video, main div, article div, [role="dialog"] div, ' + links,
         s: preview,
         c: (html, doc2, node, rule) => (rule._img || {}).alt || ""
       });
       break;
     case "reddit":
-      rulesValue.push({
+      rules.push({
         u: "||i.reddituploads.com/"
       }, {
         e: '[data-url*="i.redd.it"] img[src*="thumb"]',
@@ -1712,34 +1712,34 @@ function init2() {
       });
       break;
     case "stackoverflow":
-      rulesValue.push({
+      rules.push({
         e: ".post-tag, .post-tag img",
         s: ""
       });
       break;
     case "startpage":
-      rulesValue.push({
+      rules.push({
         r: /[&?]piurl=([^&]+)/,
         s: "$1",
         follow: true
       });
       break;
     case "tumblr":
-      rulesValue.push({
+      rules.push({
         e: "div.photo_stage_img, div.photo_stage > canvas",
         s: (m, node) => /http[^"]+/.exec(node.style.cssText + node.getAttribute("data-img-src"))[0],
         follow: true
       });
       break;
     case "twitter":
-      rulesValue.push({
+      rules.push({
         e: ".grid-tweet > .media-overlay",
         s: (m, node) => node.previousElementSibling.src,
         follow: true
       });
       break;
   }
-  addBuiltinRules(rulesValue);
+  addBuiltinRules(rules);
 }
 function format(rule, { expand } = {}) {
   const s = stringify(rule, null, " ");
@@ -2488,12 +2488,6 @@ function zoomInOut(dir) {
 var curAltName = "";
 var unreg = unregisterMenuCommand;
 var makeAltName = () => unreg ? `MPIV: auto-start is ${cfg.start === "auto" ? "ON" : "OFF"}` : "MPIV: toggle auto-start";
-function register() {
-  if (window !== top || !registerMenuCommand)
-    return;
-  registerMenuCommand("MPIV: configure", setup);
-  registerAlt();
-}
 function registerAlt() {
   if (cfg.startAltShown) {
     curAltName = makeAltName();
@@ -3129,22 +3123,20 @@ function createSetupElement() {
 
 // src/setup.js
 var elSetup;
-var setElSetup = (val) => elSetup = val;
+var RULE;
+var UI;
+var blankRuleElement;
+var root;
+var searchValue;
 async function setup({ rule } = {}) {
   if (!isFunction(doc.body.attachShadow)) {
     alert("Cannot show MPIV config dialog: the browser is probably too old.\nYou can edit the script's storage directly in your userscript manager.");
     return;
   }
-  const RULE = setup.RULE || (setup.RULE = /* @__PURE__ */ Symbol("rule"));
+  RULE || (RULE = /* @__PURE__ */ Symbol("rule"));
   let uiCfg;
-  let root = (elSetup || 0).shadowRoot;
-  let { blankRuleElement } = setup;
   let mover, moveX = 0, moveY = 0, moveBaseX = 0, moveBaseY = 0;
-  const UI = setup.UI = new Proxy({}, {
-    get(_, id) {
-      return root.getElementById(id);
-    }
-  });
+  UI || (UI = new Proxy({}, { get: (_, id) => root.getElementById(id) }));
   if (!elSetup)
     build();
   if (elSetup.parentElement !== doc.body) {
@@ -3154,7 +3146,7 @@ async function setup({ rule } = {}) {
   if (rule)
     installRule(rule);
   function build() {
-    setElSetup($new("div", { contentEditable: true }));
+    elSetup = $new("div", { contentEditable: true });
     root = elSetup.attachShadow({ mode: "open" });
     root.append(...createSetupElement());
     initEvents();
@@ -3303,7 +3295,7 @@ async function setup({ rule } = {}) {
         return renderVolatiles();
     }
     $remove(elSetup);
-    setElSetup(null);
+    elSetup = null;
   }
   function collectConfig({ save, clone } = {}) {
     let data = {};
@@ -3381,7 +3373,7 @@ async function setup({ rule } = {}) {
     rules2.addEventListener("input", checkRule);
     rules2.addEventListener("focusin", focusRule);
     rules2.addEventListener("paste", focusRule);
-    blankRuleElement = setup.blankRuleElement = setup.blankRuleElement || rules2.firstElementChild.cloneNode();
+    blankRuleElement || (blankRuleElement = rules2.firstElementChild.cloneNode());
     if (blankRuleElement.nextElementSibling) {
       rules2.textContent = "";
       rules2.appendChild(blankRuleElement.cloneNode());
@@ -3392,15 +3384,17 @@ async function setup({ rule } = {}) {
       rules2.appendChild(el);
       checkRule({ target: el });
     }
-    const search = UI._search;
+    const search = (
+      /**@type{HTMLInputElement}*/
+      UI._search
+    );
     search.oninput = () => {
-      setup.search = search.value;
+      searchValue = search.value;
       const s = search.value.toLowerCase();
       for (const el of rules2.children)
         el.hidden = s && !el.value.toLowerCase().includes(s);
     };
-    search.value = setup.search || "";
-    if (search.value)
+    if (search.value = searchValue || "")
       search.oninput();
   }
   function renderVolatiles() {
@@ -3430,7 +3424,7 @@ function setupClickedRule(event) {
 }
 async function setupRuleInstaller(e) {
   dropEvent(e);
-  const parent2 = setup.UI._rules2;
+  const parent2 = UI._rules2;
   this.disabled = true;
   this.textContent = "Loading...";
   let rules2;
@@ -3520,10 +3514,9 @@ var setCtrl = (val) => ctrl = val;
 var SETTLE_TIME = 50;
 var WHEEL_EVENT = "onwheel" in doc ? "wheel" : "mousewheel";
 function onMouseOver(e) {
-  if (relayEmbedEvent(e)) return;
   let node = e.target;
   ignoreKeyHeld = e.shiftKey;
-  if (!isEnabled || e.shiftKey || ai.zoomed || node === ai.popup || node === doc.body || node === doc.documentElement || node === elSetup || ai.gallery && ai.rectHovered || !canClose())
+  if (inEmbed && relayEmbedEvent(e) || !isEnabled || e.shiftKey || ai.zoomed || node === ai.popup || node === doc.body || node === doc.documentElement || node === elSetup || ai.gallery && ai.rectHovered || !canClose())
     return;
   if (node.shadowRoot)
     node = pierceShadow(node, e.clientX, e.clientY);
@@ -3559,10 +3552,10 @@ function onMouseOutThrottled() {
   hoverTimer = 0;
 }
 function onMouseOutShadow(e) {
-  const root = e.target.shadowRoot;
-  if (root) {
-    root.removeEventListener("mouseover", onMouseOver);
-    root.removeEventListener("mouseout", onMouseOutShadow);
+  const root2 = e.target.shadowRoot;
+  if (root2) {
+    root2.removeEventListener("mouseover", onMouseOver);
+    root2.removeEventListener("mouseout", onMouseOutShadow);
   }
 }
 function onMouseMove(e) {
@@ -3767,10 +3760,10 @@ function onVisibility() {
   ctrl = false;
 }
 function pierceShadow(node, x, y) {
-  for (let root; root = node.shadowRoot; ) {
-    root.addEventListener("mouseover", onMouseOver, { passive: true });
-    root.addEventListener("mouseout", onMouseOutShadow);
-    const inner = root.elementFromPoint(x, y);
+  for (let root2; root2 = node.shadowRoot; ) {
+    root2.addEventListener("mouseover", onMouseOver, { passive: true });
+    root2.addEventListener("mouseout", onMouseOutShadow);
+    const inner = root2.elementFromPoint(x, y);
     if (!inner || inner === node)
       break;
     node = inner;
@@ -3940,7 +3933,7 @@ function handleError(e, rule = ai.rule) {
   }
 }
 async function init3() {
-  setCfg(await load({ save: true }));
+  cfg = await load({ save: true });
   let { body } = doc;
   if (!body) await new Promise((resolve) => new MutationObserver((_, mo) => (body = doc.body) && resolve(mo.disconnect())).observe(document, { subtree: true, childList: true }));
   const el = body.firstElementChild;
@@ -3948,8 +3941,12 @@ async function init3() {
     isImageTab = el === body.lastElementChild && el.matches("img, video");
     isEnabled = cfg.imgtab || !isImageTab;
   }
-  register();
-  initEmbed();
+  if (window !== top) {
+    initEmbed();
+  } else if (GM.registerMenuCommand) {
+    GM.registerMenuCommand("MPIV: configure", setup);
+    registerAlt();
+  }
   addEventListener("mouseover", onMouseOver, true);
   addEventListener("contextmenu", onContext, true);
   addEventListener("keydown", onKeyDown, true);
