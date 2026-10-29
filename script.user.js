@@ -70,7 +70,7 @@ var TT = window.trustedTypes;
 
 // src/util.js
 var setNOP = (val) => NOP = val;
-var { from: arrayFrom, isArray } = Array;
+var { isArray } = Array;
 var clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 var compareNumbers = (a, b) => a - b;
 var describeKey = (e) => eventModifiers(e) + (e.key && e.key.length > 1 ? e.key : e.code);
@@ -164,8 +164,8 @@ function newFunction(...args) {
   } catch (e) {
     if (!RX_EVAL_BLOCKED.test(e.message))
       throw e;
-    setNOP(() => {
-    });
+    NOP = () => {
+    };
     return NOP;
   }
 }
@@ -956,7 +956,7 @@ function preview(m, node, rule) {
 function source(media) {
   const valid = (url) => /^https?:\/\//i.test(url || "");
   if (isVideo(media)) {
-    return [media.currentSrc, media.src, ...arrayFrom($$("source", media), (el) => el.src)].find((url) => valid(url) && isVideoUrlExt(url));
+    return [media.currentSrc, media.src, ...Array.from($$("source", media), (el) => el.src)].find((url) => valid(url) && isVideoUrlExt(url));
   }
   const sources = (media.srcset || "").split(",").map((candidate) => {
     const [url, size] = candidate.trim().split(/\s+/);
@@ -972,7 +972,7 @@ var isVideoData = (data) => data && (data.is_video || data.media_type === 2 || d
 var videoSource = (data) => data && (/^https?:\/\//i.test(data.video_url || "") && data.video_url || (best(data.video_versions) || {}).url);
 function mediaData(text, doc2, code) {
   if (!code) return;
-  const roots = [tryJSON(text), ...arrayFrom(
+  const roots = [tryJSON(text), ...Array.from(
     $$('script[type="application/json"]', doc2),
     (el) => tryJSON(el.textContent)
   )];
@@ -1855,7 +1855,7 @@ function runS(node, rule, m) {
   }
   if (isArray(u = urls[0]))
     u = [urls = u][0];
-  return u === "" ? urls : u && arrayFrom(new Set(urls), decodeUrl);
+  return u === "" ? urls : u && Array.from(new Set(urls), decodeUrl);
 }
 function runU(rule, url) {
   const u = rule[SYM_U] || (rule[SYM_U] = UrlMatcher(rule.u));

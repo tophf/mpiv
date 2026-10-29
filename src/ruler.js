@@ -8,8 +8,8 @@ import * as RuleMatcher from './rule-matcher.js';
 import {addBuiltinRules} from './rules.js';
 import {UrlMatcher} from './url-matcher.js';
 import {
-  arrayFrom, decodeUrl, deepEqual, ensureArray, getReactChildren, isArray, isFunction, newFunction,
-  NOP, pick, stringify, trustedScript, tryJSON,
+  decodeUrl, deepEqual, ensureArray, getReactChildren, isArray, isFunction, newFunction, NOP, pick,
+  stringify, trustedScript, tryJSON,
 } from './util.js';
 import {dotDomain, hostname, isFF, RX_EVAL_BLOCKED, RX_HAS_CODE} from './vars.js';
 
@@ -378,7 +378,7 @@ export function runS(node, rule, m) {
   if (isArray(u = urls[0]))
     u = [urls = u][0];
   return u === '' /* "stop all rules" */ ? urls
-    : u && arrayFrom(new Set(urls), decodeUrl);
+    : u && Array.from(new Set(urls), decodeUrl);
 }
 
 /** @returns {boolean} */

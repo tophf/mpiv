@@ -2,9 +2,7 @@ import {ai, canClose, deactivate} from './app.js';
 import {$, $$, $many, $prop} from './dom.js';
 import * as Events from './events.js';
 import * as MSG from './msg.js';
-import {
-  arrayFrom, clamp, isArray, isVideo, isVideoUrlExt, pick, stringify, tryJSON,
-} from './util.js';
+import {clamp, isArray, isVideo, isVideoUrlExt, pick, stringify, tryJSON} from './util.js';
 import {hostname} from './vars.js';
 
 export let inEmbed = false;
@@ -150,7 +148,7 @@ export function source(media) {
   const valid = url => /^https?:\/\//i.test(url || '');
   if (isVideo(media)) {
     // MediaSource blob URLs cannot be played in a second video element.
-    return [media.currentSrc, media.src, ...arrayFrom($$('source', media), el => el.src)]
+    return [media.currentSrc, media.src, ...Array.from($$('source', media), el => el.src)]
       .find(url => valid(url) && isVideoUrlExt(url));
   }
   const sources = (media.srcset || '').split(',').map(candidate => {
@@ -178,7 +176,7 @@ const videoSource = data => data && (
 
 export function mediaData(text, doc, code) {
   if (!code) return;
-  const roots = [tryJSON(text), ...arrayFrom($$('script[type="application/json"]', doc),
+  const roots = [tryJSON(text), ...Array.from($$('script[type="application/json"]', doc),
     el => tryJSON(el.textContent))];
   // Embed bootstrapping stores JSON inside a JSON string in executable scripts.
   // Decode only that value, without evaluating any page code.

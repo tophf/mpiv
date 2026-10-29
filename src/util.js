@@ -3,8 +3,7 @@ import {$, doc} from './dom.js';
 import {dotDomain, isFF, RX_EVAL_BLOCKED, RX_MEDIA_URL, TT} from './vars.js';
 
 export const setNOP = val => (NOP = val);
-export const {from: arrayFrom, isArray} = Array;
-
+export const {isArray} = Array;
 export const clamp = (v, min, max) => v < min ? min : v > max ? max : v;
 
 export const compareNumbers = (a, b) => a - b;
@@ -144,7 +143,7 @@ export function newFunction(...args) {
   } catch (e) {
     if (!RX_EVAL_BLOCKED.test(e.message))
       throw e;
-    setNOP(() => {});
+    NOP = () => {};
     return NOP;
   }
 }
